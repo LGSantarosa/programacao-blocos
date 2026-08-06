@@ -3,3 +3,4 @@ node_modules/
 *.o
 host/robo_host
 tests/vm_test
+.superpowers/

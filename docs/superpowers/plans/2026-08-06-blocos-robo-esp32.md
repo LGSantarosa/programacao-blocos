@@ -13,7 +13,7 @@
 - **Zero dependências npm.** O bridge usa apenas `http`, `crypto`, `net`, `fs`, `child_process`. Testes JS usam `node --test` embutido.
 - **Zero CDN.** Blockly é vendorizado em `web/vendor/`. A ESP32 serve tudo offline.
 - **A VM nunca bloqueia.** Nenhum `delay()`, `sleep()` ou laço de espera dentro de `core/`.
-- **`core/` é C11 puro**, compilável tanto por `gcc` quanto pelo compilador da ESP32. Sem `malloc`, sem `printf`, sem dependência de libc além de `string.h` e `stdint.h`.
+- **`core/` é C portátil**, compilável tanto por `gcc` quanto pelo compilador da ESP32. Sem `malloc`, sem `printf`, sem dependência de libc além de `string.h` e `stdint.h`. (Restrição sobre o que o código usa — não confundir com a flag `-std` abaixo, que é sobre quais macros a libc expõe.)
 - **Toda mensagem visível para a criança é em português.**
 - **Constantes de calibração** (`core/vm.h`): `VEL_FRENTE 200`, `VEL_GIRO 180`, `MS_POR_GRAU 5`, `WATCHDOG_MS 500`. A física do simulador (`V_MAX 0.30`, `ENTRE_EIXOS 0.12`) é derivada delas e não pode ser mudada isoladamente.
 - **Formato de instrução:** 7 bytes, `op(uint8) a(int16) b(int16) c(int16)`, little-endian. Máximo 256 instruções.

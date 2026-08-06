@@ -1,0 +1,5 @@
+node_modules/
+.pio/
+*.o
+host/robo_host
+tests/vm_test

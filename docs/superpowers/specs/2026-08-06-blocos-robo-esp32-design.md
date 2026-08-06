@@ -72,7 +72,8 @@ bytes 5-6 : c    (int16)
 | 7  | `JMP_IF_GE` | `if (sensor[a] >= b) pc = c;` senão `pc++`   |
 
 Quatro registradores (`r0`..`r3`), o que permite laços aninhados até 4 níveis.
-Um programa é no máximo 256 instruções (1792 bytes).
+Um programa é no máximo 256 instruções (1792 bytes). O exemplo acima compila
+para 7 instruções, 49 bytes.
 
 IDs de sensor: `0` = distância em cm (ultrassônico). Único sensor da v1.
 
@@ -222,7 +223,12 @@ omega = (vD - vE) / L · k
 ```
 
 - entre-eixos `L` = 0,12 m
-- velocidade máxima (PWM 255) = 0,35 m/s
+- velocidade máxima (PWM 255) = 0,30 m/s
+
+Esses dois valores não são livres: junto com `VEL_GIRO = 180`, eles determinam a
+velocidade angular do giro (3,53 rad/s), e é ela que precisa bater com
+`MS_POR_GRAU = 5`. Com esses números, `TURN 90` gira 91° — 1% de erro, dentro do
+que um robô real entrega. Mexer em um exige recalcular os outros.
 - arena 2 m × 2 m com paredes e obstáculos retangulares, definida como constante
   em `physics.c` (v1 não tem editor de arena)
 - ultrassônico = raio a partir da frente do robô até a parede ou obstáculo mais

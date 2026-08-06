@@ -106,10 +106,60 @@ static void teste_wait_nao_avanca_antes_do_prazo(void) {
     CHECK(!vm.rodando);
 }
 
+static void teste_repetir_tres_vezes(void) {
+    printf("teste_repetir_tres_vezes\n");
+    VM vm;
+    uint8_t prog[4 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SET_REG, 0, 3, 0);   /* r0 = 3          */
+    p = emit(p, OP_MOTOR, 1, 1, 0);     /* corpo (pc = 1)  */
+    p = emit(p, OP_DEC_JNZ, 0, 1, 0);   /* volta para pc 1 */
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    rodar_ate_parar(&vm);
+    const char *esperado[] = {
+        "MOTOR 1,1", "MOTOR 1,1", "MOTOR 1,1", "MOTOR 0,0"
+    };
+    checar_trace(esperado, 4);
+}
+
+static void teste_laco_aninhado(void) {
+    printf("teste_laco_aninhado\n");
+    VM vm;
+    /* repetir 3 { repetir 2 { motor } } -> 6 execuções do corpo */
+    uint8_t prog[6 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SET_REG, 0, 3, 0);   /* pc 0: r0 = 3            */
+    p = emit(p, OP_SET_REG, 1, 2, 0);   /* pc 1: r1 = 2            */
+    p = emit(p, OP_MOTOR, 7, 7, 0);     /* pc 2: corpo interno     */
+    p = emit(p, OP_DEC_JNZ, 1, 2, 0);   /* pc 3: volta para pc 2   */
+    p = emit(p, OP_DEC_JNZ, 0, 1, 0);   /* pc 4: volta para pc 1   */
+    p = emit(p, OP_HALT, 0, 0, 0);      /* pc 5                    */
+    preparar(&vm, prog, sizeof(prog));
+    rodar_ate_parar(&vm);
+    CHECK(fake_trace_count() == 7);     /* 6 corpos + MOTOR 0,0 do HALT */
+    for (int i = 0; i < 6 && i < fake_trace_count(); i++)
+        CHECK(strcmp(fake_trace_get(i), "MOTOR 7,7") == 0);
+}
+
+static void teste_jmp_incondicional(void) {
+    printf("teste_jmp_incondicional\n");
+    VM vm;
+    uint8_t prog[3 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_JMP, 2, 0, 0);      /* pula por cima do MOTOR */
+    p = emit(p, OP_MOTOR, 9, 9, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    rodar_ate_parar(&vm);
+    const char *esperado[] = { "MOTOR 0,0" };
+    checar_trace(esperado, 1);
+}
+
 int main(void) {
     teste_programa_vazio();
     teste_sequencia_linear();
     teste_wait_nao_avanca_antes_do_prazo();
+    teste_repetir_tres_vezes();
+    teste_laco_aninhado();
+    teste_jmp_incondicional();
     if (falhas == 0) { printf("\ntodos os testes passaram\n"); return 0; }
     printf("\n%d verificacao(oes) falharam\n", falhas);
     return 1;

@@ -74,6 +74,20 @@ void vm_tick(VM *vm) {
         vm->esperar_ate = agora + (uint32_t)(i->a > 0 ? i->a : 0);
         vm->pc++;
         break;
+    case OP_SET_REG:
+        if (i->a < 0 || i->a >= N_REGS) { vm_stop(vm); break; }
+        vm->reg[i->a] = i->b;
+        vm->pc++;
+        break;
+    case OP_DEC_JNZ:
+        if (i->a < 0 || i->a >= N_REGS) { vm_stop(vm); break; }
+        vm->reg[i->a]--;
+        if (vm->reg[i->a] != 0) vm->pc = (uint16_t)i->b;
+        else                    vm->pc++;
+        break;
+    case OP_JMP:
+        vm->pc = (uint16_t)i->a;
+        break;
     default:
         vm_stop(vm);
         break;

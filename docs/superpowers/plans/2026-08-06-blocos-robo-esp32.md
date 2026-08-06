@@ -881,7 +881,27 @@ uint16_t fis_distancia_cm(void);
 #endif
 ```
 
-- [ ] **Passo 2: Escrever os testes que devem falhar**
+- [ ] **Passo 2: Criar o stub da física**
+
+Um esqueleto que compila e não faz nada. Existe para o passo RED ser uma
+asserção falhando de verdade, e não um "arquivo não encontrado" — que passaria
+igual se os testes tivessem erro de sintaxe ou asserções vazias.
+
+`host/physics.c`:
+
+```c
+#include "physics.h"
+
+/* Stub: substituído pela implementação real no Passo 5. */
+void fis_init(void) {}
+void fis_set_motores(int16_t esq, int16_t dir) { (void)esq; (void)dir; }
+void fis_passo(double dt) { (void)dt; }
+void fis_set_pose(double x, double y, double theta) { (void)x; (void)y; (void)theta; }
+void fis_pose(double *x, double *y, double *theta) { *x = 0; *y = 0; *theta = 0; }
+uint16_t fis_distancia_cm(void) { return 0; }
+```
+
+- [ ] **Passo 3: Escrever os testes que devem falhar**
 
 `tests/physics_test.c`:
 
@@ -1013,12 +1033,17 @@ clean:
 	rm -f vm_test physics_test
 ```
 
-- [ ] **Passo 3: Rodar os testes para confirmar que falham**
+- [ ] **Passo 4: Rodar os testes para confirmar que falham**
 
 Rodar: `cd tests && make test`
-Esperado: erro de compilação — `host/physics.c` ainda não existe.
 
-- [ ] **Passo 4: Implementar a física**
+Esperado: compila limpo e os **seis** testes falham por asserção — não por
+arquivo ausente. A saída precisa nomear as asserções, por exemplo
+`FALHOU physics_test.c:NN  fabs(y - 0.70) < 0.01`. Se algum teste passar contra
+o stub, esse teste não está afirmando nada e precisa ser corrigido antes de
+seguir.
+
+- [ ] **Passo 5: Implementar a física**
 
 `host/physics.c`:
 
@@ -1127,12 +1152,12 @@ uint16_t fis_distancia_cm(void) {
 }
 ```
 
-- [ ] **Passo 5: Rodar os testes para confirmar que passam**
+- [ ] **Passo 6: Rodar os testes para confirmar que passam**
 
 Rodar: `cd tests && make test`
 Esperado: os dois binários imprimem `todos os testes passaram`.
 
-- [ ] **Passo 6: Commit**
+- [ ] **Passo 7: Commit**
 
 ```bash
 git add host/physics.h host/physics.c tests/physics_test.c tests/Makefile
@@ -1752,7 +1777,34 @@ Converte a árvore de blocos em bytecode e no mapa `pc→blockId`. É código pu
   - `{ op:'repetir', vezes:Number, corpo:[...], blockId }`
   - `{ op:'se_obstaculo', cm:Number, corpo:[...], blockId }`
 
-- [ ] **Passo 1: Escrever os testes que devem falhar**
+- [ ] **Passo 1: Criar o stub do compilador**
+
+Existe para o passo RED ser uma asserção falhando de verdade, e não um
+"módulo não encontrado" — que passaria igual se os testes tivessem erro de
+sintaxe ou asserções vazias.
+
+`web/compilador.js`:
+
+```js
+/* Stub: substituído pela implementação real no Passo 4. */
+(function (raiz) {
+  'use strict';
+  const OP = {
+    HALT: 0, MOTOR: 1, WAIT: 2, TURN: 3,
+    SET_REG: 4, DEC_JNZ: 5, JMP: 6, JMP_IF_GE: 7,
+  };
+  const MAX_INSTR = 256;
+  function compilar(ast) {
+    void ast;
+    return { bytes: new Uint8Array(0), pcMap: [] };
+  }
+  const api = { compilar, OP, MAX_INSTR };
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else raiz.Compilador = api;
+})(typeof self !== 'undefined' ? self : globalThis);
+```
+
+- [ ] **Passo 2: Escrever os testes que devem falhar**
 
 `tests/compilador.test.js`:
 
@@ -1899,12 +1951,17 @@ test('programa grande demais dá erro em português', () => {
 });
 ```
 
-- [ ] **Passo 2: Rodar os testes para confirmar que falham**
+- [ ] **Passo 3: Rodar os testes para confirmar que falham**
 
 Rodar: `node --test tests/compilador.test.js`
-Esperado: FALHA — `web/compilador.js` não existe.
 
-- [ ] **Passo 3: Implementar o compilador**
+Esperado: o módulo carrega e os **12** testes falham por asserção — não por
+módulo ausente. Os dois testes de `assert.throws` falham porque o stub não
+lança nada, e os demais porque ele devolve zero bytes. Se algum teste passar
+contra o stub, esse teste não está afirmando nada e precisa ser corrigido
+antes de seguir.
+
+- [ ] **Passo 4: Implementar o compilador**
 
 `web/compilador.js`:
 
@@ -2013,12 +2070,12 @@ Esperado: FALHA — `web/compilador.js` não existe.
 })(typeof self !== 'undefined' ? self : globalThis);
 ```
 
-- [ ] **Passo 4: Rodar os testes para confirmar que passam**
+- [ ] **Passo 5: Rodar os testes para confirmar que passam**
 
 Rodar: `node --test tests/compilador.test.js`
 Esperado: 12 testes passando. O teste dourado é o que importa mais: ele prova que o compilador do navegador e o teste da VM em C falam exatamente a mesma linguagem.
 
-- [ ] **Passo 5: Commit**
+- [ ] **Passo 6: Commit**
 
 ```bash
 git add web/compilador.js tests/compilador.test.js

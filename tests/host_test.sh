@@ -88,6 +88,15 @@ else
     falhas=$((falhas + 1))
 fi
 
+# A linha T precisa trazer cinco campos: x, y, theta, distância e colisão.
+CAMPOS_T=$(printf '%s\n' "$SAIDA" | grep '^T ' | head -n 1 | wc -w)
+if [ "$CAMPOS_T" -eq 6 ]; then
+    echo "  ok: linha T tem os cinco campos mais o prefixo"
+else
+    echo "  FALHOU: linha T tem $CAMPOS_T palavras, esperava 6"
+    falhas=$((falhas + 1))
+fi
+
 [ "$falhas" -eq 0 ] && echo "todos os testes passaram" && exit 0
 echo "$falhas verificacao(oes) falharam"
 exit 1

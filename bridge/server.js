@@ -141,12 +141,13 @@ function paraQuadroDoNavegador(linha) {
     return Buffer.from([T_STATE, Number(p[1]) ? 1 : 0]);
   }
   if (p[0] === 'T') {
-    const q = Buffer.alloc(9);
+    const q = Buffer.alloc(10);
     q[0] = T_TELEM;
     q.writeInt16LE(Number(p[1]) | 0, 1);
     q.writeInt16LE(Number(p[2]) | 0, 3);
     q.writeInt16LE(Number(p[3]) | 0, 5);
     q.writeUInt16LE(Number(p[4]) & 0xffff, 7);
+    q[9] = Number(p[5]) ? 1 : 0;      /* ausente vira 0 */
     return q;
   }
   return null;

@@ -94,11 +94,12 @@ static void emitir_telem(void) {
     fis_pose(&x, &y, &th);
     double graus = th * 180.0 / M_PI;
     if (graus < 0.0) graus += 360.0;
-    printf("T %d %d %d %u\n",
+    printf("T %d %d %d %u %d\n",
            (int)(x * 1000.0 + 0.5),
            (int)(y * 1000.0 + 0.5),
            (int)(graus * 10.0 + 0.5),
-           (unsigned)fis_distancia_cm());
+           (unsigned)fis_distancia_cm(),
+           fis_colidiu());
 }
 
 int main(void) {

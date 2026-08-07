@@ -41,12 +41,24 @@ test('E vira quadro de estado', () => {
 });
 
 test('T vira quadro de telemetria com sinal preservado', () => {
-  const q = paraQuadroDoNavegador('T 1000 400 2700 92');
+  const q = paraQuadroDoNavegador('T 1000 400 2700 92 0');
+  assert.strictEqual(q.length, 10);
   assert.strictEqual(q[0], 0x83);
   assert.strictEqual(q.readInt16LE(1), 1000);
   assert.strictEqual(q.readInt16LE(3), 400);
   assert.strictEqual(q.readInt16LE(5), 2700);
   assert.strictEqual(q.readUInt16LE(7), 92);
+  assert.strictEqual(q[9], 0);
+});
+
+test('T carrega o byte de colisão', () => {
+  assert.strictEqual(paraQuadroDoNavegador('T 1000 400 2700 92 1')[9], 1);
+});
+
+test('T sem o campo de colisão assume que não bateu', () => {
+  const q = paraQuadroDoNavegador('T 1000 400 2700 92');
+  assert.strictEqual(q.length, 10);
+  assert.strictEqual(q[9], 0);
 });
 
 test('quadro curto usa cabeçalho de 2 bytes', () => {

@@ -31,6 +31,7 @@
               y: d.getInt16(3, true) / 1000,
               theta: (d.getInt16(5, true) / 10) * Math.PI / 180,
               dist: d.getUint16(7, true),
+              colidiu: d.byteLength > 9 && d.getUint8(9) === 1,
             });
           }
           break;

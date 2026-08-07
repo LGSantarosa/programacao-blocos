@@ -153,6 +153,178 @@ static void teste_jmp_incondicional(void) {
     checar_trace(esperado, 1);
 }
 
+static void teste_turn_desliga_motores_no_fim(void) {
+    printf("teste_turn_desliga_motores_no_fim\n");
+    VM vm;
+    uint8_t prog[2 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_TURN, 90, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+
+    vm_tick(&vm);                       /* executa o TURN */
+    CHECK(fake_trace_count() == 1);
+    CHECK(strcmp(fake_trace_get(0), "MOTOR 180,-180") == 0);
+
+    fake_clock_advance(90 * MS_POR_GRAU - 10);
+    vm_tick(&vm);
+    CHECK(fake_trace_count() == 1);     /* ainda girando */
+
+    fake_clock_advance(20);
+    vm_tick(&vm);                       /* prazo venceu: desliga e faz o HALT */
+    CHECK(!vm.rodando);
+    CHECK(fake_trace_count() >= 2);
+    CHECK(strcmp(fake_trace_get(1), "MOTOR 0,0") == 0);
+}
+
+static void teste_turn_esquerda_inverte_os_motores(void) {
+    printf("teste_turn_esquerda_inverte_os_motores\n");
+    VM vm;
+    uint8_t prog[2 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_TURN, -90, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    vm_tick(&vm);
+    CHECK(strcmp(fake_trace_get(0), "MOTOR -180,180") == 0);
+}
+
+static void teste_sensor_perto_entra_no_corpo(void) {
+    printf("teste_sensor_perto_entra_no_corpo\n");
+    VM vm;
+    uint8_t prog[3 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_JMP_IF_GE, SENSOR_DISTANCIA, 20, 2);  /* >= 20 cm: pula */
+    p = emit(p, OP_MOTOR, 5, 5, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    fake_dist_set(10);                   /* obstáculo perto */
+    rodar_ate_parar(&vm);
+    const char *esperado[] = { "MOTOR 5,5", "MOTOR 0,0" };
+    checar_trace(esperado, 2);
+}
+
+static void teste_sensor_longe_pula_o_corpo(void) {
+    printf("teste_sensor_longe_pula_o_corpo\n");
+    VM vm;
+    uint8_t prog[3 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_JMP_IF_GE, SENSOR_DISTANCIA, 20, 2);
+    p = emit(p, OP_MOTOR, 5, 5, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    fake_dist_set(150);                  /* caminho livre */
+    rodar_ate_parar(&vm);
+    const char *esperado[] = { "MOTOR 0,0" };
+    checar_trace(esperado, 1);
+}
+
+static void teste_stop_no_meio_zera_motores(void) {
+    printf("teste_stop_no_meio_zera_motores\n");
+    VM vm;
+    uint8_t prog[3 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_MOTOR, 200, 200, 0);
+    p = emit(p, OP_WAIT, 5000, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    vm_tick(&vm);
+    vm_tick(&vm);
+    CHECK(vm.rodando);
+    vm_stop(&vm);
+    CHECK(!vm.rodando);
+    const char *esperado[] = { "MOTOR 200,200", "MOTOR 0,0" };
+    checar_trace(esperado, 2);
+}
+
+static void teste_watchdog_corta_motores(void) {
+    printf("teste_watchdog_corta_motores\n");
+    VM vm;
+    uint8_t prog[3 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_MOTOR, 200, 200, 0);
+    p = emit(p, OP_WAIT, 30000, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    vm_tick(&vm);
+    vm_tick(&vm);
+
+    /* Ninguém chama vm_tick por muito tempo: o vigia independente age. */
+    fake_clock_advance(WATCHDOG_MS - 10);
+    vm_watchdog_check(&vm, hal_millis());
+    CHECK(vm.rodando);
+
+    fake_clock_advance(20);
+    vm_watchdog_check(&vm, hal_millis());
+    CHECK(!vm.rodando);
+    const char *esperado[] = { "MOTOR 200,200", "MOTOR 0,0" };
+    checar_trace(esperado, 2);
+}
+
+static void teste_load_rejeita_programa_invalido(void) {
+    printf("teste_load_rejeita_programa_invalido\n");
+    VM vm;
+    uint8_t bom[INSTR_BYTES];
+    emit(bom, OP_HALT, 0, 0, 0);
+    vm_init(&vm);
+    CHECK(vm_load(&vm, bom, sizeof(bom)) == 1);
+    CHECK(vm.n_instr == 1);
+
+    uint8_t torto[INSTR_BYTES + 3] = {0};
+    CHECK(vm_load(&vm, torto, sizeof(torto)) == 0);   /* não é múltiplo de 7 */
+    CHECK(vm.n_instr == 1);                           /* programa anterior intacto */
+
+    static uint8_t grande[(MAX_INSTR + 1) * INSTR_BYTES];
+    CHECK(vm_load(&vm, grande, sizeof(grande)) == 0); /* passou de 256 instruções */
+    CHECK(vm.n_instr == 1);
+}
+
+static void teste_para_com_seguranca_em_programa_torto(void) {
+    printf("teste_para_com_seguranca_em_programa_torto\n");
+
+    /* opcode que não existe */
+    VM vm;
+    uint8_t prog[2 * INSTR_BYTES], *p = prog;
+    p = emit(p, 99, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    vm_tick(&vm);
+    CHECK(!vm.rodando);
+    CHECK(fake_trace_count() == 1);
+    CHECK(strcmp(fake_trace_get(0), "MOTOR 0,0") == 0);
+
+    /* salto para fora do programa */
+    VM vm2;
+    uint8_t prog2[2 * INSTR_BYTES], *q = prog2;
+    q = emit(q, OP_JMP, 500, 0, 0);
+    q = emit(q, OP_HALT, 0, 0, 0);
+    preparar(&vm2, prog2, sizeof(prog2));
+    vm_tick(&vm2);          /* executa o salto */
+    vm_tick(&vm2);          /* pc fora de faixa: para */
+    CHECK(!vm2.rodando);
+}
+
+/* O contrato do sistema: repetir 4 { frente 1s; girar direita } */
+static void teste_dourado(void) {
+    printf("teste_dourado\n");
+    VM vm;
+    uint8_t prog[7 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SET_REG, 0, 4, 0);
+    p = emit(p, OP_MOTOR, VEL_FRENTE, VEL_FRENTE, 0);
+    p = emit(p, OP_WAIT, 1000, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    p = emit(p, OP_TURN, 90, 0, 0);
+    p = emit(p, OP_DEC_JNZ, 0, 1, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    CHECK(sizeof(prog) == 49);
+
+    preparar(&vm, prog, sizeof(prog));
+    rodar_ate_parar(&vm);
+
+    const char *esperado[] = {
+        "MOTOR 200,200", "MOTOR 0,0", "MOTOR 180,-180", "MOTOR 0,0",
+        "MOTOR 200,200", "MOTOR 0,0", "MOTOR 180,-180", "MOTOR 0,0",
+        "MOTOR 200,200", "MOTOR 0,0", "MOTOR 180,-180", "MOTOR 0,0",
+        "MOTOR 200,200", "MOTOR 0,0", "MOTOR 180,-180", "MOTOR 0,0",
+        "MOTOR 0,0"
+    };
+    checar_trace(esperado, 17);
+}
+
 int main(void) {
     teste_programa_vazio();
     teste_sequencia_linear();
@@ -160,6 +332,15 @@ int main(void) {
     teste_repetir_tres_vezes();
     teste_laco_aninhado();
     teste_jmp_incondicional();
+    teste_turn_desliga_motores_no_fim();
+    teste_turn_esquerda_inverte_os_motores();
+    teste_sensor_perto_entra_no_corpo();
+    teste_sensor_longe_pula_o_corpo();
+    teste_stop_no_meio_zera_motores();
+    teste_watchdog_corta_motores();
+    teste_load_rejeita_programa_invalido();
+    teste_para_com_seguranca_em_programa_torto();
+    teste_dourado();
     if (falhas == 0) { printf("\ntodos os testes passaram\n"); return 0; }
     printf("\n%d verificacao(oes) falharam\n", falhas);
     return 1;

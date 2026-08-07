@@ -88,6 +88,21 @@ void vm_tick(VM *vm) {
     case OP_JMP:
         vm->pc = (uint16_t)i->a;
         break;
+    case OP_TURN: {
+        int16_t v = (i->a >= 0) ? VEL_GIRO : -VEL_GIRO;
+        int32_t graus = (i->a >= 0) ? i->a : -i->a;
+        hal_motors(v, (int16_t)-v);
+        vm->esperar_ate  = agora + (uint32_t)(graus * MS_POR_GRAU);
+        vm->parar_ao_fim = 1;
+        vm->pc++;
+        break;
+    }
+    case OP_JMP_IF_GE: {
+        uint16_t leitura = (i->a == SENSOR_DISTANCIA) ? hal_distancia_cm() : 0;
+        if ((int32_t)leitura >= (int32_t)i->b) vm->pc = (uint16_t)i->c;
+        else                                   vm->pc++;
+        break;
+    }
     default:
         vm_stop(vm);
         break;

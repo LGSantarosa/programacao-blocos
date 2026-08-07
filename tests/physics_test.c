@@ -89,6 +89,38 @@ static void teste_nao_atravessa_o_obstaculo(void) {
     CHECK(y > 1.20);
 }
 
+static void teste_colidiu_e_zero_andando_livre(void) {
+    printf("teste_colidiu_e_zero_andando_livre\n");
+    fis_init();
+    fis_set_pose(1.0, 0.40, M_PI / 2);
+    CHECK(fis_colidiu() == 0);
+    fis_set_motores(255, 255);
+    avancar(0.5);
+    CHECK(fis_colidiu() == 0);
+}
+
+static void teste_colidiu_marca_ao_bater_na_parede(void) {
+    printf("teste_colidiu_marca_ao_bater_na_parede\n");
+    fis_init();
+    fis_set_pose(1.0, 1.90, M_PI / 2);   /* colado na parede de cima */
+    fis_set_motores(255, 255);
+    avancar(1.0);
+    CHECK(fis_colidiu() == 1);
+}
+
+static void teste_colidiu_volta_a_zero_ao_se_afastar(void) {
+    printf("teste_colidiu_volta_a_zero_ao_se_afastar\n");
+    fis_init();
+    fis_set_pose(1.0, 1.90, M_PI / 2);
+    fis_set_motores(255, 255);
+    avancar(1.0);
+    CHECK(fis_colidiu() == 1);
+
+    fis_set_motores(-255, -255);          /* de ré, sai de perto */
+    avancar(0.5);
+    CHECK(fis_colidiu() == 0);
+}
+
 int main(void) {
     teste_anda_reto();
     teste_giro_bate_com_a_calibracao();
@@ -96,6 +128,9 @@ int main(void) {
     teste_sensor_ve_a_parede();
     teste_nao_atravessa_a_parede();
     teste_nao_atravessa_o_obstaculo();
+    teste_colidiu_e_zero_andando_livre();
+    teste_colidiu_marca_ao_bater_na_parede();
+    teste_colidiu_volta_a_zero_ao_se_afastar();
     if (falhas == 0) { printf("\ntodos os testes passaram\n"); return 0; }
     printf("\n%d verificacao(oes) falharam\n", falhas);
     return 1;

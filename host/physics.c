@@ -15,12 +15,14 @@ static const int n_obstaculos = (int)(sizeof(obstaculos) / sizeof(obstaculos[0])
 
 static double  pos_x, pos_y, ang;
 static int16_t mot_esq, mot_dir;
+static int     bateu;
 
 void fis_init(void) {
     pos_x = 1.0;
     pos_y = 0.40;
     ang   = M_PI / 2;
     mot_esq = mot_dir = 0;
+    bateu = 0;
 }
 
 void fis_set_motores(int16_t esq, int16_t dir) {
@@ -37,6 +39,8 @@ void fis_set_pose(double x, double y, double theta) {
 void fis_pose(double *x, double *y, double *theta) {
     *x = pos_x; *y = pos_y; *theta = ang;
 }
+
+int fis_colidiu(void) { return bateu; }
 
 static int dentro_de_retangulo(double x, double y, const Rect *r) {
     return x >= r->x0 && x <= r->x1 && y >= r->y0 && y <= r->y1;
@@ -71,7 +75,8 @@ void fis_passo(double dt) {
     double ny = pos_y + v * sin(ang) * dt;
     /* Bateu: gira mas não translada. É o comportamento de um robô real
        encostado numa parede. */
-    if (!colide(nx, ny)) { pos_x = nx; pos_y = ny; }
+    if (!colide(nx, ny)) { pos_x = nx; pos_y = ny; bateu = 0; }
+    else                 { bateu = 1; }
 }
 
 /* Um raio a partir da frente do robô, marchando de 5 em 5 mm. Simples e

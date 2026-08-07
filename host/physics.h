@@ -16,5 +16,7 @@ void     fis_passo(double dt);
 void     fis_pose(double *x, double *y, double *theta);
 void     fis_set_pose(double x, double y, double theta);
 uint16_t fis_distancia_cm(void);
+/* 1 se o último fis_passo() foi bloqueado por parede ou obstáculo. */
+int      fis_colidiu(void);
 
 #endif

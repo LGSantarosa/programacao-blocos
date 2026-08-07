@@ -508,6 +508,12 @@ test('valor não numérico não estoura', () => {
   assert.doesNotThrow(() => Campos.paraBolinhas(undefined));
   assert.strictEqual(Campos.paraBolinhas(undefined), '●●○○○');
 });
+
+test('registrar() devolve false fora do navegador, em vez de estourar', () => {
+  assert.strictEqual(typeof Blockly, 'undefined');
+  assert.doesNotThrow(() => Campos.registrar());
+  assert.strictEqual(Campos.registrar(), false);
+});
 ```
 
 - [ ] **Passo 2: Rodar para confirmar que falham**
@@ -542,8 +548,7 @@ Esperado: FALHA — `Cannot find module '../web/campos.js'`.
   /* Só faz sentido no navegador, onde Blockly existe. */
   function registrar() {
     if (typeof Blockly === 'undefined') return false;
-    if (Blockly.fieldRegistry.hasOwnProperty &&
-        raiz.__bolinhasRegistrado) return true;
+    if (raiz.__bolinhasRegistrado) return true;
 
     class FieldBolinhas extends Blockly.FieldNumber {
       constructor(valor, opcoes) {

@@ -494,19 +494,19 @@ const assert = require('node:assert');
 const Campos = require('../web/campos.js');
 
 test('a quantidade vira bolinhas cheias e vazias', () => {
-  assert.strictEqual(Campos.paraBolinhas(2), '●●○○');
-  assert.strictEqual(Campos.paraBolinhas(3), '●●●○');
+  assert.strictEqual(Campos.paraBolinhas(2), '●●○○○');
+  assert.strictEqual(Campos.paraBolinhas(3), '●●●○○');
   assert.strictEqual(Campos.paraBolinhas(5), '●●●●●');
 });
 
 test('a faixa é de 2 a 5, e valores fora dela são trazidos para dentro', () => {
-  assert.strictEqual(Campos.paraBolinhas(0), '●●○○');
+  assert.strictEqual(Campos.paraBolinhas(0), '●●○○○');
   assert.strictEqual(Campos.paraBolinhas(99), '●●●●●');
 });
 
 test('valor não numérico não estoura', () => {
   assert.doesNotThrow(() => Campos.paraBolinhas(undefined));
-  assert.strictEqual(Campos.paraBolinhas(undefined), '●●○○');
+  assert.strictEqual(Campos.paraBolinhas(undefined), '●●○○○');
 });
 ```
 
@@ -526,6 +526,9 @@ Esperado: FALHA — `Cannot find module '../web/campos.js'`.
 (function (raiz) {
   'use strict';
 
+  /* Cinco casas fixas: as vazias mostram à criança que dá para pedir mais.
+     A largura não muda com o valor, senão o bloco pularia de tamanho a cada
+     clique. */
   const MIN = 2, MAX = 5;
 
   function paraBolinhas(n) {

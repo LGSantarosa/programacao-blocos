@@ -17,8 +17,7 @@
   /* Só faz sentido no navegador, onde Blockly existe. */
   function registrar() {
     if (typeof Blockly === 'undefined') return false;
-    if (Blockly.fieldRegistry.hasOwnProperty &&
-        raiz.__bolinhasRegistrado) return true;
+    if (raiz.__bolinhasRegistrado) return true;
 
     class FieldBolinhas extends Blockly.FieldNumber {
       constructor(valor, opcoes) {

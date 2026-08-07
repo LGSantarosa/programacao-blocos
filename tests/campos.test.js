@@ -19,3 +19,9 @@ test('valor não numérico não estoura', () => {
   assert.doesNotThrow(() => Campos.paraBolinhas(undefined));
   assert.strictEqual(Campos.paraBolinhas(undefined), '●●○○○');
 });
+
+test('registrar() devolve false fora do navegador, em vez de estourar', () => {
+  assert.strictEqual(typeof Blockly, 'undefined');
+  assert.doesNotThrow(() => Campos.registrar());
+  assert.strictEqual(Campos.registrar(), false);
+});

@@ -1,4 +1,62 @@
 <!doctype html>
+<html lang="pt-BR">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Robô de Blocos</title>
-<p>em construção</p>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; display: flex; flex-direction: column;
+    font-family: system-ui, sans-serif; background: #f2f4f7;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; background: #fff; border-bottom: 1px solid #d7dce3;
+  }
+  header h1 { font-size: 18px; margin: 0; flex: 1; }
+  button {
+    font-size: 18px; font-weight: 600; padding: 10px 22px;
+    border: none; border-radius: 10px; color: #fff; cursor: pointer;
+  }
+  #play { background: #1f9d4d; }
+  #parar { background: #c0392b; }
+  button:disabled { opacity: .45; cursor: default; }
+  #estado { font-size: 14px; color: #667; min-width: 160px; text-align: right; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #editor { flex: 1; min-width: 0; }
+  #painel {
+    width: 440px; padding: 16px; background: #fff;
+    border-left: 1px solid #d7dce3; display: flex;
+    flex-direction: column; gap: 12px;
+  }
+  #arena { width: 100%; aspect-ratio: 1; border-radius: 8px; background: #e9edf2; }
+  #leitura { font-size: 14px; color: #445; }
+  #erro { color: #c0392b; font-size: 14px; min-height: 20px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Robô de Blocos</h1>
+    <span id="erro"></span>
+    <button id="play">▶ PLAY</button>
+    <button id="parar" disabled>■ PARAR</button>
+    <span id="estado">conectando…</span>
+  </header>
+  <main>
+    <div id="editor"></div>
+    <aside id="painel">
+      <canvas id="arena" width="400" height="400"></canvas>
+      <div id="leitura">distância: —</div>
+    </aside>
+  </main>
+
+  <script src="vendor/blockly_compressed.js"></script>
+  <script src="vendor/pt-br.js"></script>
+  <script src="compilador.js"></script>
+  <script src="blocos.js"></script>
+  <script src="rede.js"></script>
+  <script src="arena.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

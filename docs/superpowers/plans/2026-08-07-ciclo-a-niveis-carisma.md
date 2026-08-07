@@ -633,6 +633,16 @@ test('sem velocidade continua usando 200, como a v1', () => {
   assert.strictEqual(new DataView(bytes.buffer).getInt16(1, true), 200);
 });
 
+test('velocidade zero ou negativa cai para a calibração da v1', () => {
+  for (const v of [0, -50]) {
+    const { bytes } = compilar([
+      { op: 'frente', segundos: 1, velocidade: v, blockId: 'b1' },
+    ]);
+    assert.strictEqual(new DataView(bytes.buffer).getInt16(1, true), 200,
+      `velocidade ${v} deveria cair para 200`);
+  }
+});
+
 test('velocidade absurda é trazida para a faixa do motor', () => {
   const { bytes } = compilar([
     { op: 'frente', segundos: 1, velocidade: 9999, blockId: 'b1' },

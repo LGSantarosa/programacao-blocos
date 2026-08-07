@@ -21,20 +21,32 @@
       instrucoes.push({ op, a: a | 0, b: b | 0, c: c | 0, blockId: blockId || null });
     }
 
+    /* O nível Pequeno e o Médio não expõem velocidade; sem ela, vale a
+       calibração da v1. Acima de 255 o driver satura, então cortamos aqui. */
+    function velocidadeDe(no) {
+      const v = Math.round(Number(no.velocidade));
+      if (!isFinite(v) || v <= 0) return VEL_FRENTE;
+      return v > 255 ? 255 : v;
+    }
+
     function gerar(nos) {
       for (const no of nos) {
         switch (no.op) {
-          case 'frente':
-            emitir(OP.MOTOR, VEL_FRENTE, VEL_FRENTE, 0, no.blockId);
+          case 'frente': {
+            const v = velocidadeDe(no);
+            emitir(OP.MOTOR, v, v, 0, no.blockId);
             emitir(OP.WAIT, Math.round(no.segundos * 1000), 0, 0, no.blockId);
             emitir(OP.MOTOR, 0, 0, 0, no.blockId);
             break;
+          }
 
-          case 'tras':
-            emitir(OP.MOTOR, -VEL_FRENTE, -VEL_FRENTE, 0, no.blockId);
+          case 'tras': {
+            const v = velocidadeDe(no);
+            emitir(OP.MOTOR, -v, -v, 0, no.blockId);
             emitir(OP.WAIT, Math.round(no.segundos * 1000), 0, 0, no.blockId);
             emitir(OP.MOTOR, 0, 0, 0, no.blockId);
             break;
+          }
 
           case 'girar':
             emitir(OP.TURN, no.graus, 0, 0, no.blockId);

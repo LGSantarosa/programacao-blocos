@@ -138,3 +138,46 @@ test('programa grande demais dá erro em português', () => {
   for (let i = 0; i < 100; i++) corpo.push({ op: 'frente', segundos: 1, blockId: 'f' + i });
   assert.throws(() => compilar(corpo), /grande demais/);
 });
+
+test('velocidade escolhida vira o MOTOR com aquele valor', () => {
+  const { bytes } = compilar([
+    { op: 'frente', segundos: 1, velocidade: 255, blockId: 'b1' },
+  ]);
+  const dv = new DataView(bytes.buffer);
+  assert.strictEqual(dv.getInt16(1, true), 255);
+  assert.strictEqual(dv.getInt16(3, true), 255);
+});
+
+test('velocidade também vale para trás, com sinal negativo', () => {
+  const { bytes } = compilar([
+    { op: 'tras', segundos: 1, velocidade: 120, blockId: 'b1' },
+  ]);
+  const dv = new DataView(bytes.buffer);
+  assert.strictEqual(dv.getInt16(1, true), -120);
+});
+
+test('sem velocidade continua usando 200, como a v1', () => {
+  const { bytes } = compilar([{ op: 'frente', segundos: 1, blockId: 'b1' }]);
+  assert.strictEqual(new DataView(bytes.buffer).getInt16(1, true), 200);
+});
+
+test('velocidade absurda é trazida para a faixa do motor', () => {
+  const { bytes } = compilar([
+    { op: 'frente', segundos: 1, velocidade: 9999, blockId: 'b1' },
+  ]);
+  assert.strictEqual(new DataView(bytes.buffer).getInt16(1, true), 255);
+});
+
+test('o passo fixo do Pequeno gera o mesmo bytecode que andar frente 0.5 s', () => {
+  const pequeno = compilar([{ op: 'frente', segundos: 0.5, blockId: 'p' }]);
+  const medio   = compilar([{ op: 'frente', segundos: 0.5, blockId: 'm' }]);
+  assert.deepStrictEqual([...pequeno.bytes], [...medio.bytes]);
+  assert.strictEqual(new DataView(pequeno.bytes.buffer).getInt16(8, true), 500);
+});
+
+test('ângulo livre vira TURN com o ângulo pedido, não 90 fixo', () => {
+  const { bytes } = compilar([{ op: 'girar', graus: 45, blockId: 'g' }]);
+  const dv = new DataView(bytes.buffer);
+  assert.strictEqual(bytes[0], OP.TURN);
+  assert.strictEqual(dv.getInt16(1, true), 45);
+});

@@ -7,7 +7,29 @@
   const COR_SENSOR = 20;
   const COR_INICIO = 40;
 
+  let extensaoPronta = false;
+
+  /* GRAUS é a fonte de verdade; o menu direita/esquerda é só um editor
+     amigável dela. É isso que deixa o compilador ignorar o nível. */
+  function registrarExtensao() {
+    if (extensaoPronta || typeof Blockly === 'undefined') return;
+    if (Blockly.Extensions.isRegistered &&
+        Blockly.Extensions.isRegistered('girar_dir_escreve_graus')) {
+      extensaoPronta = true;
+      return;
+    }
+    Blockly.Extensions.register('girar_dir_escreve_graus', function () {
+      const bloco = this;
+      bloco.getField('DIR').setValidator(function (novo) {
+        bloco.setFieldValue(Number(novo), 'GRAUS');
+        return novo;
+      });
+    });
+    extensaoPronta = true;
+  }
+
   function definir() {
+    registrarExtensao();
     Blockly.defineBlocksWithJsonArray([
       {
         type: 'quando_play',
@@ -19,8 +41,17 @@
       },
       {
         type: 'mover_frente',
-        message0: 'andar frente %1 s',
-        args0: [{ type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 }],
+        /* O ícone é texto cru porque aparece em todos os níveis; as palavras
+           são campos porque precisam sumir no Pequeno. */
+        message0: '⬆ %1 %2 %3 %4',
+        args0: [
+          { type: 'field_label', name: 'T1', text: 'andar frente' },
+          { type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 },
+          { type: 'field_label', name: 'T2', text: 's' },
+          { type: 'field_dropdown', name: 'VEL', options: [
+            ['normal', '200'], ['devagar', '120'], ['rápido', '255'],
+          ] },
+        ],
         previousStatement: null,
         nextStatement: null,
         colour: COR_MOVIMENTO,
@@ -28,8 +59,15 @@
       },
       {
         type: 'mover_tras',
-        message0: 'andar trás %1 s',
-        args0: [{ type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 }],
+        message0: '⬇ %1 %2 %3 %4',
+        args0: [
+          { type: 'field_label', name: 'T1', text: 'andar trás' },
+          { type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 },
+          { type: 'field_label', name: 'T2', text: 's' },
+          { type: 'field_dropdown', name: 'VEL', options: [
+            ['normal', '200'], ['devagar', '120'], ['rápido', '255'],
+          ] },
+        ],
         previousStatement: null,
         nextStatement: null,
         colour: COR_MOVIMENTO,
@@ -37,21 +75,29 @@
       },
       {
         type: 'girar',
-        message0: 'girar %1',
-        args0: [{
-          type: 'field_dropdown',
-          name: 'DIR',
-          options: [['direita ↻', '90'], ['esquerda ↺', '-90']],
-        }],
+        message0: '%1 %2 %3 %4',
+        args0: [
+          { type: 'field_label', name: 'T1', text: 'girar' },
+          { type: 'field_dropdown', name: 'DIR', options: [
+            ['↷ direita', '90'], ['↶ esquerda', '-90'],
+          ] },
+          { type: 'field_number', name: 'GRAUS', value: 90, min: -180, max: 180, precision: 5 },
+          { type: 'field_label', name: 'T2', text: 'graus' },
+        ],
+        extensions: ['girar_dir_escreve_graus'],
         previousStatement: null,
         nextStatement: null,
         colour: COR_MOVIMENTO,
-        tooltip: 'O robô gira um quarto de volta.',
+        tooltip: 'O robô gira no lugar.',
       },
       {
         type: 'esperar',
-        message0: 'esperar %1 s',
-        args0: [{ type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 }],
+        message0: '⏸ %1 %2 %3',
+        args0: [
+          { type: 'field_label', name: 'T1', text: 'esperar' },
+          { type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 },
+          { type: 'field_label', name: 'T2', text: 's' },
+        ],
         previousStatement: null,
         nextStatement: null,
         colour: COR_MOVIMENTO,
@@ -59,8 +105,12 @@
       },
       {
         type: 'repetir',
-        message0: 'repetir %1 vezes',
-        args0: [{ type: 'field_number', name: 'N', value: 4, min: 1, max: 100, precision: 1 }],
+        message0: '🔁 %1 %2 %3',
+        args0: [
+          { type: 'field_label', name: 'T1', text: 'repetir' },
+          { type: 'field_bolinhas', name: 'N', value: 4 },
+          { type: 'field_label', name: 'T2', text: 'vezes' },
+        ],
         message1: '%1',
         args1: [{ type: 'input_statement', name: 'CORPO' }],
         previousStatement: null,
@@ -70,8 +120,12 @@
       },
       {
         type: 'se_obstaculo',
-        message0: 'se obstáculo a menos de %1 cm',
-        args0: [{ type: 'field_number', name: 'CM', value: 20, min: 2, max: 400, precision: 1 }],
+        message0: '👁 %1 %2 %3',
+        args0: [
+          { type: 'field_label', name: 'T1', text: 'se obstáculo a menos de' },
+          { type: 'field_number', name: 'CM', value: 20, min: 2, max: 400, precision: 1 },
+          { type: 'field_label', name: 'T2', text: 'cm' },
+        ],
         message1: '%1',
         args1: [{ type: 'input_statement', name: 'CORPO' }],
         previousStatement: null,
@@ -102,11 +156,13 @@
     const id = b.id;
     switch (b.type) {
       case 'mover_frente':
-        return { op: 'frente', segundos: Number(b.getFieldValue('SEG')), blockId: id };
+        return { op: 'frente', segundos: Number(b.getFieldValue('SEG')),
+                 velocidade: Number(b.getFieldValue('VEL')), blockId: id };
       case 'mover_tras':
-        return { op: 'tras', segundos: Number(b.getFieldValue('SEG')), blockId: id };
+        return { op: 'tras', segundos: Number(b.getFieldValue('SEG')),
+                 velocidade: Number(b.getFieldValue('VEL')), blockId: id };
       case 'girar':
-        return { op: 'girar', graus: Number(b.getFieldValue('DIR')), blockId: id };
+        return { op: 'girar', graus: Number(b.getFieldValue('GRAUS')), blockId: id };
       case 'esperar':
         return { op: 'esperar', segundos: Number(b.getFieldValue('SEG')), blockId: id };
       case 'repetir':
@@ -145,5 +201,7 @@
     return pilhaParaAst(raizes[0].getInputTargetBlock('CORPO'));
   }
 
-  raiz.Blocos = { definir, workspaceParaAst, CAIXA_XML };
+  const api = { definir, workspaceParaAst, CAIXA_XML };
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else raiz.Blocos = api;
 })(typeof self !== 'undefined' ? self : globalThis);

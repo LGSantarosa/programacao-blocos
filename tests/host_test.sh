@@ -47,6 +47,26 @@ else
     falhas=$((falhas + 1))
 fi
 
+# O robô precisa ter girado: o dourado tem quatro TURN de 90 graus, então o
+# ângulo tem que varrer a volta toda. Sem isto o teste passa mesmo se a VM
+# morrer no primeiro WAIT — foi assim que o watchdog matando a espera passou
+# despercebido.
+N_THETA=$(printf '%s\n' "$SAIDA" | grep '^T ' | cut -d' ' -f4 | sort -un | wc -l)
+if [ "$N_THETA" -gt 5 ]; then
+    echo "  ok: robô girou ($N_THETA ângulos distintos)"
+else
+    echo "  FALHOU: robô não girou (só $N_THETA ângulo(s) distinto(s))"
+    falhas=$((falhas + 1))
+fi
+
+# E precisa ter chegado no HALT, que é a última instrução (pc 6).
+if printf '%s\n' "$SAIDA" | grep --quiet '^P 6$'; then
+    echo "  ok: chegou até o HALT"
+else
+    echo "  FALHOU: nunca chegou no HALT (pc 6) — parou no meio do programa"
+    falhas=$((falhas + 1))
+fi
+
 # O robô precisa ter saído do lugar.
 PRIMEIRO_Y=$(printf '%s\n' "$SAIDA" | grep '^T ' | head -n 1 | cut -d' ' -f3)
 MAIOR_Y=$(printf '%s\n' "$SAIDA" | grep '^T ' | cut -d' ' -f3 | sort -n | tail -n 1)

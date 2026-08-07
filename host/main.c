@@ -109,9 +109,12 @@ int main(void) {
 
         uint32_t agora = hal_millis();
 
-        for (int k = 0; k < MAX_INSTR_FRAME && vm.rodando
-                        && !vm_esperando(&vm, hal_millis()); k++) {
+        /* vm_tick precisa ser chamada mesmo durante um WAIT: ela já devolve
+           sem executar instrução, mas é ela que alimenta o ultimo_tick do
+           watchdog. Pular a chamada faria a espera matar a própria VM. */
+        for (int k = 0; k < MAX_INSTR_FRAME && vm.rodando; k++) {
             vm_tick(&vm);
+            if (vm_esperando(&vm, hal_millis())) break;
         }
         emitir_pc(agora);
 

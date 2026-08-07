@@ -48,7 +48,12 @@ int vm_esperando(const VM *vm, uint32_t agora) {
 
 void vm_watchdog_check(VM *vm, uint32_t agora) {
     if (!vm->rodando) return;
-    if (agora - vm->ultimo_tick > WATCHDOG_MS) vm_stop(vm);
+    /* Diferença com sinal: o vigia roda por um caminho independente do
+       vm_tick, então o carimbo que ele recebe pode estar alguns ms atrás do
+       ultimo_tick. Sem sinal, essa diferença negativa viraria um número
+       gigante e cortaria os motores no meio de qualquer espera. Também é o
+       que faz a conta continuar certa quando o relógio dá a volta. */
+    if ((int32_t)(agora - vm->ultimo_tick) > WATCHDOG_MS) vm_stop(vm);
 }
 
 void vm_tick(VM *vm) {

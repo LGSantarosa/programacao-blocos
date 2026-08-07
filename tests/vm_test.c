@@ -255,6 +255,31 @@ static void teste_watchdog_corta_motores(void) {
     checar_trace(esperado, 2);
 }
 
+/* O watchdog roda por um caminho independente do vm_tick, então o carimbo de
+   tempo que ele recebe pode estar alguns milissegundos atrás do ultimo_tick.
+   Se a comparação for feita sem sinal, essa diferença negativa vira um número
+   gigante e o vigia mata o robô no meio de qualquer espera. */
+static void teste_watchdog_tolera_relogio_atrasado(void) {
+    printf("teste_watchdog_tolera_relogio_atrasado\n");
+    VM vm;
+    uint8_t prog[3 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_MOTOR, 200, 200, 0);
+    p = emit(p, OP_WAIT, 30000, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    vm_tick(&vm);                       /* ultimo_tick = 1000 */
+
+    vm_watchdog_check(&vm, hal_millis() - 1);
+    CHECK(vm.rodando);
+    vm_watchdog_check(&vm, hal_millis() - 50);
+    CHECK(vm.rodando);
+
+    /* Mas um atraso de verdade continua cortando os motores. */
+    fake_clock_advance(WATCHDOG_MS + 10);
+    vm_watchdog_check(&vm, hal_millis());
+    CHECK(!vm.rodando);
+}
+
 static void teste_load_rejeita_programa_invalido(void) {
     printf("teste_load_rejeita_programa_invalido\n");
     VM vm;
@@ -338,6 +363,7 @@ int main(void) {
     teste_sensor_longe_pula_o_corpo();
     teste_stop_no_meio_zera_motores();
     teste_watchdog_corta_motores();
+    teste_watchdog_tolera_relogio_atrasado();
     teste_load_rejeita_programa_invalido();
     teste_para_com_seguranca_em_programa_torto();
     teste_dourado();

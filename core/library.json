@@ -1,0 +1,6 @@
+{
+  "name": "core",
+  "version": "1.0.0",
+  "description": "VM de bytecode compartilhada entre o simulador e a ESP32",
+  "build": { "srcFilter": "+<*.c>" }
+}

@@ -62,7 +62,7 @@ Estabelece os cabeçalhos compartilhados, o HAL falso e o ciclo de teste. Implem
 **Interfaces:**
 - Produz: `vm_init(VM*)`, `vm_load(VM*, const uint8_t*, uint16_t) -> int`, `vm_run(VM*)`, `vm_stop(VM*)`, `vm_tick(VM*)`, `vm_esperando(const VM*, uint32_t) -> int`, `vm_watchdog_check(VM*, uint32_t)`. HAL falso: `fake_clock_set`, `fake_clock_advance`, `fake_dist_set`, `fake_trace_reset`, `fake_trace_count`, `fake_trace_get`.
 
-- [ ] **Passo 1: Criar os cabeçalhos compartilhados**
+- [x] **Passo 1: Criar os cabeçalhos compartilhados**
 
 `core/bytecode.h`:
 
@@ -180,7 +180,7 @@ void vm_watchdog_check(VM *vm, uint32_t agora);
 #endif
 ```
 
-- [ ] **Passo 2: Criar o HAL falso**
+- [x] **Passo 2: Criar o HAL falso**
 
 `tests/fake_hal.h`:
 
@@ -235,7 +235,7 @@ uint16_t hal_distancia_cm(void) { return distancia; }
 uint32_t hal_millis(void)       { return relogio; }
 ```
 
-- [ ] **Passo 3: Escrever os testes que devem falhar**
+- [x] **Passo 3: Escrever os testes que devem falhar**
 
 `tests/vm_test.c`:
 
@@ -377,12 +377,12 @@ clean:
 	rm -f vm_test physics_test
 ```
 
-- [ ] **Passo 4: Rodar os testes para confirmar que falham**
+- [x] **Passo 4: Rodar os testes para confirmar que falham**
 
 Rodar: `cd tests && make test`
 Esperado: erro de compilação — `core/vm.c` ainda não existe.
 
-- [ ] **Passo 5: Implementar a VM mínima**
+- [x] **Passo 5: Implementar a VM mínima**
 
 `core/vm.c`:
 
@@ -470,12 +470,12 @@ void vm_tick(VM *vm) {
 }
 ```
 
-- [ ] **Passo 6: Rodar os testes para confirmar que passam**
+- [x] **Passo 6: Rodar os testes para confirmar que passam**
 
 Rodar: `cd tests && make test`
 Esperado: `todos os testes passaram`
 
-- [ ] **Passo 7: Commit**
+- [x] **Passo 7: Commit**
 
 ```bash
 git add core tests
@@ -496,7 +496,7 @@ Implementa `SET_REG`, `DEC_JNZ` e `JMP` — o que faz o bloco `repetir` funciona
 - Consome: tudo da Tarefa 1.
 - Produz: nenhuma função nova; três opcodes a mais.
 
-- [ ] **Passo 1: Escrever os testes que devem falhar**
+- [x] **Passo 1: Escrever os testes que devem falhar**
 
 Adicionar em `tests/vm_test.c`, antes de `main`:
 
@@ -557,12 +557,12 @@ Registrar em `main`:
     teste_jmp_incondicional();
 ```
 
-- [ ] **Passo 2: Rodar os testes para confirmar que falham**
+- [x] **Passo 2: Rodar os testes para confirmar que falham**
 
 Rodar: `cd tests && make test`
 Esperado: FALHA. `SET_REG` cai no `default` e para a VM, então o trace só terá `MOTOR 0,0`.
 
-- [ ] **Passo 3: Implementar os três opcodes**
+- [x] **Passo 3: Implementar os três opcodes**
 
 Em `core/vm.c`, dentro do `switch` de `vm_tick`, antes do `default`:
 
@@ -583,12 +583,12 @@ Em `core/vm.c`, dentro do `switch` de `vm_tick`, antes do `default`:
         break;
 ```
 
-- [ ] **Passo 4: Rodar os testes para confirmar que passam**
+- [x] **Passo 4: Rodar os testes para confirmar que passam**
 
 Rodar: `cd tests && make test`
 Esperado: `todos os testes passaram`
 
-- [ ] **Passo 5: Commit**
+- [x] **Passo 5: Commit**
 
 ```bash
 git add core/vm.c tests/vm_test.c
@@ -609,7 +609,7 @@ Fecha a VM: `TURN`, `JMP_IF_GE`, as três proteções, e o teste que é o contra
 - Consome: tudo das Tarefas 1 e 2.
 - Produz: VM completa. `host/` e `firmware/` dependem só de `vm.h`.
 
-- [ ] **Passo 1: Escrever os testes que devem falhar**
+- [x] **Passo 1: Escrever os testes que devem falhar**
 
 Adicionar em `tests/vm_test.c`:
 
@@ -801,12 +801,12 @@ Registrar em `main`:
     teste_dourado();
 ```
 
-- [ ] **Passo 2: Rodar os testes para confirmar que falham**
+- [x] **Passo 2: Rodar os testes para confirmar que falham**
 
 Rodar: `cd tests && make test`
 Esperado: FALHA nos testes de `TURN`, sensor e no dourado. Os de segurança e o watchdog já devem passar — a VM da Tarefa 1 já para no `default` e já tem `vm_watchdog_check`. Isso é esperado e correto: eles são testes de regressão que travam o comportamento.
 
-- [ ] **Passo 3: Implementar TURN e JMP_IF_GE**
+- [x] **Passo 3: Implementar TURN e JMP_IF_GE**
 
 Em `core/vm.c`, no `switch` de `vm_tick`, antes do `default`:
 
@@ -828,12 +828,12 @@ Em `core/vm.c`, no `switch` de `vm_tick`, antes do `default`:
     }
 ```
 
-- [ ] **Passo 4: Rodar os testes para confirmar que passam**
+- [x] **Passo 4: Rodar os testes para confirmar que passam**
 
 Rodar: `cd tests && make test`
 Esperado: `todos os testes passaram`, com 12 testes listados.
 
-- [ ] **Passo 5: Commit**
+- [x] **Passo 5: Commit**
 
 ```bash
 git add core/vm.c tests/vm_test.c
@@ -854,7 +854,7 @@ Tração diferencial, arena com obstáculo, colisão e raycast do ultrassônico.
 **Interfaces:**
 - Produz: `fis_init()`, `fis_set_motores(int16_t, int16_t)`, `fis_passo(double dt)`, `fis_pose(double *x, double *y, double *theta)`, `fis_distancia_cm() -> uint16_t`, `fis_set_pose(double, double, double)`.
 
-- [ ] **Passo 1: Escrever o cabeçalho**
+- [x] **Passo 1: Escrever o cabeçalho**
 
 `host/physics.h`:
 
@@ -881,7 +881,7 @@ uint16_t fis_distancia_cm(void);
 #endif
 ```
 
-- [ ] **Passo 2: Criar o stub da física**
+- [x] **Passo 2: Criar o stub da física**
 
 Um esqueleto que compila e não faz nada. Existe para o passo RED ser uma
 asserção falhando de verdade, e não um "arquivo não encontrado" — que passaria
@@ -901,7 +901,7 @@ void fis_pose(double *x, double *y, double *theta) { *x = 0; *y = 0; *theta = 0;
 uint16_t fis_distancia_cm(void) { return 0; }
 ```
 
-- [ ] **Passo 3: Escrever os testes que devem falhar**
+- [x] **Passo 3: Escrever os testes que devem falhar**
 
 `tests/physics_test.c`:
 
@@ -1033,7 +1033,7 @@ clean:
 	rm -f vm_test physics_test
 ```
 
-- [ ] **Passo 4: Rodar os testes para confirmar que falham**
+- [x] **Passo 4: Rodar os testes para confirmar que falham**
 
 Rodar: `cd tests && make test`
 
@@ -1043,7 +1043,7 @@ arquivo ausente. A saída precisa nomear as asserções, por exemplo
 o stub, esse teste não está afirmando nada e precisa ser corrigido antes de
 seguir.
 
-- [ ] **Passo 5: Implementar a física**
+- [x] **Passo 5: Implementar a física**
 
 `host/physics.c`:
 
@@ -1152,12 +1152,12 @@ uint16_t fis_distancia_cm(void) {
 }
 ```
 
-- [ ] **Passo 6: Rodar os testes para confirmar que passam**
+- [x] **Passo 6: Rodar os testes para confirmar que passam**
 
 Rodar: `cd tests && make test`
 Esperado: os dois binários imprimem `todos os testes passaram`.
 
-- [ ] **Passo 7: Commit**
+- [x] **Passo 7: Commit**
 
 ```bash
 git add host/physics.h host/physics.c tests/physics_test.c tests/Makefile
@@ -1178,7 +1178,7 @@ Liga a VM à física e expõe o protocolo de texto no stdio. É o `robo_host` qu
 - Consome: `vm.h`, `physics.h`.
 - Produz: binário `host/robo_host`. Protocolo stdio: entrada `L <hex>` / `R` / `S`; saída `P <pc>` / `E <0|1>` / `T <x_mm> <y_mm> <theta_decigraus> <dist_cm>`.
 
-- [ ] **Passo 1: Implementar o HAL do simulador**
+- [x] **Passo 1: Implementar o HAL do simulador**
 
 `host/hal_sim.c`:
 
@@ -1202,7 +1202,7 @@ uint32_t hal_millis(void) {
 }
 ```
 
-- [ ] **Passo 2: Implementar o laço principal**
+- [x] **Passo 2: Implementar o laço principal**
 
 `host/main.c`:
 
@@ -1361,7 +1361,7 @@ clean:
 	rm -f robo_host
 ```
 
-- [ ] **Passo 3: Escrever o teste de integração**
+- [x] **Passo 3: Escrever o teste de integração**
 
 `tests/host_test.sh`:
 
@@ -1432,14 +1432,14 @@ exit 1
 
 Tornar executável: `chmod +x tests/host_test.sh`
 
-- [ ] **Passo 4: Rodar o teste**
+- [x] **Passo 4: Rodar o teste**
 
 Rodar: `./tests/host_test.sh`
 Esperado: `todos os testes passaram`.
 
 Se o `hex` do programa dourado estiver errado, o `E 1` nunca aparece. Para conferir os bytes, comparar com o `teste_dourado` da Tarefa 3.
 
-- [ ] **Passo 5: Commit**
+- [x] **Passo 5: Commit**
 
 ```bash
 git add host tests/host_test.sh
@@ -1461,7 +1461,7 @@ Serve os arquivos de `web/`, aceita o WebSocket binário do navegador e traduz p
 - Consome: binário `host/robo_host`.
 - Produz: servidor em `http://localhost:8080`, WebSocket no mesmo endereço. Protocolo binário: cliente envia `0x01 LOAD`, `0x02 RUN`, `0x03 STOP`; servidor envia `0x81 PC`, `0x82 STATE`, `0x83 TELEM`.
 
-- [ ] **Passo 1: Implementar o bridge**
+- [x] **Passo 1: Implementar o bridge**
 
 `bridge/server.js`:
 
@@ -1657,7 +1657,7 @@ if (require.main === module) {
 module.exports = { servidor, paraLinhaDoRobo, paraQuadroDoNavegador, montarQuadro };
 ```
 
-- [ ] **Passo 2: Criar um index.html mínimo**
+- [x] **Passo 2: Criar um index.html mínimo**
 
 `web/index.html` (será substituído na Tarefa 9; agora só existe para o teste do servidor estático):
 
@@ -1668,7 +1668,7 @@ module.exports = { servidor, paraLinhaDoRobo, paraQuadroDoNavegador, montarQuadr
 <p>em construção</p>
 ```
 
-- [ ] **Passo 3: Escrever os testes**
+- [x] **Passo 3: Escrever os testes**
 
 `tests/bridge.test.js`:
 
@@ -1739,18 +1739,18 @@ test('quadro longo usa cabeçalho estendido de 4 bytes', () => {
 });
 ```
 
-- [ ] **Passo 4: Rodar os testes**
+- [x] **Passo 4: Rodar os testes**
 
 Rodar: `node --test tests/bridge.test.js`
 Esperado: 9 testes passando.
 
-- [ ] **Passo 5: Conferir o servidor à mão**
+- [x] **Passo 5: Conferir o servidor à mão**
 
 Rodar em um terminal: `node bridge/server.js`
 Rodar em outro: `curl -s http://localhost:8080/ | head -3`
 Esperado: o HTML mínimo. Encerrar com Ctrl+C.
 
-- [ ] **Passo 6: Commit**
+- [x] **Passo 6: Commit**
 
 ```bash
 git add bridge web/index.html tests/bridge.test.js
@@ -1777,7 +1777,7 @@ Converte a árvore de blocos em bytecode e no mapa `pc→blockId`. É código pu
   - `{ op:'repetir', vezes:Number, corpo:[...], blockId }`
   - `{ op:'se_obstaculo', cm:Number, corpo:[...], blockId }`
 
-- [ ] **Passo 1: Criar o stub do compilador**
+- [x] **Passo 1: Criar o stub do compilador**
 
 Existe para o passo RED ser uma asserção falhando de verdade, e não um
 "módulo não encontrado" — que passaria igual se os testes tivessem erro de
@@ -1804,7 +1804,7 @@ sintaxe ou asserções vazias.
 })(typeof self !== 'undefined' ? self : globalThis);
 ```
 
-- [ ] **Passo 2: Escrever os testes que devem falhar**
+- [x] **Passo 2: Escrever os testes que devem falhar**
 
 `tests/compilador.test.js`:
 
@@ -1951,7 +1951,7 @@ test('programa grande demais dá erro em português', () => {
 });
 ```
 
-- [ ] **Passo 3: Rodar os testes para confirmar que falham**
+- [x] **Passo 3: Rodar os testes para confirmar que falham**
 
 Rodar: `node --test tests/compilador.test.js`
 
@@ -1961,7 +1961,7 @@ lança nada, e os demais porque ele devolve zero bytes. Se algum teste passar
 contra o stub, esse teste não está afirmando nada e precisa ser corrigido
 antes de seguir.
 
-- [ ] **Passo 4: Implementar o compilador**
+- [x] **Passo 4: Implementar o compilador**
 
 `web/compilador.js`:
 
@@ -2070,12 +2070,12 @@ antes de seguir.
 })(typeof self !== 'undefined' ? self : globalThis);
 ```
 
-- [ ] **Passo 5: Rodar os testes para confirmar que passam**
+- [x] **Passo 5: Rodar os testes para confirmar que passam**
 
 Rodar: `node --test tests/compilador.test.js`
 Esperado: 12 testes passando. O teste dourado é o que importa mais: ele prova que o compilador do navegador e o teste da VM em C falam exatamente a mesma linguagem.
 
-- [ ] **Passo 6: Commit**
+- [x] **Passo 6: Commit**
 
 ```bash
 git add web/compilador.js tests/compilador.test.js
@@ -2097,7 +2097,7 @@ Baixa o Blockly, define os seis blocos em português e traduz o workspace para a
 - Consome: `Compilador` da Tarefa 7.
 - Produz: `Blocos.definir()`, `Blocos.workspaceParaAst(workspace) -> AST`, `Blocos.CAIXA_XML` (a toolbox).
 
-- [ ] **Passo 1: Baixar o Blockly**
+- [x] **Passo 1: Baixar o Blockly**
 
 ```bash
 mkdir -p web/vendor
@@ -2112,7 +2112,7 @@ Esperado: `blockly_compressed.js` com ~922 KB e `pt-br.js` com ~35 KB. Os dois s
 
 Não baixar `blocks_compressed.js` — ele traz os blocos padrão do Blockly, e aqui todos os blocos são nossos.
 
-- [ ] **Passo 2: Definir os blocos**
+- [x] **Passo 2: Definir os blocos**
 
 `web/blocos.js`:
 
@@ -2268,7 +2268,7 @@ Não baixar `blocks_compressed.js` — ele traz os blocos padrão do Blockly, e 
 })(typeof self !== 'undefined' ? self : globalThis);
 ```
 
-- [ ] **Passo 3: Montar o index.html com o editor**
+- [x] **Passo 3: Montar o index.html com o editor**
 
 `web/index.html`:
 
@@ -2337,14 +2337,14 @@ Não baixar `blocks_compressed.js` — ele traz os blocos padrão do Blockly, e 
 </html>
 ```
 
-- [ ] **Passo 4: Conferir que os blocos aparecem**
+- [x] **Passo 4: Conferir que os blocos aparecem**
 
 `rede.js`, `arena.js` e `app.js` só existem na Tarefa 9, então o console vai acusar 404 neles — é esperado. O que precisa funcionar agora é o Blockly carregar.
 
 Rodar: `node bridge/server.js` e abrir `http://localhost:8080`.
 Esperado: a página carrega. No console do navegador, `Blockly` e `Blocos` existem e `Blockly.Msg.ADD_COMMENT` devolve `"Adicionar comentário"` — prova que o arquivo de idioma entrou.
 
-- [ ] **Passo 5: Commit**
+- [x] **Passo 5: Commit**
 
 ```bash
 git add web/vendor web/blocos.js web/index.html
@@ -2364,7 +2364,7 @@ Liga tudo: a criança arrasta blocos, aperta PLAY, o robô virtual anda e o bloc
 - Consome: `Compilador.compilar`, `Blocos.workspaceParaAst`, `Blocos.CAIXA_XML`.
 - Produz: `Rede.conectar(url, manipuladores) -> { carregar, rodar, parar }`, `Arena.desenhar(ctx, estado)`.
 
-- [ ] **Passo 1: Implementar o cliente de rede**
+- [x] **Passo 1: Implementar o cliente de rede**
 
 `web/rede.js`:
 
@@ -2431,7 +2431,7 @@ Liga tudo: a criança arrasta blocos, aperta PLAY, o robô virtual anda e o bloc
 })(typeof self !== 'undefined' ? self : globalThis);
 ```
 
-- [ ] **Passo 2: Implementar a arena**
+- [x] **Passo 2: Implementar a arena**
 
 `web/arena.js`:
 
@@ -2500,7 +2500,7 @@ Liga tudo: a criança arrasta blocos, aperta PLAY, o robô virtual anda e o bloc
 })(typeof self !== 'undefined' ? self : globalThis);
 ```
 
-- [ ] **Passo 3: Implementar a fiação**
+- [x] **Passo 3: Implementar a fiação**
 
 `web/app.js`:
 
@@ -2602,7 +2602,7 @@ Liga tudo: a criança arrasta blocos, aperta PLAY, o robô virtual anda e o bloc
 })();
 ```
 
-- [ ] **Passo 4: Rodar o ciclo completo à mão**
+- [x] **Passo 4: Rodar o ciclo completo à mão**
 
 ```bash
 cd host && make && cd ..
@@ -2623,7 +2623,7 @@ Esperado:
 - ao terminar, o botão PARAR desabilita sozinho;
 - apertar PARAR no meio congela o robô na hora.
 
-- [ ] **Passo 5: Rodar toda a bateria de testes**
+- [x] **Passo 5: Rodar toda a bateria de testes**
 
 ```bash
 cd tests && make test && cd ..
@@ -2633,7 +2633,7 @@ node --test tests/
 
 Esperado: tudo passando.
 
-- [ ] **Passo 6: Commit**
+- [x] **Passo 6: Commit**
 
 ```bash
 git add web/rede.js web/arena.js web/app.js
@@ -2656,7 +2656,7 @@ Escreve o firmware que roda o mesmo `core/vm.c`. Sem a placa, a verificação po
 - Consome: `vm.h`, `hal.h` (via `lib_extra_dirs`).
 - Produz: firmware que cria a rede `Robo-01` e serve a interface em `192.168.4.1`.
 
-- [ ] **Passo 1: Transformar core em biblioteca do PlatformIO**
+- [x] **Passo 1: Transformar core em biblioteca do PlatformIO**
 
 `core/library.json`:
 
@@ -2688,7 +2688,7 @@ lib_deps =
 build_flags = -Wall
 ```
 
-- [ ] **Passo 2: Implementar o HAL da placa**
+- [x] **Passo 2: Implementar o HAL da placa**
 
 `firmware/src/hal_esp32.cpp`:
 
@@ -2764,7 +2764,7 @@ extern "C" uint16_t hal_distancia_cm(void) {
 }
 ```
 
-- [ ] **Passo 3: Implementar o programa principal**
+- [x] **Passo 3: Implementar o programa principal**
 
 `firmware/src/main.cpp`:
 
@@ -2900,7 +2900,7 @@ void loop() {
 }
 ```
 
-- [ ] **Passo 4: Script que prepara os arquivos da placa**
+- [x] **Passo 4: Script que prepara os arquivos da placa**
 
 `firmware/preparar_data.sh`:
 
@@ -2927,7 +2927,7 @@ du -sh data
 
 Tornar executável: `chmod +x firmware/preparar_data.sh`
 
-- [ ] **Passo 5: Compilar**
+- [x] **Passo 5: Compilar**
 
 ```bash
 ./firmware/preparar_data.sh
@@ -2940,7 +2940,7 @@ Conferir também a saída do `preparar_data.sh`: o total precisa ficar em torno 
 
 Se a resolução de `mathieucarbou/ESPAsyncWebServer @ ^3.1.0` falhar, rodar `pio pkg search ESPAsyncWebServer` e fixar uma versão existente. A API usada aqui (`AsyncWebServer`, `AsyncWebSocket`, `binaryAll`, `serveStatic`, `AwsFrameInfo`) é estável entre as versões 3.x.
 
-- [ ] **Passo 6: Atualizar o .gitignore**
+- [x] **Passo 6: Atualizar o .gitignore**
 
 Adicionar a `.gitignore`:
 
@@ -2949,7 +2949,7 @@ firmware/.pio/
 firmware/data/
 ```
 
-- [ ] **Passo 7: Commit**
+- [x] **Passo 7: Commit**
 
 ```bash
 git add core/library.json firmware .gitignore

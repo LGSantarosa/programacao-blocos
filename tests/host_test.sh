@@ -59,6 +59,17 @@ else
     falhas=$((falhas + 1))
 fi
 
+# O pc reportado é o da instrução em efeito, não o da próxima. Enquanto o
+# robô gira, quem tem que aparecer é o TURN (pc 4) — é ele que o navegador
+# traduz para o bloco "girar" aceso. Reportar a próxima instrução acenderia o
+# bloco "repetir" e o "girar" nunca acenderia.
+if printf '%s\n' "$SAIDA" | grep --quiet '^P 4$'; then
+    echo "  ok: reportou o TURN em efeito (pc 4)"
+else
+    echo "  FALHOU: nunca reportou o pc 4 — o bloco 'girar' não acenderia"
+    falhas=$((falhas + 1))
+fi
+
 # E precisa ter chegado no HALT, que é a última instrução (pc 6).
 if printf '%s\n' "$SAIDA" | grep --quiet '^P 6$'; then
     echo "  ok: chegou até o HALT"

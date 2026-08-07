@@ -20,6 +20,10 @@
 
 static VM       vm;
 static uint8_t  prog_bytes[MAX_INSTR * INSTR_BYTES];
+/* A instrução que está em efeito agora, que não é a mesma que vm.pc: depois
+   de executar um TURN, vm.pc já aponta para a instrução seguinte enquanto o
+   robô ainda está girando. É esta que o navegador traduz em bloco aceso. */
+static uint16_t pc_exec      = 0;
 static uint16_t pc_enviado   = 0xFFFF;
 static uint32_t pc_ultimo_ms = 0;
 static uint8_t  rodando_ant  = 0;
@@ -47,6 +51,8 @@ static void processar_linha(char *l) {
     } else if (l[0] == 'R') {
         fis_init();
         vm_run(&vm);
+        pc_exec    = 0;
+        pc_enviado = 0xFFFF;
     } else if (l[0] == 'S') {
         vm_stop(&vm);
     }
@@ -76,11 +82,11 @@ static int ler_stdin(void) {
 }
 
 static void emitir_pc(uint32_t agora) {
-    if (vm.pc == pc_enviado) return;
+    if (pc_exec == pc_enviado) return;
     if (agora - pc_ultimo_ms < PC_MIN_MS) return;
-    pc_enviado   = vm.pc;
+    pc_enviado   = pc_exec;
     pc_ultimo_ms = agora;
-    printf("P %u\n", (unsigned)vm.pc);
+    printf("P %u\n", (unsigned)pc_exec);
 }
 
 static void emitir_telem(void) {
@@ -113,7 +119,12 @@ int main(void) {
            sem executar instrução, mas é ela que alimenta o ultimo_tick do
            watchdog. Pular a chamada faria a espera matar a própria VM. */
         for (int k = 0; k < MAX_INSTR_FRAME && vm.rodando; k++) {
+            uint16_t antes  = vm.pc;
+            uint8_t  rodava = vm.rodando;
             vm_tick(&vm);
+            /* Executou de fato? O tick não faz nada quando ainda está
+               esperando, e aí a instrução em efeito continua a mesma. */
+            if (vm.pc != antes || (rodava && !vm.rodando)) pc_exec = antes;
             if (vm_esperando(&vm, hal_millis())) break;
         }
         emitir_pc(agora);

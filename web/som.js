@@ -43,23 +43,36 @@
     if (!notas || mudoAgora) return;
     var c = contexto();
     if (!c) return;                       /* fora do navegador: silêncio */
-    /* O navegador só libera áudio depois de um gesto do usuário. */
-    if (c.state === 'suspended') c.resume();
 
-    var quando = c.currentTime;
-    for (var n of notas) {
-      var osc = c.createOscillator();
-      var vol = c.createGain();
-      osc.type = n.tipo;
-      osc.frequency.value = n.hz;
-      /* Rampa curta nas pontas: sem ela, cada nota estala. */
-      vol.gain.setValueAtTime(0.0001, quando);
-      vol.gain.exponentialRampToValueAtTime(0.2, quando + 0.01);
-      vol.gain.exponentialRampToValueAtTime(0.0001, quando + n.ms / 1000);
-      osc.connect(vol).connect(c.destination);
-      osc.start(quando);
-      osc.stop(quando + n.ms / 1000 + 0.02);
-      quando += n.ms / 1000;
+    /* Som é enfeite. Se o navegador tiver qualquer implicância com Web Audio,
+       ele fica mudo — nunca derruba o robô. Um iPad 2 já quebrou a página
+       inteira por causa de uma linha daqui. */
+    try {
+      /* O navegador só libera áudio depois de um gesto do usuário. */
+      if (c.state === 'suspended' && typeof c.resume === 'function') c.resume();
+
+      var quando = c.currentTime;
+      for (var i = 0; i < notas.length; i++) {
+        var n = notas[i];
+        var osc = c.createOscillator();
+        var vol = c.createGain();
+        osc.type = n.tipo;
+        osc.frequency.value = n.hz;
+        /* Rampa curta nas pontas: sem ela, cada nota estala. */
+        vol.gain.setValueAtTime(0.0001, quando);
+        vol.gain.exponentialRampToValueAtTime(0.2, quando + 0.01);
+        vol.gain.exponentialRampToValueAtTime(0.0001, quando + n.ms / 1000);
+        /* Duas linhas, não encadeado: connect() só devolve o nó de destino em
+           navegador novo. No Safari do iOS 9 devolve undefined, e encadear
+           estoura. */
+        osc.connect(vol);
+        vol.connect(c.destination);
+        osc.start(quando);
+        if (typeof osc.stop === 'function') osc.stop(quando + n.ms / 1000 + 0.02);
+        quando += n.ms / 1000;
+      }
+    } catch (e) {
+      /* Mudo é melhor que quebrado. */
     }
   }
 

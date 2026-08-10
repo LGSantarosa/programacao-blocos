@@ -20,6 +20,7 @@
   let rodando = false;
 
   let tColisao = -Infinity, tFim = -Infinity, tParado = Date.now();
+  let pediuParar = false;
   let confetes = [];
 
   Campos.registrar();
@@ -123,11 +124,18 @@
 
   function definirRodando(estaRodando) {
     if (rodando && !estaRodando) {
-      tFim = Date.now();
       tParado = Date.now();
-      Som.tocar('fim');
-      soltarConfete();
+      /* O robô para do mesmo jeito quando o programa acaba e quando a criança
+         aperta PARAR — o protocolo manda o mesmo E 0 nos dois casos. Só o
+         navegador sabe a diferença, e ela importa: comemorar uma desistência
+         premia desistir e esvazia o sentido da festa. */
+      if (!pediuParar) {
+        tFim = Date.now();
+        Som.tocar('fim');
+        soltarConfete();
+      }
     }
+    pediuParar = false;
     rodando = estaRodando;
     btPlay.disabled = estaRodando || !robo || !robo.pronto();
     btParar.disabled = !estaRodando;
@@ -144,6 +152,9 @@
       },
       aoDesconectar() {
         spEstado.textContent = 'desconectado';
+        /* Cair a conexão no meio de uma execução não é terminar o programa. */
+        rodando = false;
+        pediuParar = false;
         btPlay.disabled = true;
         btParar.disabled = true;
         setTimeout(conectar, 1500);
@@ -188,7 +199,10 @@
     robo.rodar();
   });
 
-  btParar.addEventListener('click', () => robo.parar());
+  btParar.addEventListener('click', () => {
+    pediuParar = true;
+    robo.parar();
+  });
 
   function atualizarMudo() {
     const m = Som.mudo();

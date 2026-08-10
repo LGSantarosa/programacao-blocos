@@ -1712,11 +1712,32 @@ E, logo depois de `<main>`, antes de `</body>`:
   raiz.setDeletable(false);
   raiz.setMovable(false);
 
-  Niveis.aplicar(workspace, nivel);
+  /* A caixa de blocos é um workspace à parte do principal, e é reconstruída
+     toda vez que a criança abre uma categoria. Sem reaplicar o nível ali, a
+     paleta mostra número e texto mesmo no Pequeno: a criança escolhe a peça
+     vendo o que ela não deveria ver, e o bloco só simplifica depois de solto. */
+  function aplicarNaPaleta() {
+    const f = workspace.getFlyout && workspace.getFlyout();
+    if (f) Niveis.aplicar(f.getWorkspace(), nivel);
+  }
+
+  function aplicarNivel() {
+    Niveis.aplicar(workspace, nivel);
+    aplicarNaPaleta();
+  }
+
+  aplicarNivel();
   /* Bloco novo arrastado da caixa também precisa nascer no nível certo. */
   workspace.addChangeListener((e) => {
     if (e.type === Blockly.Events.BLOCK_CREATE) Niveis.aplicar(workspace, nivel);
   });
+
+  const paleta = workspace.getFlyout && workspace.getFlyout();
+  if (paleta) {
+    paleta.getWorkspace().addChangeListener((e) => {
+      if (e.type === Blockly.Events.BLOCK_CREATE) aplicarNaPaleta();
+    });
+  }
 
   atualizarMudo();
 
@@ -1890,7 +1911,7 @@ E, logo depois de `<main>`, antes de `</body>`:
     selNivel.value = nivel;
     /* A caixa muda, o programa montado não. */
     workspace.updateToolbox(Niveis.caixaXml(nivel));
-    Niveis.aplicar(workspace, nivel);
+    aplicarNivel();
   });
 
   conectar();
@@ -2187,6 +2208,31 @@ test('a criança monta, roda e sobe de nível sem perder nada',
       await aval(`Blockly.getMainWorkspace()
         .getBlocksByType('mover_frente', false)[0].getField('SEG').isVisible()`),
       false, 'no Pequeno o número não deveria aparecer');
+
+    /* A paleta é um workspace à parte. Se o nível não for aplicado nela, a
+       criança escolhe a peça vendo número e texto que o nível dela esconde. */
+    await aval(`(() => {
+      const tb = Blockly.getMainWorkspace().getToolbox();
+      tb.setSelectedItem(tb.getToolboxItems()[0]);
+      return 1;
+    })()`);
+    await espera(600);
+
+    assert.strictEqual(
+      await aval(`(() => {
+        const f = Blockly.getMainWorkspace().getFlyout();
+        const b = f && f.getWorkspace().getBlocksByType('mover_frente', false)[0];
+        return b ? b.getField('SEG').isVisible() : 'sem bloco na paleta';
+      })()`),
+      false, 'no Pequeno a paleta não deveria mostrar o número');
+
+    assert.strictEqual(
+      await aval(`(() => {
+        const f = Blockly.getMainWorkspace().getFlyout();
+        const b = f && f.getWorkspace().getBlocksByType('mover_frente', false)[0];
+        return b ? b.getField('T1').isVisible() : 'sem bloco na paleta';
+      })()`),
+      false, 'no Pequeno a paleta não deveria mostrar a palavra');
 
     /* Sobe para Médio: o programa continua, o número aparece com o valor. */
     await aval(`(() => {

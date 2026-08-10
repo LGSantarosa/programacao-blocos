@@ -1,5 +1,6 @@
-/* Desenha o robô virtual. Só existe no modo de teste: com a ESP32 nenhum
-   pacote de telemetria chega e este painel some. */
+/* Desenha o mundo virtual: o chão, os obstáculos e o feixe do ultrassônico.
+   Só existe no modo de teste: com a ESP32 nenhum pacote de telemetria chega
+   e este painel some. */
 (function (raiz) {
   'use strict';
 

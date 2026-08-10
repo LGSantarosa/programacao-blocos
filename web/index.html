@@ -33,12 +33,37 @@
   #arena { width: 100%; aspect-ratio: 1; border-radius: 8px; background: #e9edf2; }
   #leitura { font-size: 14px; color: #445; }
   #erro { color: #c0392b; font-size: 14px; min-height: 20px; }
+  #rotulo-nivel { font-size: 14px; color: #445; }
+  #nivel { font-size: 15px; padding: 6px 8px; border-radius: 8px;
+           border: 1px solid #ccd3db; }
+  #mudo { background: #64748b; font-size: 16px; padding: 8px 12px; }
+  #mudo.silenciado { background: #cbd5e1; color: #64748b; }
+  /* O halo do Blockly é discreto demais para uma tela de criança, e não expõe
+     classe para estilizar. Marcamos o bloco por conta própria. */
+  .blocklyDraggable.aceso > .blocklyPath {
+    stroke: #ffb703 !important;
+    stroke-width: 4px !important;
+    animation: pulsar .7s ease-in-out infinite;
+  }
+  @keyframes pulsar {
+    0%, 100% { stroke-opacity: 1; }
+    50%      { stroke-opacity: .35; }
+  }
+  #confete { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
 </style>
 </head>
 <body>
   <header>
     <h1>Robô de Blocos</h1>
     <span id="erro"></span>
+    <label id="rotulo-nivel">nível
+      <select id="nivel">
+        <option value="pequeno">Pequeno</option>
+        <option value="medio">Médio</option>
+        <option value="grande">Grande</option>
+      </select>
+    </label>
+    <button id="mudo" title="ligar e desligar o som">🔊</button>
     <button id="play">▶ PLAY</button>
     <button id="parar" disabled>■ PARAR</button>
     <span id="estado">conectando…</span>
@@ -50,10 +75,15 @@
       <div id="leitura">distância: —</div>
     </aside>
   </main>
+  <canvas id="confete"></canvas>
 
   <script src="vendor/blockly_compressed.js"></script>
   <script src="vendor/pt-br.js"></script>
   <script src="compilador.js"></script>
+  <script src="campos.js"></script>
+  <script src="som.js"></script>
+  <script src="niveis.js"></script>
+  <script src="robo.js"></script>
   <script src="blocos.js"></script>
   <script src="rede.js"></script>
   <script src="arena.js"></script>

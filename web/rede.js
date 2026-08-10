@@ -44,7 +44,7 @@
 
     return {
       pronto,
-      carregar(bytes) {
+      carregar: function (bytes) {
         if (!pronto()) return;
         var quadro = new Uint8Array(3 + bytes.length);
         new DataView(quadro.buffer).setUint8(0, T_LOAD);
@@ -52,8 +52,8 @@
         quadro.set(bytes, 3);
         ws.send(quadro);
       },
-      rodar() { if (pronto()) ws.send(new Uint8Array([T_RUN])); },
-      parar() { if (pronto()) ws.send(new Uint8Array([T_STOP])); },
+      rodar: function () { if (pronto()) ws.send(new Uint8Array([T_RUN])); },
+      parar: function () { if (pronto()) ws.send(new Uint8Array([T_STOP])); },
     };
   }
 

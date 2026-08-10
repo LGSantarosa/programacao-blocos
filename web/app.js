@@ -176,11 +176,11 @@
   function conectar() {
     var protocolo = location.protocol === 'https:' ? 'wss:' : 'ws:';
     robo = Rede.conectar(protocolo + '//' + location.host + '/', {
-      aoConectar() {
+      aoConectar: function () {
         spEstado.textContent = 'parado';
         btPlay.disabled = false;
       },
-      aoDesconectar() {
+      aoDesconectar: function () {
         spEstado.textContent = 'desconectado';
         /* Cair a conexão no meio de uma execução não é terminar o programa. */
         rodando = false;
@@ -189,15 +189,15 @@
         btParar.disabled = true;
         setTimeout(conectar, 1500);
       },
-      aoPc(pc) {
+      aoPc: function (pc) {
         var id = pc < mapaPc.length ? mapaPc[pc] : null;
         if (id && id !== blocoAceso) Som.tocar('comando');
         acender(id);
       },
-      aoEstado(estado) {
+      aoEstado: function (estado) {
         definirRodando(estado === 1);
       },
-      aoTelem(t) {
+      aoTelem: function (t) {
         if (!viuTelemetria) { viuTelemetria = true; painel.style.display = 'flex'; }
         poseAtual = t;
         if (t.colidiu && Date.now() - tColisao > Robo.MS_TONTO) {

@@ -203,9 +203,12 @@
     for (var i = 0; i < 90; i++) {
       confetes.push({
         x: Math.random() * confete.width,
-        y: -20 - Math.random() * confete.height * 0.4,
-        vx: (Math.random() - 0.5) * 2,
-        vy: 2 + Math.random() * 3,
+        y: -20 - Math.random() * confete.height * 0.22,
+        vx: (Math.random() - 0.5) * 3,
+        /* Rápido e acelerando. Antes caíam a 2-5px por quadro de até 280px
+           acima da tela: 3 a 8 segundos num navegador rápido, e mais ainda no
+           iPad, que roda menos quadros. A festa tem que caber na alegria. */
+        vy: 7 + Math.random() * 7,
         cor: cores[i % cores.length],
         giro: Math.random() * Math.PI,
       });
@@ -218,7 +221,8 @@
     if (confetes.length === 0) return;
     var vivos = 0;
     for (var p of confetes) {
-      p.x += p.vx; p.y += p.vy; p.giro += 0.1;
+      p.vy += 0.35;                    /* gravidade */
+      p.x += p.vx; p.y += p.vy; p.giro += 0.16;
       if (p.y < confete.height + 20) vivos++;
       c.save();
       c.translate(p.x, p.y);

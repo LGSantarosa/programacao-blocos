@@ -16,13 +16,13 @@
 
     ctx.clearRect(0, 0, px, px);
 
-    ctx.fillStyle = '#e4eef7';
+    ctx.fillStyle = '#f3e9d7';
     ctx.fillRect(0, 0, px, px);
-    ctx.strokeStyle = '#a9c6de';
+    ctx.strokeStyle = '#cbb593';
     ctx.lineWidth = 4;
     ctx.strokeRect(2, 2, px - 4, px - 4);
 
-    ctx.fillStyle = '#b7cee0';
+    ctx.fillStyle = '#c9ab7f';
     for (var o of OBSTACULOS) {
       ctx.fillRect(m(o.x0), my(o.y1), m(o.x1 - o.x0), m(o.y1 - o.y0));
     }

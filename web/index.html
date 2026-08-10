@@ -6,129 +6,128 @@
 <title>Robô de Blocos</title>
 <style>
   /* Linguagem física: nada aqui é plano. Botão é plástico grosso com sombra
-     sólida embaixo, e afunda quando apertado. É a gramática que uma criança de
-     quatro anos entende sem ninguém explicar. */
+     sólida embaixo, e afunda quando apertado — a gramática que uma criança de
+     quatro anos entende sem ninguém explicar.
+
+     Sem var(), gap, aspect-ratio ou inset: precisa abrir num iPad 2 com iOS 9. */
+
   * { box-sizing: border-box; }
 
   body {
     margin: 0; height: 100vh; display: flex; flex-direction: column;
-    font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", "Varela Round", Nunito, Quicksand, system-ui, sans-serif; color: #1b3a57; background: #eef5fb;
+    /* Fundo quente, não branco clínico: é o que separa brinquedo de formulário. */
+    background: #f7f0e4; color: #1b3a57;
+    font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+                 "Varela Round", Nunito, Quicksand, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
   }
 
+  /* ---------- cabeçalho ---------- */
+  /* Faixa colorida em vez de branca. Branco sobre branco é o que dava cara de
+     hospital, e uma barra forte também ancora a tela. */
+
   header {
-    display: flex; align-items: center;
-    padding: 14px 20px; background: #ffffff;
-    border-bottom: 3px solid #cfe0ee;
+    display: flex; align-items: center; flex-wrap: nowrap;
+    padding: 10px 14px; background: #1b3a57; color: #fff;
+    box-shadow: 0 3px 0 rgba(0,0,0,.12);
   }
-  /* Margem em vez de gap: flex gap só chegou no iOS 14.5, e este projeto
-     precisa abrir num iPad 2. */
-  header > * { margin-right: 14px; }
+  header > * { margin-right: 10px; }
   header > *:last-child { margin-right: 0; }
 
   h1 {
-    font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -.02em;
+    font-size: 19px; font-weight: 800; margin: 0; color: #fff;
+    letter-spacing: -.01em; white-space: nowrap;
     display: flex; align-items: center;
   }
-  h1 .bolinha { margin-right: 10px; }
   h1 .bolinha {
-    width: 26px; height: 26px; border-radius: 50%;
-    background: #37c26b; box-shadow: inset 0 -3px 0 rgba(0,0,0,.15);
-    position: relative;
+    width: 22px; height: 22px; border-radius: 50%; margin-right: 8px;
+    background: #37c26b; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18);
+    position: relative; flex: none;
   }
-  /* dois olhinhos no logo — o mesmo bicho que anda na arena */
   h1 .bolinha::before, h1 .bolinha::after {
-    content: ''; position: absolute; top: 8px; width: 5px; height: 5px;
+    content: ''; position: absolute; top: 7px; width: 4px; height: 4px;
     border-radius: 50%; background: #fff;
   }
-  h1 .bolinha::before { left: 6px; }
-  h1 .bolinha::after  { right: 6px; }
+  h1 .bolinha::before { left: 5px; }
+  h1 .bolinha::after  { right: 5px; }
 
   .espaco { flex: 1; }
 
   /* ---------- botões físicos ---------- */
 
   button {
-    font-family: inherit; font-size: 19px; font-weight: 800;
-    padding: 13px 26px; border: none; border-radius: 16px;
-    color: #fff; cursor: pointer; letter-spacing: .01em;
-    transition: transform .06s, box-shadow .06s, background .15s;
+    font-family: inherit; font-size: 17px; font-weight: 800;
+    padding: 11px 20px; border: none; border-radius: 14px;
+    color: #fff; cursor: pointer; white-space: nowrap;
+    -webkit-appearance: none; -webkit-tap-highlight-color: transparent;
   }
-  button:active:not(:disabled) { transform: translateY(4px); }
-  button:focus-visible { outline: 4px solid #1b3a57; outline-offset: 3px; }
+  button:active:not(:disabled) { -webkit-transform: translateY(4px); transform: translateY(4px); }
+  button:focus { outline: none; }
+  button:focus-visible { outline: 3px solid #ffc53d; outline-offset: 2px; }
 
-  #play   { background: #37c26b;    box-shadow: 0 5px 0 #2a9c54; }
-  #parar  { background: #f25c4a; box-shadow: 0 5px 0 #c94435; }
-  #mudo   { background: #8fa9bd;    box-shadow: 0 5px 0 #718da3;
-            font-size: 20px; padding: 13px 18px; line-height: 1; }
-  #play:active:not(:disabled),
-  #parar:active:not(:disabled),
-  #mudo:active:not(:disabled) { box-shadow: 0 1px 0 rgba(0,0,0,.2); }
+  #play  { background: #37c26b; box-shadow: 0 5px 0 #2a9c54; }
+  #parar { background: #f25c4a; box-shadow: 0 5px 0 #c94435; }
+  #mudo  { background: #4a6f8f; box-shadow: 0 5px 0 #35536b;
+           font-size: 18px; padding: 11px 14px; line-height: 1; }
+  #play:active:not(:disabled), #parar:active:not(:disabled),
+  #mudo:active:not(:disabled) { box-shadow: 0 1px 0 rgba(0,0,0,.25); }
 
-  button:disabled {
-    background: #d6e3ee; color: #9db4c7; box-shadow: 0 5px 0 #c2d3e1;
-    cursor: default;
-  }
-  #mudo.silenciado { background: #c2d3e1; box-shadow: 0 5px 0 #a8bccd; color: #6c8aa5; }
+  button:disabled { background: #4a6f8f; color: #90a9be;
+                    box-shadow: 0 5px 0 #35536b; cursor: default; opacity: .6; }
+  #mudo.silenciado { opacity: .55; }
 
   /* ---------- seletor de nível ---------- */
-  /* Três botões, não um menu suspenso: criança de quatro anos não abre dropdown. */
+  /* Três teclas, não um menu suspenso: criança de quatro anos não abre dropdown. */
 
-  #niveis {
-    display: flex; background: #dfeaf4; padding: 5px;
-    border-radius: 18px; box-shadow: inset 0 2px 4px rgba(27,58,87,.12);
-  }
+  #niveis { display: flex; background: rgba(0,0,0,.22); padding: 4px;
+            border-radius: 15px; }
   #niveis button {
-    font-size: 15px; font-weight: 800; padding: 9px 15px;
-    background: transparent; color: #6c8aa5;
-    border-radius: 13px; box-shadow: none;
+    font-size: 14px; font-weight: 800; padding: 8px 13px;
+    background: transparent; color: #a9c3d8; border-radius: 11px;
+    box-shadow: none;
   }
-  #niveis button:active:not(:disabled) { transform: none; }
-  #niveis button[aria-pressed="true"] {
-    background: #ffffff; color: #1b3a57;
-    box-shadow: 0 2px 5px rgba(27,58,87,.18);
-  }
+  #niveis button:active:not(:disabled) { -webkit-transform: none; transform: none; }
+  #niveis button[aria-pressed="true"] { background: #fff; color: #1b3a57; }
 
-  #estado {
-    font-size: 15px; font-weight: 700; color: #6c8aa5;
-    min-width: 130px; text-align: right;
-  }
-  #erro { color: #f25c4a; font-size: 15px; font-weight: 700; max-width: 340px; }
-  /* Carimbo do servidor. Pequeno, mas é o que diz se o aparelho está mesmo
-     com a versão nova ou servindo cache. */
-  #versao { font-size: 12px; color: #9db4c7; font-family: monospace; }
+  #estado { font-size: 14px; font-weight: 700; color: #a9c3d8; white-space: nowrap; }
+  #versao { font-size: 11px; color: #6d8ba6; font-family: monospace; }
+  #erro { color: #ffd0c9; font-size: 14px; font-weight: 700; max-width: 260px; }
 
   /* ---------- corpo ---------- */
 
-  main { flex: 1; display: flex; min-height: 0; padding: 16px; }
-  #editor { margin-right: 16px; }
+  main { flex: 1; display: flex; min-height: 0; padding: 12px; }
 
-  /* min-height explícito: em coluna, um flex item pode encolher a zero, e o
-     Blockly some junto sem reclamar. */
   #editor {
-    flex: 1; min-width: 0; min-height: 320px; background: #ffffff;
-    border-radius: 22px; overflow: hidden;
-    box-shadow: 0 4px 0 #cfe0ee;
+    flex: 1; min-width: 0; min-height: 260px; background: #fff;
+    border-radius: 20px; overflow: hidden;
+    box-shadow: 0 4px 0 #e2d5c0;
+    margin-right: 12px;
   }
 
   #painel {
-    width: 420px; padding: 18px; background: #ffffff;
-    border-radius: 22px; box-shadow: 0 4px 0 #cfe0ee;
-    display: flex; flex-direction: column;
+    width: 300px; flex: none; padding: 12px; background: #fff;
+    border-radius: 20px; box-shadow: 0 4px 0 #e2d5c0;
+    /* Centrado: o painel é mais alto que o conteúdo, e sobra embaixo parece
+       descuido enquanto respiro em volta parece escolha. */
+    display: flex; flex-direction: column; justify-content: center;
+    align-items: center;
   }
-  #painel > * { margin-bottom: 14px; }
+  #painel > * { margin-bottom: 10px; }
   #painel > *:last-child { margin-bottom: 0; }
 
   /* Sem aspect-ratio (iOS 15+): o canvas é 400x400, então altura fixa dá o
-     mesmo quadrado e funciona em qualquer navegador. */
+     mesmo quadrado em qualquer navegador. */
   #arena {
-    width: 100%; max-width: 384px; height: 384px; border-radius: 18px;
-    background: #e4eef7; border: 3px solid #cfe0ee; display: block;
+    width: 100%; max-width: 276px; height: 276px; border-radius: 16px;
+    /* Tapete de brincar, não papel de exame. */
+    background: #f3e9d7; border: 3px solid #e2d5c0; display: block;
   }
 
   #leitura {
-    font-size: 17px; font-weight: 800; color: #1b3a57;
-    background: #eef5fb; border-radius: 14px; padding: 12px 16px;
+    width: 100%;
+    font-size: 16px; font-weight: 800; color: #1b3a57;
+    background: #f7f0e4; border-radius: 12px; padding: 10px 12px;
     text-align: center;
   }
 
@@ -139,36 +138,45 @@
   .blocklyDraggable.aceso > .blocklyPath {
     stroke: #ffc53d !important;
     stroke-width: 5px !important;
+    -webkit-animation: pulsar .7s ease-in-out infinite;
     animation: pulsar .7s ease-in-out infinite;
   }
-  @keyframes pulsar {
-    0%, 100% { stroke-opacity: 1; }
-    50%      { stroke-opacity: .3; }
-  }
+  @-webkit-keyframes pulsar { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: .3; } }
+  @keyframes pulsar { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: .3; } }
 
   /* A fonte dos blocos NÃO se mexe por aqui: o Blockly mede o texto para
-     dimensionar o bloco antes de o CSS valer, e trocar a família depois estoura
-     a borda. Vai pelo tema, em app.js, que ele considera na medição. */
-  /* Caixa de blocos e fundo do editor no mesmo tom do resto. */
-  .blocklyToolboxDiv { background: #f5fafd !important; padding-top: 8px !important; }
-  .blocklyTreeLabel  { font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", "Varela Round", Nunito, Quicksand, system-ui, sans-serif !important; font-weight: 800 !important;
-                       font-size: 15px !important; }
-  .blocklyFlyoutBackground { fill: #f5fafd !important; }
+     dimensionar o bloco antes de o CSS valer. Vai pelo tema, em app.js. */
+  .blocklyToolboxDiv { background: #fbf6ec !important; padding-top: 6px !important; }
+  .blocklyTreeLabel { font-family: inherit !important; font-weight: 800 !important;
+                      font-size: 14px !important; }
+  .blocklyFlyoutBackground { fill: #fbf6ec !important; }
 
   #confete { position: fixed; top: 0; left: 0; right: 0; bottom: 0;
              pointer-events: none; z-index: 50; }
 
   @media (prefers-reduced-motion: reduce) {
-    .blocklyDraggable.aceso > .blocklyPath { animation: none; }
-    button { transition: none; }
+    .blocklyDraggable.aceso > .blocklyPath { -webkit-animation: none; animation: none; }
   }
 
-  /* Tela estreita: o painel do robô vai para baixo do editor. */
-  @media (max-width: 900px) {
+  /* Tablet: a caixa de blocos e a paleta do Blockly já comem largura, então o
+     painel do robô encolhe para o editor não virar uma faixa estreita. */
+  @media (max-width: 1100px) {
+    h1 { font-size: 17px; }
+    button { font-size: 15px; padding: 10px 15px; }
+    #niveis button { font-size: 13px; padding: 7px 10px; }
+    #painel { width: 230px; }
+    #arena { max-width: 206px; height: 206px; }
+    #versao { display: none; }
+  }
+
+  /* Tela estreita de verdade: o painel vai para baixo. */
+  @media (max-width: 780px) {
     main { flex-direction: column; }
-    #editor { margin-right: 0; margin-bottom: 16px; }
-    #painel { width: auto; }
-    header { flex-wrap: wrap; }
+    #editor { margin-right: 0; margin-bottom: 12px; }
+    #painel { width: auto; flex-direction: row; align-items: center; }
+    #painel > * { margin-bottom: 0; margin-right: 10px; }
+    #arena { max-width: 160px; height: 160px; }
+    #leitura { flex: 1; }
   }
 </style>
 </head>

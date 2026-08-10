@@ -37,6 +37,13 @@ const servidor = http.createServer((req, res) => {
     }
     res.writeHead(200, {
       'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream',
+      /* Sem cache: este servidor existe para desenvolver e para a sala de aula,
+         onde recarregar precisa mesmo trazer o arquivo novo. O Safari guarda
+         JavaScript com unhas e dentes — um iPad chegou a rodar por horas uma
+         versão antiga e quebrada, enquanto o servidor já servia a corrigida. */
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
     });
     res.end(dados);
   });

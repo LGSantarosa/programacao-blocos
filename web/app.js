@@ -85,6 +85,19 @@
 
   function ajustarTamanho() {
     var ed = document.getElementById('editor');
+    if (ed) {
+      /* O SVG que o Blockly injeta tem height:100%. No Safari 9 uma
+         porcentagem não resolve contra altura vinda do flexbox — só contra
+         altura escrita em pixel — e o SVG cai no padrão de 150px: a caixa de
+         blocos aparece, mas não sobra espaço para desenhar bloco nenhum.
+         Limpar, deixar o flex calcular, e congelar o resultado em pixel
+         resolve, e não muda nada em navegador moderno. */
+      ed.style.height = '';
+      ed.style.width = '';
+      var alt = ed.offsetHeight, larg = ed.offsetWidth;
+      if (alt > 100) ed.style.height = alt + 'px';
+      if (larg > 100) ed.style.width = larg + 'px';
+    }
     /* Mede o SVG do Blockly, não a div: a div tem min-height no CSS e reporta
        altura mesmo quando o flex não lhe deu espaço de verdade. */
     var m = medirSvg();

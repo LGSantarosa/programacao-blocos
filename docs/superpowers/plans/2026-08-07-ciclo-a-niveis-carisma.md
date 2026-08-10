@@ -905,7 +905,7 @@ Em `web/blocos.js`, substituir os seis blocos dentro de `Blockly.defineBlocksWit
         args0: [
           { type: 'field_label', name: 'T1', text: 'girar' },
           { type: 'field_dropdown', name: 'DIR', options: [
-            ['↷ direita', '90'], ['↶ esquerda', '-90'],
+            ['↻', '90'], ['↺', '-90'],
           ] },
           { type: 'field_number', name: 'GRAUS', value: 90, min: -180, max: 180, precision: 5 },
           { type: 'field_label', name: 'T2', text: 'graus' },

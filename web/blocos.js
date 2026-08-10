@@ -2,10 +2,13 @@
 (function (raiz) {
   'use strict';
 
-  const COR_MOVIMENTO = 210;
-  const COR_LACO = 120;
-  const COR_SENSOR = 20;
-  const COR_INICIO = 40;
+  /* Cores dos blocos. O "quando apertar PLAY" é o mesmo verde do botão PLAY:
+     liga o bloco ao gesto, que é uma relação de verdade e não enfeite.
+     Laço em laranja é a convenção que a criança reencontra depois no Scratch. */
+  const COR_MOVIMENTO = '#3e8fe0';
+  const COR_LACO      = '#f5a623';
+  const COR_SENSOR    = '#a26bd8';
+  const COR_INICIO    = '#37c26b';
 
   /* Num lugar só: os dois blocos de movimento oferecem as mesmas opções, e
      duplicá-las é como elas divergiriam. */
@@ -78,8 +81,10 @@
         message0: '%1 %2 %3 %4',
         args0: [
           { type: 'field_label', name: 'T1', text: 'girar' },
+          /* Só a seta. É o único texto que sobrava no nível Pequeno, e a
+             seta de rotação diz sozinha para que lado o robô vira. */
           { type: 'field_dropdown', name: 'DIR', options: [
-            ['↷ direita', '90'], ['↶ esquerda', '-90'],
+            ['↻', '90'], ['↺', '-90'],
           ] },
           { type: 'field_number', name: 'GRAUS', value: 90, min: -180, max: 180, precision: 5 },
           { type: 'field_label', name: 'T2', text: 'graus' },

@@ -158,7 +158,7 @@ test('o menu do girar acompanha o GRAUS quando cabe nele', () => {
   }
   const b = ws.getBlocksByType('girar', false)[0];
   Niveis.aplicar(ws, 'pequeno');
-  assert.strictEqual(b.getField('DIR').getText(), '↶ esquerda',
+  assert.strictEqual(b.getField('DIR').getText(), '↺',
     'o menu mentiria sobre para que lado o bloco vira');
 });
 

@@ -99,8 +99,7 @@ test('a criança monta, roda e sobe de nível sem perder nada',
 
     /* Monta no Pequeno: dois passos e um giro, sem número nenhum. */
     await aval(`(() => {
-      document.getElementById('nivel').value = 'pequeno';
-      document.getElementById('nivel').dispatchEvent(new Event('change'));
+      document.querySelector('#niveis button[data-nivel=pequeno]').click();
       const ws = Blockly.getMainWorkspace();
       Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [{
         type: 'quando_play', x: 40, y: 30,
@@ -145,8 +144,8 @@ test('a criança monta, roda e sobe de nível sem perder nada',
 
     /* Sobe para Médio: o programa continua, o número aparece com o valor. */
     await aval(`(() => {
-      const s = document.getElementById('nivel');
-      s.value = 'medio'; s.dispatchEvent(new Event('change')); return 1;
+      document.querySelector('#niveis button[data-nivel=medio]').click();
+      return 1;
     })()`);
     await espera(400);
 

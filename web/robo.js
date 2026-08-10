@@ -31,7 +31,7 @@
     ctx.translate(cx, cy - pulo);
 
     /* corpo */
-    ctx.fillStyle = qual === 'dormindo' ? '#7a9fd4' : '#1f6feb';
+    ctx.fillStyle = qual === 'dormindo' ? '#8fb8dd' : '#37c26b';
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fill();
@@ -51,7 +51,7 @@
 
       if (qual === 'dormindo' || qual === 'feliz') {
         /* olho fechado: um traço */
-        ctx.strokeStyle = '#123';
+        ctx.strokeStyle = '#1b3a57';
         ctx.lineWidth = Math.max(2, r * 0.1);
         ctx.beginPath();
         ctx.moveTo(ex - r * 0.16, ey);
@@ -59,7 +59,7 @@
         ctx.stroke();
       } else {
         const tremor = qual === 'tonto' ? Math.sin(ms / 40 + s) * r * 0.08 : 0;
-        ctx.fillStyle = '#123';
+        ctx.fillStyle = '#1b3a57';
         ctx.beginPath();
         ctx.arc(ex + dx * r * 0.08 + tremor, ey + dy * r * 0.08, r * 0.13, 0, Math.PI * 2);
         ctx.fill();
@@ -67,7 +67,7 @@
     }
 
     if (qual === 'tonto') {
-      ctx.fillStyle = '#e0a81e';
+      ctx.fillStyle = '#ffc53d';
       ctx.font = `bold ${Math.round(r * 0.75)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
       for (let k = 0; k < 3; k++) {
@@ -77,7 +77,7 @@
     }
 
     if (qual === 'dormindo') {
-      ctx.fillStyle = '#5b7fb0';
+      ctx.fillStyle = '#6c8aa5';
       ctx.font = `bold ${Math.round(r * 0.7)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
       const sobe = (ms / 22) % (r * 2.2);

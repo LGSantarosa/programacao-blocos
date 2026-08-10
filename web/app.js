@@ -4,7 +4,7 @@
   const btPlay = document.getElementById('play');
   const btParar = document.getElementById('parar');
   const btMudo = document.getElementById('mudo');
-  const selNivel = document.getElementById('nivel');
+  const botoesNivel = [...document.querySelectorAll('#niveis button')];
   const spEstado = document.getElementById('estado');
   const spErro = document.getElementById('erro');
   const divLeitura = document.getElementById('leitura');
@@ -27,9 +27,17 @@
   Blocos.definir();
 
   let nivel = Niveis.atual();
-  selNivel.value = nivel;
+  marcarNivel();
+
+  /* A fonte dos blocos vai pelo tema, não pelo CSS: o Blockly mede o texto
+     para dimensionar o bloco, e trocar a família por fora estoura a borda. */
+  const tema = Blockly.Theme.defineTheme('robo', {
+    base: Blockly.Themes.Classic,
+    fontStyle: { family: 'system-ui, sans-serif', weight: 'bold', size: 11 },
+  });
 
   const workspace = Blockly.inject('editor', {
+    theme: tema,
     toolbox: Niveis.caixaXml(nivel),
     trashcan: true,
     zoom: { controls: true, startScale: 1.0 },
@@ -236,13 +244,25 @@
     atualizarMudo();
   });
 
-  selNivel.addEventListener('change', () => {
-    nivel = Niveis.definir(selNivel.value);
-    selNivel.value = nivel;
+  /* Três botões em vez de um menu suspenso: criança de quatro anos não abre
+     dropdown. O botão do nível ativo fica afundado, como uma tecla apertada. */
+  function marcarNivel() {
+    for (const b of botoesNivel) {
+      b.setAttribute('aria-pressed', String(b.dataset.nivel === nivel));
+    }
+  }
+
+  function trocarNivel(novo) {
+    nivel = Niveis.definir(novo);
+    marcarNivel();
     /* A caixa muda, o programa montado não. */
     workspace.updateToolbox(Niveis.caixaXml(nivel));
     aplicarNivel();
-  });
+  }
+
+  for (const b of botoesNivel) {
+    b.addEventListener('click', () => trocarNivel(b.dataset.nivel));
+  }
 
   conectar();
 })();

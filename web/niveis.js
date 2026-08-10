@@ -7,7 +7,9 @@
   const LISTA = ['pequeno', 'medio', 'grande'];
   const NOMES = { pequeno: 'Pequeno', medio: 'Médio', grande: 'Grande' };
 
-  const COR_MOVIMENTO = 210, COR_LACO = 120, COR_SENSOR = 20;
+  /* Precisa bater com web/blocos.js: a cor da categoria na caixa e a cor do
+     bloco que sai dela são a mesma coisa para a criança. */
+  const COR_MOVIMENTO = '#3e8fe0', COR_LACO = '#f5a623', COR_SENSOR = '#a26bd8';
 
   /* T1 e T2 são as palavras dos blocos. Elas são campos justamente para poderem
      sumir no Pequeno — se fossem texto cru do message0, sobrariam na tela
@@ -118,6 +120,10 @@
           dir.setVisible(cabeNoMenu);
           graus.setVisible(!cabeNoMenu);
         }
+        /* "graus" é a unidade do número. Sem o número na tela vira texto solto:
+           o bloco leria "girar direita graus". */
+        const t2 = b.getField('T2');
+        if (t2 && campos.T2) t2.setVisible(graus.isVisible());
       }
       if (b.render) b.render();
     }

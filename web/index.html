@@ -5,64 +5,189 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Robô de Blocos</title>
 <style>
+  /* Linguagem física: nada aqui é plano. Botão é plástico grosso com sombra
+     sólida embaixo, e afunda quando apertado. É a gramática que uma criança de
+     quatro anos entende sem ninguém explicar. */
+  :root {
+    --ceu:      #eef5fb;
+    --papel:    #ffffff;
+    --tinta:    #1b3a57;
+    --tinta-fraca: #6c8aa5;
+    --borda:    #cfe0ee;
+    --verde:    #37c26b;
+    --verde-fundo: #2a9c54;
+    --vermelho: #f25c4a;
+    --vermelho-fundo: #c94435;
+    --sol:      #ffc53d;
+    --sol-fundo: #d9a127;
+    --cinza:    #8fa9bd;
+    --cinza-fundo: #718da3;
+    --r-botao:  16px;
+    --r-caixa:  22px;
+    /* Sem webfont: zero CDN, e vendorizar fonte custaria flash na ESP32. A
+       personalidade vem de peso e tamanho. ui-rounded pega SF Pro Rounded onde
+       existe; no resto, o peso 800 carrega o tom. */
+    --fonte: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+             "Varela Round", Nunito, Quicksand, system-ui, sans-serif;
+  }
+
   * { box-sizing: border-box; }
+
   body {
     margin: 0; height: 100vh; display: flex; flex-direction: column;
-    font-family: system-ui, sans-serif; background: #f2f4f7;
+    font-family: var(--fonte); color: var(--tinta); background: var(--ceu);
+    -webkit-font-smoothing: antialiased;
   }
+
   header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 16px; background: #fff; border-bottom: 1px solid #d7dce3;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 20px; background: var(--papel);
+    border-bottom: 3px solid var(--borda);
   }
-  header h1 { font-size: 18px; margin: 0; flex: 1; }
+
+  h1 {
+    font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -.02em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h1 .bolinha {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--verde); box-shadow: inset 0 -3px 0 rgba(0,0,0,.15);
+    position: relative;
+  }
+  /* dois olhinhos no logo — o mesmo bicho que anda na arena */
+  h1 .bolinha::before, h1 .bolinha::after {
+    content: ''; position: absolute; top: 8px; width: 5px; height: 5px;
+    border-radius: 50%; background: #fff;
+  }
+  h1 .bolinha::before { left: 6px; }
+  h1 .bolinha::after  { right: 6px; }
+
+  .espaco { flex: 1; }
+
+  /* ---------- botões físicos ---------- */
+
   button {
-    font-size: 18px; font-weight: 600; padding: 10px 22px;
-    border: none; border-radius: 10px; color: #fff; cursor: pointer;
+    font-family: inherit; font-size: 19px; font-weight: 800;
+    padding: 13px 26px; border: none; border-radius: var(--r-botao);
+    color: #fff; cursor: pointer; letter-spacing: .01em;
+    transition: transform .06s, box-shadow .06s, background .15s;
   }
-  #play { background: #1f9d4d; }
-  #parar { background: #c0392b; }
-  button:disabled { opacity: .45; cursor: default; }
-  #estado { font-size: 14px; color: #667; min-width: 160px; text-align: right; }
-  main { flex: 1; display: flex; min-height: 0; }
-  #editor { flex: 1; min-width: 0; }
+  button:active:not(:disabled) { transform: translateY(4px); }
+  button:focus-visible { outline: 4px solid var(--tinta); outline-offset: 3px; }
+
+  #play   { background: var(--verde);    box-shadow: 0 5px 0 var(--verde-fundo); }
+  #parar  { background: var(--vermelho); box-shadow: 0 5px 0 var(--vermelho-fundo); }
+  #mudo   { background: var(--cinza);    box-shadow: 0 5px 0 var(--cinza-fundo);
+            font-size: 20px; padding: 13px 18px; line-height: 1; }
+  #play:active:not(:disabled),
+  #parar:active:not(:disabled),
+  #mudo:active:not(:disabled) { box-shadow: 0 1px 0 rgba(0,0,0,.2); }
+
+  button:disabled {
+    background: #d6e3ee; color: #9db4c7; box-shadow: 0 5px 0 #c2d3e1;
+    cursor: default;
+  }
+  #mudo.silenciado { background: #c2d3e1; box-shadow: 0 5px 0 #a8bccd; color: #6c8aa5; }
+
+  /* ---------- seletor de nível ---------- */
+  /* Três botões, não um menu suspenso: criança de quatro anos não abre dropdown. */
+
+  #niveis {
+    display: flex; gap: 0; background: #dfeaf4; padding: 5px;
+    border-radius: 18px; box-shadow: inset 0 2px 4px rgba(27,58,87,.12);
+  }
+  #niveis button {
+    font-size: 15px; font-weight: 800; padding: 9px 15px;
+    background: transparent; color: var(--tinta-fraca);
+    border-radius: 13px; box-shadow: none;
+  }
+  #niveis button:active:not(:disabled) { transform: none; }
+  #niveis button[aria-pressed="true"] {
+    background: var(--papel); color: var(--tinta);
+    box-shadow: 0 2px 5px rgba(27,58,87,.18);
+  }
+
+  #estado {
+    font-size: 15px; font-weight: 700; color: var(--tinta-fraca);
+    min-width: 130px; text-align: right;
+  }
+  #erro { color: var(--vermelho); font-size: 15px; font-weight: 700; max-width: 340px; }
+
+  /* ---------- corpo ---------- */
+
+  main { flex: 1; display: flex; min-height: 0; gap: 16px; padding: 16px; }
+
+  #editor {
+    flex: 1; min-width: 0; background: var(--papel);
+    border-radius: var(--r-caixa); overflow: hidden;
+    box-shadow: 0 4px 0 var(--borda);
+  }
+
   #painel {
-    width: 440px; padding: 16px; background: #fff;
-    border-left: 1px solid #d7dce3; display: flex;
-    flex-direction: column; gap: 12px;
+    width: 420px; padding: 18px; background: var(--papel);
+    border-radius: var(--r-caixa); box-shadow: 0 4px 0 var(--borda);
+    display: flex; flex-direction: column; gap: 14px;
   }
-  #arena { width: 100%; aspect-ratio: 1; border-radius: 8px; background: #e9edf2; }
-  #leitura { font-size: 14px; color: #445; }
-  #erro { color: #c0392b; font-size: 14px; min-height: 20px; }
-  #rotulo-nivel { font-size: 14px; color: #445; }
-  #nivel { font-size: 15px; padding: 6px 8px; border-radius: 8px;
-           border: 1px solid #ccd3db; }
-  #mudo { background: #64748b; font-size: 16px; padding: 8px 12px; }
-  #mudo.silenciado { background: #cbd5e1; color: #64748b; }
+
+  #arena {
+    width: 100%; aspect-ratio: 1; border-radius: 18px;
+    background: #e4eef7; border: 3px solid var(--borda);
+  }
+
+  #leitura {
+    font-size: 17px; font-weight: 800; color: var(--tinta);
+    background: #eef5fb; border-radius: 14px; padding: 12px 16px;
+    text-align: center;
+  }
+
+  /* ---------- destaque do bloco ---------- */
   /* O halo do Blockly é discreto demais para uma tela de criança, e não expõe
      classe para estilizar. Marcamos o bloco por conta própria. */
+
   .blocklyDraggable.aceso > .blocklyPath {
-    stroke: #ffb703 !important;
-    stroke-width: 4px !important;
+    stroke: var(--sol) !important;
+    stroke-width: 5px !important;
     animation: pulsar .7s ease-in-out infinite;
   }
   @keyframes pulsar {
     0%, 100% { stroke-opacity: 1; }
-    50%      { stroke-opacity: .35; }
+    50%      { stroke-opacity: .3; }
   }
+
+  /* A fonte dos blocos NÃO se mexe por aqui: o Blockly mede o texto para
+     dimensionar o bloco antes de o CSS valer, e trocar a família depois estoura
+     a borda. Vai pelo tema, em app.js, que ele considera na medição. */
+  /* Caixa de blocos e fundo do editor no mesmo tom do resto. */
+  .blocklyToolboxDiv { background: #f5fafd !important; padding-top: 8px !important; }
+  .blocklyTreeLabel  { font-family: var(--fonte) !important; font-weight: 800 !important;
+                       font-size: 15px !important; }
+  .blocklyFlyoutBackground { fill: #f5fafd !important; }
+
   #confete { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .blocklyDraggable.aceso > .blocklyPath { animation: none; }
+    button { transition: none; }
+  }
+
+  /* Tela estreita: o painel do robô vai para baixo do editor. */
+  @media (max-width: 900px) {
+    main { flex-direction: column; }
+    #painel { width: auto; }
+    header { flex-wrap: wrap; }
+  }
 </style>
 </head>
 <body>
   <header>
-    <h1>Robô de Blocos</h1>
+    <h1><span class="bolinha"></span>Robô de Blocos</h1>
     <span id="erro"></span>
-    <label id="rotulo-nivel">nível
-      <select id="nivel">
-        <option value="pequeno">Pequeno</option>
-        <option value="medio">Médio</option>
-        <option value="grande">Grande</option>
-      </select>
-    </label>
+    <span class="espaco"></span>
+    <div id="niveis" role="group" aria-label="nível">
+      <button type="button" data-nivel="pequeno" aria-pressed="false">Pequeno</button>
+      <button type="button" data-nivel="medio"   aria-pressed="true">Médio</button>
+      <button type="button" data-nivel="grande"  aria-pressed="false">Grande</button>
+    </div>
     <button id="mudo" title="ligar e desligar o som">🔊</button>
     <button id="play">▶ PLAY</button>
     <button id="parar" disabled>■ PARAR</button>

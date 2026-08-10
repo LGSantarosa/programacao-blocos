@@ -16,13 +16,13 @@
 
     ctx.clearRect(0, 0, px, px);
 
-    ctx.fillStyle = '#e9edf2';
+    ctx.fillStyle = '#e4eef7';
     ctx.fillRect(0, 0, px, px);
-    ctx.strokeStyle = '#9aa5b1';
+    ctx.strokeStyle = '#a9c6de';
     ctx.lineWidth = 4;
     ctx.strokeRect(2, 2, px - 4, px - 4);
 
-    ctx.fillStyle = '#b0bac5';
+    ctx.fillStyle = '#b7cee0';
     for (const o of OBSTACULOS) {
       ctx.fillRect(m(o.x0), my(o.y1), m(o.x1 - o.x0), m(o.y1 - o.y0));
     }
@@ -31,7 +31,7 @@
 
     /* feixe do ultrassônico */
     const alcance = Math.min(estado.dist / 100, 4);
-    ctx.strokeStyle = 'rgba(224, 138, 30, .55)';
+    ctx.strokeStyle = 'rgba(255, 197, 61, .75)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(m(estado.x), my(estado.y));

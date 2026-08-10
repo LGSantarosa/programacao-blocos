@@ -77,13 +77,15 @@
     if (tem('esperar')) movimento += bloco('esperar');
 
     var xml = '<xml id="caixa" style="display: none">';
-    xml += '<category name="Movimento" colour="' + COR_MOVIMENTO + '">' + movimento + '</category>';
+    /* Nomes curtos e em verbo: cabem na aba, e uma criança de quatro anos lê
+       "Mover" antes de ler "Movimento". */
+    xml += '<category name="Mover" colour="' + COR_MOVIMENTO + '">' + movimento + '</category>';
     if (tem('repetir')) {
       xml += '<category name="Repetir" colour="' + COR_LACO + '">' +
              bloco('repetir') + '</category>';
     }
     if (tem('se_obstaculo')) {
-      xml += '<category name="Sentidos" colour="' + COR_SENSOR + '">' +
+      xml += '<category name="Sentir" colour="' + COR_SENSOR + '">' +
              bloco('se_obstaculo') + '</category>';
     }
     xml += '</xml>';

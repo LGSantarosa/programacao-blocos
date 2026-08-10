@@ -34,14 +34,17 @@
      para dimensionar o bloco, e trocar a família por fora estoura a borda. */
   var tema = Blockly.Theme.defineTheme('robo', {
     base: Blockly.Themes.Classic,
-    fontStyle: { family: 'system-ui, sans-serif', weight: 'bold', size: 11 },
+    /* 15 e não 11: o Blockly dimensiona o bloco a partir do texto medido,
+       então a fonte é o que engorda a peça toda — e peça grande é o que um
+       dedo de criança acerta. */
+    fontStyle: { family: 'system-ui, sans-serif', weight: 'bold', size: 15 },
   });
 
   var workspace = Blockly.inject('editor', {
     theme: tema,
     toolbox: Niveis.caixaXml(nivel),
     trashcan: true,
-    zoom: { controls: true, startScale: 1.0 },
+    zoom: { controls: true, startScale: 1.1, minScale: 0.6, maxScale: 2.0 },
     grid: { spacing: 22, length: 3, colour: '#dde3ea', snap: true },
   });
 

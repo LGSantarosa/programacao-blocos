@@ -1188,6 +1188,47 @@ test('descer para o Pequeno não corta o valor grande', () => {
     'bolinhas não representam 60, então mostra o número');
 });
 
+test('as duas entradas de girar do Pequeno não aparecem iguais', () => {
+  /* Preencher GRAUS em vez de DIR deixaria as duas mostrando "direita". */
+  const xml = Niveis.caixaXml('pequeno');
+  assert.ok(xml.includes('<field name="DIR">90</field>'), 'faltou o girar à direita');
+  assert.ok(xml.includes('<field name="DIR">-90</field>'), 'faltou o girar à esquerda');
+});
+
+test('o menu do girar acompanha o GRAUS quando cabe nele', () => {
+  const ws = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [
+      { type: 'girar', fields: { GRAUS: -90 } },
+    ] } }, ws);
+  } finally {
+    Blockly.Events.enable();
+  }
+  const b = ws.getBlocksByType('girar', false)[0];
+  Niveis.aplicar(ws, 'pequeno');
+  assert.strictEqual(b.getField('DIR').getText(), '↶ esquerda',
+    'o menu mentiria sobre para que lado o bloco vira');
+});
+
+test('ângulo que não cabe no menu aparece como número, mesmo no Pequeno', () => {
+  const ws = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [
+      { type: 'girar', fields: { GRAUS: 45 } },
+    ] } }, ws);
+  } finally {
+    Blockly.Events.enable();
+  }
+  const b = ws.getBlocksByType('girar', false)[0];
+  Niveis.aplicar(ws, 'pequeno');
+  assert.strictEqual(b.getField('DIR').isVisible(), false,
+    'o menu de duas opções não representa 45 graus');
+  assert.strictEqual(b.getField('GRAUS').isVisible(), true);
+  assert.strictEqual(Number(b.getFieldValue('GRAUS')), 45, 'o valor não pode se perder');
+});
+
 test('nível desconhecido cai no Médio em vez de quebrar', () => {
   assert.strictEqual(Niveis.definicao('inventado'), Niveis.definicao('medio'));
 });
@@ -1267,9 +1308,13 @@ Esperado: FALHA — `Cannot find module '../web/niveis.js'`.
     if (tem('mover_tras'))   movimento += bloco('mover_tras', pre.mover_tras);
     if (tem('girar')) {
       if (nivel === 'pequeno') {
-        /* Duas entradas do mesmo bloco, uma por lado — sem menu para ler. */
-        movimento += bloco('girar', '<field name="GRAUS">90</field>');
-        movimento += bloco('girar', '<field name="GRAUS">-90</field>');
+        /* Duas entradas do mesmo bloco, uma por lado. Preenchemos DIR, não
+           GRAUS: o validador de DIR escreve GRAUS, então uma fonte de verdade
+           só. Preencher GRAUS deixaria o menu no padrão e as duas entradas
+           apareceriam idênticas na tela — dois blocos iguais que viram para
+           lados opostos. */
+        movimento += bloco('girar', '<field name="DIR">90</field>');
+        movimento += bloco('girar', '<field name="DIR">-90</field>');
       } else {
         movimento += bloco('girar');
       }
@@ -1304,6 +1349,23 @@ Esperado: FALHA — `Cannot find module '../web/niveis.js'`.
          o desenho muda: bolinhas para quem não lê, algarismo para quem lê. */
       const n = b.getField('N');
       if (n && n.setModoBolinhas) n.setModoBolinhas(def.bolinhas);
+
+      /* O girar tem dois controles para o mesmo valor. O menu é o que a
+         criança lê por ícone, mas ele só sabe dizer 90 e -90. Um ângulo
+         qualquer, herdado do nível Grande, não cabe nele — e mostrar
+         "direita" num bloco que vira 45 graus seria mentira. Mesma regra das
+         bolinhas: quando o controle simples não representa o valor, mostra o
+         honesto. */
+      const dir = b.getField('DIR'), graus = b.getField('GRAUS');
+      if (dir && graus) {
+        const g = Number(b.getFieldValue('GRAUS'));
+        const cabeNoMenu = (g === 90 || g === -90);
+        if (cabeNoMenu && dir.getValue() !== String(g)) dir.setValue(String(g));
+        if (!campos.GRAUS) {          /* Pequeno e Médio: o menu é o normal */
+          dir.setVisible(cabeNoMenu);
+          graus.setVisible(!cabeNoMenu);
+        }
+      }
       if (b.render) b.render();
     }
   }

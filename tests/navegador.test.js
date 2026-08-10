@@ -71,15 +71,28 @@ test('a criança monta, roda e sobe de nível sem perder nada',
       }
     };
 
-    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB}/` });
-    await espera(5000);
-
     const aval = async (expr) => {
       const r = await cdp.envia('Runtime.evaluate',
         { expression: expr, returnByValue: true, awaitPromise: true });
       if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
       return r.result.value;
     };
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB}/` });
+
+    /* Esperar por condição, não por relógio. Tempo fixo ora sobra, ora falta,
+       e um teste que falha sozinho de vez em quando é quase tão ruim quanto um
+       que passa sem testar nada. */
+    const prontaEm = Date.now() + 30000;
+    let pronta = false;
+    while (Date.now() < prontaEm && !pronta) {
+      pronta = await aval(`document.readyState === 'complete'
+        && typeof Blockly !== 'undefined'
+        && !!Blockly.getMainWorkspace()
+        && !!document.getElementById('play')`).catch(() => false);
+      if (!pronta) await espera(250);
+    }
+    assert.ok(pronta, 'a página não ficou pronta em 30 s');
 
     assert.strictEqual(await aval('document.title'), 'Robô de Blocos');
     assert.strictEqual(await aval('typeof Blockly'), 'object');
@@ -128,7 +141,6 @@ test('a criança monta, roda e sobe de nível sem perder nada',
     await aval(`(() => {
       const ws = Blockly.getMainWorkspace();
       window.__seq = [];
-      if (!ws.__orig) ws.__orig = ws.highlightBlock.bind(ws);
       document.getElementById('play').click();
       const alvo = document.getElementById('editor');
       window.__obs = new MutationObserver(() => {
@@ -143,10 +155,16 @@ test('a criança monta, roda e sobe de nível sem perder nada',
       return 1;
     })()`);
 
-    for (let i = 0; i < 60; i++) {
+    /* Esperar começar antes de esperar terminar: um "parado" lido cedo demais
+       passaria por "já acabou" e o teste aprovaria um programa que nunca rodou. */
+    let comecou = false;
+    for (let i = 0; i < 120; i++) {
+      const e = await aval(`document.getElementById('estado').textContent`);
+      if (e === 'rodando') comecou = true;
+      if (comecou && e !== 'rodando') break;
       await espera(200);
-      if ((await aval(`document.getElementById('estado').textContent`)) !== 'rodando' && i > 3) break;
     }
+    assert.ok(comecou, 'o programa nunca chegou a rodar');
 
     const seq = await aval('JSON.stringify(window.__seq)');
     const blocos = JSON.parse(seq);

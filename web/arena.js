@@ -39,23 +39,6 @@
       my(estado.y + (RAIO_M + alcance) * Math.sin(estado.theta))
     );
     ctx.stroke();
-
-    /* corpo */
-    ctx.fillStyle = '#1f6feb';
-    ctx.beginPath();
-    ctx.arc(m(estado.x), my(estado.y), m(RAIO_M), 0, Math.PI * 2);
-    ctx.fill();
-
-    /* nariz, para a criança ver para onde ele aponta */
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(m(estado.x), my(estado.y));
-    ctx.lineTo(
-      m(estado.x + RAIO_M * Math.cos(estado.theta)),
-      my(estado.y + RAIO_M * Math.sin(estado.theta))
-    );
-    ctx.stroke();
   }
 
   raiz.Arena = { desenhar };

@@ -43,7 +43,9 @@ const PROIBIDO = [
   /* Exclui as palavras-chave: "if (x) {" e "for (…) {" têm a mesma forma que um
      método abreviado e não são um. */
   { nome: 'método abreviado em objeto',
-    re: /^[ \t]+(?!(?:if|for|while|switch|catch|function|return|else|do|try|with)\b)[A-Za-z_$][\w$]*[ \t]*\([^)]*\)[ \t]*\{/m,
+    /* A lista de parâmetros só tem identificadores e vírgulas. Exigir isso
+       evita casar com "setTimeout(function () {", que tem a mesma forma. */
+    re: /^[ \t]+(?!(?:if|for|while|switch|catch|function|return|else|do|try|with)\b)[A-Za-z_$][\w$]*[ \t]*\([A-Za-z0-9_$,\s]*\)[ \t]*\{/m,
     porque: 'escreva "nome: function () {}"' },
   { nome: 'spread / rest', re: /\.\.\./,
     porque: 'use Array.prototype.slice.call()' },
@@ -89,6 +91,24 @@ test('o detector realmente detecta, senão não guarda nada', () => {
     assert.ok(p.re.test(semTextoLivre(amostra)),
       `o padrão de "${p.nome}" não pegou a própria amostra`);
   }
+});
+
+test('chamar função com callback não conta como método abreviado', () => {
+  /* "setTimeout(function () {" tem a mesma forma de um método abreviado, e
+     marcá-lo faria o guarda gritar em código correto — até virar ruído que
+     todo mundo ignora. */
+  const regra = PROIBIDO.find((p) => p.nome === 'método abreviado em objeto');
+  for (const inocente of [
+    '  setTimeout(function () {\n  }, 10);',
+    '  ws.addChangeListener(function (e) {\n  });',
+    '  if (x) {',
+    '  for (var i = 0; i < 3; i++) {',
+  ]) {
+    assert.strictEqual(semTextoLivre(inocente).match(regra.re), null,
+      `falso positivo em: ${inocente.trim()}`);
+  }
+  /* mas o de verdade continua sendo pego */
+  assert.ok(regra.re.test('  metodo(a, b) {\n  }'));
 });
 
 test('comentário sobre const não conta como const', () => {

@@ -75,9 +75,20 @@
 
      Só intervimos quando o layout falhou de fato. Em navegador moderno o flex
      resolve sozinho e cravar medida aqui só atrapalharia. */
+  function medirSvg() {
+    var ed = document.getElementById('editor');
+    var svg = ed ? ed.getElementsByTagName('svg')[0] : null;
+    if (!svg) return { l: 0, a: 0 };
+    var r = svg.getBoundingClientRect();
+    return { l: Math.round(r.width), a: Math.round(r.height) };
+  }
+
   function ajustarTamanho() {
     var ed = document.getElementById('editor');
-    if (ed && (ed.offsetHeight < 100 || ed.offsetWidth < 100)) {
+    /* Mede o SVG do Blockly, não a div: a div tem min-height no CSS e reporta
+       altura mesmo quando o flex não lhe deu espaço de verdade. */
+    var m = medirSvg();
+    if (ed && (m.l < 100 || m.a < 100)) {
       var cab = document.getElementsByTagName('header')[0];
       var painelLado = (painel && window.innerWidth > 900) ? painel.offsetWidth + 16 : 0;
       var altura = window.innerHeight - (cab ? cab.offsetHeight : 0) - 32;
@@ -107,6 +118,32 @@
   }
 
   atualizarMudo();
+
+  /* Abrir com ?diag mostra as medidas da página REAL na tela. Num tablet não
+     há console, e medir a página de teste já provou não bastar: ela difere da
+     real justamente no layout. */
+  if (location.search.indexOf('diag') >= 0) {
+    setTimeout(function () {
+      var ed = document.getElementById('editor');
+      var m = medirSvg();
+      var linhas = [
+        'janela ' + window.innerWidth + 'x' + window.innerHeight,
+        'editor ' + (ed ? ed.offsetWidth + 'x' + ed.offsetHeight : 'sem div'),
+        'svg ' + m.l + 'x' + m.a,
+        'categorias ' + document.querySelectorAll('.blocklyTreeRow').length,
+        'blocos ' + document.querySelectorAll('#editor .blocklyDraggable').length,
+        'flyout ' + (workspace.getFlyout && workspace.getFlyout() ? 'sim' : 'nao'),
+        'nivel ' + nivel,
+        'estado ' + spEstado.textContent
+      ];
+      var cx = document.createElement('div');
+      cx.setAttribute('style',
+        'position:fixed;left:0;bottom:0;right:0;z-index:99;background:#1b3a57;' +
+        'color:#fff;font:14px monospace;padding:8px;white-space:pre-wrap');
+      cx.appendChild(document.createTextNode(linhas.join('  |  ')));
+      document.body.appendChild(cx);
+    }, 1200);
+  }
 
   /* ---------- destaque ---------- */
 

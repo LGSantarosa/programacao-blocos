@@ -42,11 +42,32 @@
   raiz.setDeletable(false);
   raiz.setMovable(false);
 
-  Niveis.aplicar(workspace, nivel);
+  /* A caixa de blocos é um workspace à parte do principal, e é reconstruída
+     toda vez que a criança abre uma categoria. Sem reaplicar o nível ali, a
+     paleta mostra número e texto mesmo no Pequeno: a criança escolhe a peça
+     vendo o que ela não deveria ver, e o bloco só simplifica depois de solto. */
+  function aplicarNaPaleta() {
+    const f = workspace.getFlyout && workspace.getFlyout();
+    if (f) Niveis.aplicar(f.getWorkspace(), nivel);
+  }
+
+  function aplicarNivel() {
+    Niveis.aplicar(workspace, nivel);
+    aplicarNaPaleta();
+  }
+
+  aplicarNivel();
   /* Bloco novo arrastado da caixa também precisa nascer no nível certo. */
   workspace.addChangeListener((e) => {
     if (e.type === Blockly.Events.BLOCK_CREATE) Niveis.aplicar(workspace, nivel);
   });
+
+  const paleta = workspace.getFlyout && workspace.getFlyout();
+  if (paleta) {
+    paleta.getWorkspace().addChangeListener((e) => {
+      if (e.type === Blockly.Events.BLOCK_CREATE) aplicarNaPaleta();
+    });
+  }
 
   atualizarMudo();
 
@@ -220,7 +241,7 @@
     selNivel.value = nivel;
     /* A caixa muda, o programa montado não. */
     workspace.updateToolbox(Niveis.caixaXml(nivel));
-    Niveis.aplicar(workspace, nivel);
+    aplicarNivel();
   });
 
   conectar();

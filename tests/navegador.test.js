@@ -118,6 +118,31 @@ test('a criança monta, roda e sobe de nível sem perder nada',
         .getBlocksByType('mover_frente', false)[0].getField('SEG').isVisible()`),
       false, 'no Pequeno o número não deveria aparecer');
 
+    /* A paleta é um workspace à parte. Se o nível não for aplicado nela, a
+       criança escolhe a peça vendo número e texto que o nível dela esconde. */
+    await aval(`(() => {
+      const tb = Blockly.getMainWorkspace().getToolbox();
+      tb.setSelectedItem(tb.getToolboxItems()[0]);
+      return 1;
+    })()`);
+    await espera(600);
+
+    assert.strictEqual(
+      await aval(`(() => {
+        const f = Blockly.getMainWorkspace().getFlyout();
+        const b = f && f.getWorkspace().getBlocksByType('mover_frente', false)[0];
+        return b ? b.getField('SEG').isVisible() : 'sem bloco na paleta';
+      })()`),
+      false, 'no Pequeno a paleta não deveria mostrar o número');
+
+    assert.strictEqual(
+      await aval(`(() => {
+        const f = Blockly.getMainWorkspace().getFlyout();
+        const b = f && f.getWorkspace().getBlocksByType('mover_frente', false)[0];
+        return b ? b.getField('T1').isVisible() : 'sem bloco na paleta';
+      })()`),
+      false, 'no Pequeno a paleta não deveria mostrar a palavra');
+
     /* Sobe para Médio: o programa continua, o número aparece com o valor. */
     await aval(`(() => {
       const s = document.getElementById('nivel');

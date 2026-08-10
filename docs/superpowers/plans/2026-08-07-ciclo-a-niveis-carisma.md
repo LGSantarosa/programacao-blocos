@@ -480,7 +480,15 @@ A única peça de Blockly sob medida do ciclo.
 - Criar: `web/campos.js`, `tests/campos.test.js`
 
 **Interfaces:**
-- Produz: `Campos.paraBolinhas(n)` — devolve a string de bolinhas; `Campos.registrar()` — registra o campo `field_bolinhas` no Blockly, idempotente.
+- Produz: `Campos.paraBolinhas(n)` — devolve a string de bolinhas, ou o próprio número quando ele não cabe em bolinhas; `Campos.registrar()` — registra o campo `field_bolinhas` no Blockly, idempotente. O campo tem faixa 1 a 100, como na v1, e um modo de exibição: `campo.setModoBolinhas(true|false)`.
+
+**Por que o campo tem modo.** A faixa do `repetir` na v1 é 1 a 100. Se o campo
+de bolinhas fixasse 2 a 5, a criança de 10 anos nunca repetiria mais que cinco
+vezes — o nível Grande perderia capacidade em vez de ganhar. Então o valor
+continua sendo qualquer número de 1 a 100, e o que muda por nível é só o
+desenho: bolinhas no Pequeno, algarismo no Médio e no Grande. Cinco casas de
+bolinhas não representam doze, então acima de cinco o campo mostra o número
+mesmo no Pequeno — honesto, e nada se perde ao descer de nível.
 
 - [ ] **Passo 1: Escrever os testes que devem falhar**
 
@@ -494,19 +502,20 @@ const assert = require('node:assert');
 const Campos = require('../web/campos.js');
 
 test('a quantidade vira bolinhas cheias e vazias', () => {
-  assert.strictEqual(Campos.paraBolinhas(2), '●●○○○');
+  assert.strictEqual(Campos.paraBolinhas(1), '●○○○○');
   assert.strictEqual(Campos.paraBolinhas(3), '●●●○○');
   assert.strictEqual(Campos.paraBolinhas(5), '●●●●●');
 });
 
-test('a faixa é de 2 a 5, e valores fora dela são trazidos para dentro', () => {
-  assert.strictEqual(Campos.paraBolinhas(0), '●●○○○');
-  assert.strictEqual(Campos.paraBolinhas(99), '●●●●●');
+test('acima de cinco o campo mostra o número, porque bolinhas não representam doze', () => {
+  assert.strictEqual(Campos.paraBolinhas(12), '12');
+  assert.strictEqual(Campos.paraBolinhas(100), '100');
 });
 
-test('valor não numérico não estoura', () => {
+test('valor inválido não estoura e cai em uma bolinha', () => {
   assert.doesNotThrow(() => Campos.paraBolinhas(undefined));
-  assert.strictEqual(Campos.paraBolinhas(undefined), '●●○○○');
+  assert.strictEqual(Campos.paraBolinhas(undefined), '●○○○○');
+  assert.strictEqual(Campos.paraBolinhas(0), '●○○○○');
 });
 
 test('registrar() devolve false fora do navegador, em vez de estourar', () => {
@@ -532,17 +541,18 @@ Esperado: FALHA — `Cannot find module '../web/campos.js'`.
 (function (raiz) {
   'use strict';
 
-  /* Cinco casas fixas: as vazias mostram à criança que dá para pedir mais.
-     A largura não muda com o valor, senão o bloco pularia de tamanho a cada
-     clique. */
-  const MIN = 2, MAX = 5;
+  /* A faixa é a da v1: o nível Grande precisa repetir muitas vezes. O que muda
+     por nível é só o desenho. */
+  const MIN = 1, MAX = 100;
+  /* Cinco casas fixas: as vazias mostram à criança que dá para pedir mais, e a
+     largura constante evita o bloco pular de tamanho a cada clique. */
+  const CASAS = 5;
 
   function paraBolinhas(n) {
-    let v = Math.round(Number(n));
-    if (!isFinite(v)) v = MIN;
-    if (v < MIN) v = MIN;
-    if (v > MAX) v = MAX;
-    return '●'.repeat(v) + '○'.repeat(MAX - v);
+    const v = Math.round(Number(n));
+    if (!isFinite(v) || v < 1) return '●' + '○'.repeat(CASAS - 1);
+    if (v > CASAS) return String(v);   /* bolinhas não representam doze */
+    return '●'.repeat(v) + '○'.repeat(CASAS - v);
   }
 
   /* Só faz sentido no navegador, onde Blockly existe. */
@@ -553,19 +563,27 @@ Esperado: FALHA — `Cannot find module '../web/campos.js'`.
     class FieldBolinhas extends Blockly.FieldNumber {
       constructor(valor, opcoes) {
         super(valor, MIN, MAX, 1, undefined, opcoes);
+        this.modoBolinhas = true;
       }
       static fromJson(opcoes) {
         return new FieldBolinhas(opcoes.value, opcoes);
       }
-      /* É isto que troca o algarismo pelas bolinhas na tela. */
-      getText() {
-        return paraBolinhas(this.getValue());
+      /* O nível decide o desenho; o valor é o mesmo nos dois modos. */
+      setModoBolinhas(ligado) {
+        this.modoBolinhas = !!ligado;
+        if (this.sourceBlock_ && this.sourceBlock_.rendered) this.forceRerender();
       }
-      /* Clicar avança a quantidade em vez de abrir teclado numérico —
-         criança de 4 anos não digita. */
+      getText() {
+        return this.modoBolinhas ? paraBolinhas(this.getValue())
+                                 : String(this.getValue());
+      }
+      /* No modo bolinhas, clicar avança a quantidade em vez de abrir teclado
+         numérico — criança de 4 anos não digita. No modo número, o editor
+         normal do Blockly serve. */
       showEditor_() {
+        if (!this.modoBolinhas) return super.showEditor_();
         const v = Math.round(Number(this.getValue()));
-        this.setValue(v >= MAX ? MIN : v + 1);
+        this.setValue(v >= CASAS ? 1 : v + 1);
       }
     }
 
@@ -574,7 +592,7 @@ Esperado: FALHA — `Cannot find module '../web/campos.js'`.
     return true;
   }
 
-  const api = { paraBolinhas, registrar, MIN, MAX };
+  const api = { paraBolinhas, registrar, MIN, MAX, CASAS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Campos = api;
 })(typeof self !== 'undefined' ? self : globalThis);
@@ -1068,13 +1086,21 @@ test('Médio e Grande oferecem os seis blocos', () => {
   }
 });
 
-/* Cria um workspace com um bloco de movimento e um de giro. */
+/* Sem navegador não há DOM, e o evento de criação de bloco do Blockly monta XML
+   com document.createElementNS. Desligar os eventos durante a carga é o que
+   deixa o workspace rodar headless aqui no Node. */
 function bancada() {
   const ws = new Blockly.Workspace();
-  Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [
-    { type: 'mover_frente', fields: { SEG: 0.5, VEL: '200' } },
-    { type: 'girar', fields: { GRAUS: 90 } },
-  ] } }, ws);
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [
+      { type: 'mover_frente', fields: { SEG: 0.5, VEL: '200' } },
+      { type: 'girar', fields: { GRAUS: 90 } },
+      { type: 'repetir', fields: { N: 12 } },
+    ] } }, ws);
+  } finally {
+    Blockly.Events.enable();
+  }
   return ws;
 }
 
@@ -1133,6 +1159,35 @@ test('descer de nível guarda o valor em vez de perder', () => {
   assert.strictEqual(Number(b.getFieldValue('SEG')), 3);
 });
 
+test('o repetir desenha bolinhas no Pequeno e algarismo nos outros', () => {
+  const ws = bancada();
+  const n = ws.getBlocksByType('repetir', false)[0].getField('N');
+  Niveis.aplicar(ws, 'pequeno');
+  assert.strictEqual(n.modoBolinhas, true);
+  Niveis.aplicar(ws, 'medio');
+  assert.strictEqual(n.modoBolinhas, false);
+});
+
+test('a faixa do repetir continua sendo a da v1, para o nível Grande servir', () => {
+  const ws = bancada();
+  const b = ws.getBlocksByType('repetir', false)[0];
+  Niveis.aplicar(ws, 'grande');
+  b.setFieldValue(60, 'N');
+  assert.strictEqual(Number(b.getFieldValue('N')), 60,
+    'o nível Grande precisa repetir mais que cinco vezes');
+});
+
+test('descer para o Pequeno não corta o valor grande', () => {
+  const ws = bancada();
+  const b = ws.getBlocksByType('repetir', false)[0];
+  Niveis.aplicar(ws, 'grande');
+  b.setFieldValue(60, 'N');
+  Niveis.aplicar(ws, 'pequeno');
+  assert.strictEqual(Number(b.getFieldValue('N')), 60);
+  assert.strictEqual(b.getField('N').getText(), '60',
+    'bolinhas não representam 60, então mostra o número');
+});
+
 test('nível desconhecido cai no Médio em vez de quebrar', () => {
   assert.strictEqual(Niveis.definicao('inventado'), Niveis.definicao('medio'));
 });
@@ -1168,16 +1223,19 @@ Esperado: FALHA — `Cannot find module '../web/niveis.js'`.
       /* campo -> visível neste nível? */
       campos: { T1: false, T2: false, SEG: false, VEL: false,
                 DIR: true, GRAUS: false, N: true, CM: true },
+      bolinhas: true,
     },
     medio: {
       blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'repetir', 'se_obstaculo'],
       campos: { T1: true, T2: true, SEG: true, VEL: false,
                 DIR: true, GRAUS: false, N: true, CM: true },
+      bolinhas: false,
     },
     grande: {
       blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'repetir', 'se_obstaculo'],
       campos: { T1: true, T2: true, SEG: true, VEL: true,
                 DIR: false, GRAUS: true, N: true, CM: true },
+      bolinhas: false,
     },
   };
 
@@ -1235,12 +1293,17 @@ Esperado: FALHA — `Cannot find module '../web/niveis.js'`.
   /* Esconder um campo do Blockly não apaga o valor dele — é exatamente por
      isso que subir e descer de nível não perde nada. */
   function aplicar(workspace, nivel) {
-    const campos = definicao(nivel).campos;
+    const def = definicao(nivel);
+    const campos = def.campos;
     for (const b of workspace.getAllBlocks(false)) {
       for (const nome of Object.keys(campos)) {
         const campo = b.getField(nome);
         if (campo) campo.setVisible(campos[nome]);
       }
+      /* O "repetir" é sempre o mesmo campo, com a mesma faixa de 1 a 100. Só
+         o desenho muda: bolinhas para quem não lê, algarismo para quem lê. */
+      const n = b.getField('N');
+      if (n && n.setModoBolinhas) n.setModoBolinhas(def.bolinhas);
       if (b.render) b.render();
     }
   }

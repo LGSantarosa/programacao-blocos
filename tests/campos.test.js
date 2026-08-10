@@ -5,19 +5,20 @@ const assert = require('node:assert');
 const Campos = require('../web/campos.js');
 
 test('a quantidade vira bolinhas cheias e vazias', () => {
-  assert.strictEqual(Campos.paraBolinhas(2), '●●○○○');
+  assert.strictEqual(Campos.paraBolinhas(1), '●○○○○');
   assert.strictEqual(Campos.paraBolinhas(3), '●●●○○');
   assert.strictEqual(Campos.paraBolinhas(5), '●●●●●');
 });
 
-test('a faixa é de 2 a 5, e valores fora dela são trazidos para dentro', () => {
-  assert.strictEqual(Campos.paraBolinhas(0), '●●○○○');
-  assert.strictEqual(Campos.paraBolinhas(99), '●●●●●');
+test('acima de cinco o campo mostra o número, porque bolinhas não representam doze', () => {
+  assert.strictEqual(Campos.paraBolinhas(12), '12');
+  assert.strictEqual(Campos.paraBolinhas(100), '100');
 });
 
-test('valor não numérico não estoura', () => {
+test('valor inválido não estoura e cai em uma bolinha', () => {
   assert.doesNotThrow(() => Campos.paraBolinhas(undefined));
-  assert.strictEqual(Campos.paraBolinhas(undefined), '●●○○○');
+  assert.strictEqual(Campos.paraBolinhas(undefined), '●○○○○');
+  assert.strictEqual(Campos.paraBolinhas(0), '●○○○○');
 });
 
 test('registrar() devolve false fora do navegador, em vez de estourar', () => {

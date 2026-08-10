@@ -4,14 +4,18 @@
 (function (raiz) {
   'use strict';
 
-  const MIN = 2, MAX = 5;
+  /* A faixa é a da v1: o nível Grande precisa repetir muitas vezes. O que muda
+     por nível é só o desenho. */
+  const MIN = 1, MAX = 100;
+  /* Cinco casas fixas: as vazias mostram à criança que dá para pedir mais, e a
+     largura constante evita o bloco pular de tamanho a cada clique. */
+  const CASAS = 5;
 
   function paraBolinhas(n) {
-    let v = Math.round(Number(n));
-    if (!isFinite(v)) v = MIN;
-    if (v < MIN) v = MIN;
-    if (v > MAX) v = MAX;
-    return '●'.repeat(v) + '○'.repeat(MAX - v);
+    const v = Math.round(Number(n));
+    if (!isFinite(v) || v < 1) return '●' + '○'.repeat(CASAS - 1);
+    if (v > CASAS) return String(v);   /* bolinhas não representam doze */
+    return '●'.repeat(v) + '○'.repeat(CASAS - v);
   }
 
   /* Só faz sentido no navegador, onde Blockly existe. */
@@ -22,19 +26,27 @@
     class FieldBolinhas extends Blockly.FieldNumber {
       constructor(valor, opcoes) {
         super(valor, MIN, MAX, 1, undefined, opcoes);
+        this.modoBolinhas = true;
       }
       static fromJson(opcoes) {
         return new FieldBolinhas(opcoes.value, opcoes);
       }
-      /* É isto que troca o algarismo pelas bolinhas na tela. */
-      getText() {
-        return paraBolinhas(this.getValue());
+      /* O nível decide o desenho; o valor é o mesmo nos dois modos. */
+      setModoBolinhas(ligado) {
+        this.modoBolinhas = !!ligado;
+        if (this.sourceBlock_ && this.sourceBlock_.rendered) this.forceRerender();
       }
-      /* Clicar avança a quantidade em vez de abrir teclado numérico —
-         criança de 4 anos não digita. */
+      getText() {
+        return this.modoBolinhas ? paraBolinhas(this.getValue())
+                                 : String(this.getValue());
+      }
+      /* No modo bolinhas, clicar avança a quantidade em vez de abrir teclado
+         numérico — criança de 4 anos não digita. No modo número, o editor
+         normal do Blockly serve. */
       showEditor_() {
+        if (!this.modoBolinhas) return super.showEditor_();
         const v = Math.round(Number(this.getValue()));
-        this.setValue(v >= MAX ? MIN : v + 1);
+        this.setValue(v >= CASAS ? 1 : v + 1);
       }
     }
 
@@ -43,7 +55,7 @@
     return true;
   }
 
-  const api = { paraBolinhas, registrar, MIN, MAX };
+  const api = { paraBolinhas, registrar, MIN, MAX, CASAS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Campos = api;
 })(typeof self !== 'undefined' ? self : globalThis);

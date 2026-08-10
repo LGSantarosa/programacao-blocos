@@ -65,6 +65,19 @@
     aplicarNaPaleta();
   }
 
+  /* O Blockly se redimensiona sozinho via ResizeObserver, que não existe no
+     Safari do iOS 9. Sem isso o workspace nasce com tamanho zero — e um
+     workspace de tamanho zero não desenha caixa de blocos nenhuma, sem dar
+     erro. Avisar na mão é o remédio, e não custa nada em navegador novo. */
+  function ajustarTamanho() {
+    if (Blockly.svgResize) Blockly.svgResize(workspace);
+  }
+  window.addEventListener('resize', ajustarTamanho);
+  window.addEventListener('orientationchange', ajustarTamanho);
+  /* Depois do layout assentar: na hora do inject o div ainda pode medir zero. */
+  setTimeout(ajustarTamanho, 0);
+  setTimeout(ajustarTamanho, 300);
+
   aplicarNivel();
   /* Bloco novo arrastado da caixa também precisa nascer no nível certo. */
   workspace.addChangeListener(function (e) {

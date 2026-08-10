@@ -100,8 +100,10 @@
   main { flex: 1; display: flex; min-height: 0; padding: 16px; }
   #editor { margin-right: 16px; }
 
+  /* min-height explícito: em coluna, um flex item pode encolher a zero, e o
+     Blockly some junto sem reclamar. */
   #editor {
-    flex: 1; min-width: 0; background: #ffffff;
+    flex: 1; min-width: 0; min-height: 320px; background: #ffffff;
     border-radius: 22px; overflow: hidden;
     box-shadow: 0 4px 0 #cfe0ee;
   }

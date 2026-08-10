@@ -2,12 +2,19 @@
 (function (raiz) {
   'use strict';
 
-  /* Cores dos blocos. O "quando apertar PLAY" é o mesmo verde do botão PLAY:
-     liga o bloco ao gesto, que é uma relação de verdade e não enfeite.
-     Laço em laranja é a convenção que a criança reencontra depois no Scratch. */
-  var COR_MOVIMENTO = '#3e8fe0';
-  var COR_LACO      = '#f5a623';
-  var COR_SENSOR    = '#a26bd8';
+  /* Paleta da Educação Criativa, medida do logo da própria plataforma:
+     azul royal #0050f0, ciano #20b0f0, navy #002080 e amarelo #f0c000.
+
+     Mover em azul e Sentir em ciano é a mesma escolha do Scratch, onde
+     movimento e sensores são dois azuis vizinhos — perto o bastante para
+     parecerem família, distintos o bastante para não confundir.
+
+     O "quando apertar PLAY" fica verde, igual ao botão PLAY: liga o bloco ao
+     gesto. Verde de partida é convenção que a criança encontra em todo lugar,
+     então não vale trocar por cor de marca. */
+  var COR_MOVIMENTO = '#0050f0';
+  var COR_LACO      = '#f0c000';
+  var COR_SENSOR    = '#20b0f0';
   var COR_INICIO    = '#37c26b';
 
   /* Num lugar só: os dois blocos de movimento oferecem as mesmas opções, e

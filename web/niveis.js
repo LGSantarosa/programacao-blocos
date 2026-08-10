@@ -9,7 +9,7 @@
 
   /* Precisa bater com web/blocos.js: a cor da categoria na caixa e a cor do
      bloco que sai dela são a mesma coisa para a criança. */
-  var COR_MOVIMENTO = '#3e8fe0', COR_LACO = '#f5a623', COR_SENSOR = '#a26bd8';
+  var COR_MOVIMENTO = '#0050f0', COR_LACO = '#f0c000', COR_SENSOR = '#20b0f0';
 
   /* T1 e T2 são as palavras dos blocos. Elas são campos justamente para poderem
      sumir no Pequeno — se fossem texto cru do message0, sobrariam na tela

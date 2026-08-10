@@ -225,6 +225,10 @@ docs/superpowers/                         specs e planos de implementação
 `web/vendor/README.md`). Nunca por CDN: a ESP32 serve esses arquivos sem
 acesso à internet, e a versão 8 é a última que abre em tablet antigo.
 
+`web/img/foguete.png` é a marca da Educação Criativa, e a paleta da interface
+sai dela: azul royal `#0050f0`, ciano `#20b0f0`, navy `#002080` e amarelo
+`#f0c000`.
+
 ---
 
 ## Hardware

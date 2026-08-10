@@ -2,7 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { paraLinhaDoRobo, paraQuadroDoNavegador, montarQuadro } =
+const http = require('node:http');
+const { servidor, paraLinhaDoRobo, paraQuadroDoNavegador, montarQuadro } =
   require('../bridge/server.js');
 
 test('LOAD vira uma linha L com o programa em hex', () => {
@@ -73,4 +74,29 @@ test('quadro longo usa cabeçalho estendido de 4 bytes', () => {
   assert.strictEqual(q.length, 1798);
   assert.strictEqual(q[1], 126);
   assert.strictEqual(q.readUInt16BE(2), 1794);
+});
+
+/* O servidor de arquivos nunca tinha teste, e escondia um defeito: a raiz com
+   query string caía no ramo de arquivo e tentava ler o diretório web/, dando
+   404 em algo que existe. Aconteceu de verdade com "/?diag". */
+test('a raiz responde, com ou sem query string', async () => {
+  await new Promise((ok) => servidor.listen(0, '127.0.0.1', ok));
+  const porta = servidor.address().port;
+
+  const pegar = (caminho) => new Promise((ok) => {
+    http.get({ host: '127.0.0.1', port: porta, path: caminho }, (r) => {
+      r.resume();
+      ok(r.statusCode);
+    });
+  });
+
+  try {
+    assert.strictEqual(await pegar('/'), 200, 'a raiz nua deveria abrir');
+    assert.strictEqual(await pegar('/?diag'), 200, 'a raiz com query deveria abrir');
+    assert.strictEqual(await pegar('/index.html'), 200);
+    assert.strictEqual(await pegar('/app.js?v=2'), 200, 'arquivo com query deveria abrir');
+    assert.strictEqual(await pegar('/nao-existe.js'), 404);
+  } finally {
+    await new Promise((ok) => servidor.close(ok));
+  }
 });

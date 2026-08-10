@@ -24,7 +24,11 @@ const TIPOS = {
 /* ---------- HTTP: arquivos estáticos ---------- */
 
 const servidor = http.createServer((req, res) => {
-  const caminho = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+  /* Tira a query ANTES de decidir: "/?diag" não é igual a "/", e comparar
+     antes fazia a raiz com query cair no ramo de arquivo e tentar ler o
+     diretório web/ — 404 em algo que existe. */
+  const semQuery = req.url.split('?')[0];
+  const caminho = (semQuery === '/' || semQuery === '') ? '/index.html' : semQuery;
   const arquivo = path.join(RAIZ_WEB, path.normalize(decodeURIComponent(caminho)));
   if (!arquivo.startsWith(RAIZ_WEB)) {
     res.writeHead(403).end('proibido');

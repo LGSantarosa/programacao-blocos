@@ -62,9 +62,13 @@
     if (tem('mover_tras'))   movimento += bloco('mover_tras', pre.mover_tras);
     if (tem('girar')) {
       if (nivel === 'pequeno') {
-        /* Duas entradas do mesmo bloco, uma por lado — sem menu para ler. */
-        movimento += bloco('girar', '<field name="GRAUS">90</field>');
-        movimento += bloco('girar', '<field name="GRAUS">-90</field>');
+        /* Duas entradas do mesmo bloco, uma por lado. Preenchemos DIR, não
+           GRAUS: o validador de DIR escreve GRAUS, então uma fonte de verdade
+           só. Preencher GRAUS deixaria o menu no padrão e as duas entradas
+           apareceriam idênticas na tela — dois blocos iguais que viram para
+           lados opostos. */
+        movimento += bloco('girar', '<field name="DIR">90</field>');
+        movimento += bloco('girar', '<field name="DIR">-90</field>');
       } else {
         movimento += bloco('girar');
       }
@@ -99,6 +103,23 @@
          o desenho muda: bolinhas para quem não lê, algarismo para quem lê. */
       const n = b.getField('N');
       if (n && n.setModoBolinhas) n.setModoBolinhas(def.bolinhas);
+
+      /* O girar tem dois controles para o mesmo valor. O menu é o que a
+         criança lê por ícone, mas ele só sabe dizer 90 e -90. Um ângulo
+         qualquer, herdado do nível Grande, não cabe nele — e mostrar
+         "direita" num bloco que vira 45 graus seria mentira. Mesma regra das
+         bolinhas: quando o controle simples não representa o valor, mostra o
+         honesto. */
+      const dir = b.getField('DIR'), graus = b.getField('GRAUS');
+      if (dir && graus) {
+        const g = Number(b.getFieldValue('GRAUS'));
+        const cabeNoMenu = (g === 90 || g === -90);
+        if (cabeNoMenu && dir.getValue() !== String(g)) dir.setValue(String(g));
+        if (!campos.GRAUS) {          /* Pequeno e Médio: o menu é o normal */
+          dir.setVisible(cabeNoMenu);
+          graus.setVisible(!cabeNoMenu);
+        }
+      }
       if (b.render) b.render();
     }
   }

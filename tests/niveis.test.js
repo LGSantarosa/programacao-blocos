@@ -139,6 +139,47 @@ test('descer para o Pequeno não corta o valor grande', () => {
     'bolinhas não representam 60, então mostra o número');
 });
 
+test('as duas entradas de girar do Pequeno não aparecem iguais', () => {
+  /* Preencher GRAUS em vez de DIR deixaria as duas mostrando "direita". */
+  const xml = Niveis.caixaXml('pequeno');
+  assert.ok(xml.includes('<field name="DIR">90</field>'), 'faltou o girar à direita');
+  assert.ok(xml.includes('<field name="DIR">-90</field>'), 'faltou o girar à esquerda');
+});
+
+test('o menu do girar acompanha o GRAUS quando cabe nele', () => {
+  const ws = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [
+      { type: 'girar', fields: { GRAUS: -90 } },
+    ] } }, ws);
+  } finally {
+    Blockly.Events.enable();
+  }
+  const b = ws.getBlocksByType('girar', false)[0];
+  Niveis.aplicar(ws, 'pequeno');
+  assert.strictEqual(b.getField('DIR').getText(), '↶ esquerda',
+    'o menu mentiria sobre para que lado o bloco vira');
+});
+
+test('ângulo que não cabe no menu aparece como número, mesmo no Pequeno', () => {
+  const ws = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [
+      { type: 'girar', fields: { GRAUS: 45 } },
+    ] } }, ws);
+  } finally {
+    Blockly.Events.enable();
+  }
+  const b = ws.getBlocksByType('girar', false)[0];
+  Niveis.aplicar(ws, 'pequeno');
+  assert.strictEqual(b.getField('DIR').isVisible(), false,
+    'o menu de duas opções não representa 45 graus');
+  assert.strictEqual(b.getField('GRAUS').isVisible(), true);
+  assert.strictEqual(Number(b.getFieldValue('GRAUS')), 45, 'o valor não pode se perder');
+});
+
 test('nível desconhecido cai no Médio em vez de quebrar', () => {
   assert.strictEqual(Niveis.definicao('inventado'), Niveis.definicao('medio'));
 });

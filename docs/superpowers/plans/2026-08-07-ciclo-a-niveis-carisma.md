@@ -1331,7 +1331,7 @@ Esperado: FALHA — `Cannot find module '../web/niveis.js'`.
 - [ ] **Passo 4: Rodar para confirmar que passam**
 
 Rodar: `node --test tests/niveis.test.js`
-Esperado: 10 testes passando.
+Esperado: 13 testes passando.
 
 Se `setVisible` não existir na versão vendorizada do Blockly, conferir com
 `node -e "const B=require('./web/vendor/blockly_compressed.js'); console.log(typeof B.Field.prototype.setVisible)"`.

@@ -94,6 +94,9 @@
     min-width: 130px; text-align: right;
   }
   #erro { color: #f25c4a; font-size: 15px; font-weight: 700; max-width: 340px; }
+  /* Carimbo do servidor. Pequeno, mas é o que diz se o aparelho está mesmo
+     com a versão nova ou servindo cache. */
+  #versao { font-size: 12px; color: #9db4c7; font-family: monospace; }
 
   /* ---------- corpo ---------- */
 
@@ -183,6 +186,7 @@
     <button id="play">▶ PLAY</button>
     <button id="parar" disabled>■ PARAR</button>
     <span id="estado">conectando…</span>
+    <span id="versao" title="versão servida — se não mudar após uma atualização, é cache">%VERSAO%</span>
   </header>
   <main>
     <div id="editor"></div>

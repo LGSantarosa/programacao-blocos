@@ -15,6 +15,22 @@ const GUID_WS = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03;
 const T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83;
 
+/* Carimbo de versão: um resumo do estado real dos arquivos servidos. Injetado
+   no HTML na hora de servir, então o número na tela é sempre o do arquivo que
+   acabou de sair daqui — se a tela mostra um e o servidor diz outro, é cache. */
+function versao() {
+  const alvos = ['index.html'].concat(
+    fs.readdirSync(RAIZ_WEB).filter((f) => f.endsWith('.js')).sort());
+  const h = crypto.createHash('sha1');
+  for (const f of alvos) {
+    try {
+      const st = fs.statSync(path.join(RAIZ_WEB, f));
+      h.update(f + st.size + st.mtimeMs);
+    } catch (_) { /* arquivo sumiu entre listar e medir */ }
+  }
+  return h.digest('hex').slice(0, 7);
+}
+
 const TIPOS = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -38,6 +54,9 @@ const servidor = http.createServer((req, res) => {
     if (erro) {
       res.writeHead(404).end('não encontrado');
       return;
+    }
+    if (path.extname(arquivo) === '.html') {
+      dados = Buffer.from(dados.toString().replace(/%VERSAO%/g, versao()));
     }
     res.writeHead(200, {
       'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream',
@@ -198,4 +217,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { servidor, paraLinhaDoRobo, paraQuadroDoNavegador, montarQuadro };
+module.exports = { servidor, versao, paraLinhaDoRobo, paraQuadroDoNavegador, montarQuadro };

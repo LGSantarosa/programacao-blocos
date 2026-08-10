@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const http = require('node:http');
-const { servidor, paraLinhaDoRobo, paraQuadroDoNavegador, montarQuadro } =
+const { servidor, versao, paraLinhaDoRobo, paraQuadroDoNavegador, montarQuadro } =
   require('../bridge/server.js');
 
 test('LOAD vira uma linha L com o programa em hex', () => {
@@ -96,6 +96,28 @@ test('a raiz responde, com ou sem query string', async () => {
     assert.strictEqual(await pegar('/index.html'), 200);
     assert.strictEqual(await pegar('/app.js?v=2'), 200, 'arquivo com query deveria abrir');
     assert.strictEqual(await pegar('/nao-existe.js'), 404);
+  } finally {
+    await new Promise((ok) => servidor.close(ok));
+  }
+});
+
+test('o HTML sai carimbado com a versão, e o carimbo muda com os arquivos', async () => {
+  await new Promise((ok) => servidor.listen(0, '127.0.0.1', ok));
+  const porta = servidor.address().port;
+
+  const corpo = (caminho) => new Promise((ok) => {
+    http.get({ host: '127.0.0.1', port: porta, path: caminho }, (r) => {
+      let d = '';
+      r.on('data', (c) => (d += c));
+      r.on('end', () => ok(d));
+    });
+  });
+
+  try {
+    const html = await corpo('/');
+    assert.ok(!html.includes('%VERSAO%'), 'o marcador ficou sem substituir');
+    assert.ok(html.includes(versao()), 'o HTML não trouxe a versão atual');
+    assert.match(versao(), /^[a-f0-9]{7}$/);
   } finally {
     await new Promise((ok) => servidor.close(ok));
   }

@@ -221,8 +221,9 @@ tests/                                    tudo acima
 docs/superpowers/                         specs e planos de implementação
 ```
 
-`web/vendor/` traz o Blockly vendorizado. Nunca por CDN: a ESP32 serve esses
-arquivos sem acesso à internet.
+`web/vendor/` traz o Blockly vendorizado (Google, Apache 2.0 — ver
+`web/vendor/README.md`). Nunca por CDN: a ESP32 serve esses arquivos sem
+acesso à internet, e a versão 8 é a última que abre em tablet antigo.
 
 ---
 

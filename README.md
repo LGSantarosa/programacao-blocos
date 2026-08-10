@@ -245,13 +245,30 @@ ESP32 DevKit, driver TB6612FNG, dois motores DC com redução, roda boba,
 
 ---
 
+## Missões
+
+Uma estrela aparece na arena e a missão é levar o robô até ela. São cinco, em
+ordem crescente de dificuldade, e a última leva de volta à primeira.
+
+**A estrela não existe na física.** O navegador já recebe a posição do robô pela
+telemetria e já sabe onde desenhou a estrela, então a chegada se decide em
+`web/missoes.js` — sem tocar em `core/vm.c`, sem byte novo no protocolo, sem
+mexer na ESP32.
+
+A consequência é assumida: missão é coisa do robô virtual. O robô real não manda
+telemetria, e ninguém sabe onde ele está na sala. Ensaiar é o que o virtual faz
+de melhor.
+
+O raio de acerto é generoso (16 cm) de propósito: o robô real erra alguns graus
+por giro e o virtual imita esse erro, então exigir precisão de centímetro
+transformaria a missão em sorte.
+
 ## O que vem depois
 
-- **Mundo com conteúdo** — vários cenários, estrelas para coletar, rastro do
-  caminho. Exige antes que a arena vire dado: hoje a lista de obstáculos está
-  escrita à mão em dois lugares, `physics.c` e `arena.js`, e elas podem divergir
-  em silêncio.
-- **Missões** — objetivos com validação. Depende do anterior.
+- **Mundo com conteúdo** — vários cenários e rastro do caminho. Exige antes que
+  a arena vire dado: hoje a lista de obstáculos está escrita à mão em dois
+  lugares, `physics.c` e `arena.js`, e elas podem divergir em silêncio. As
+  estrelas das missões já são dado, mas a arena em volta delas não.
 - **A ponte para o real** — trocar de alvo na interface, persistência em NVS e
   autostart ao ligar a placa. Espera o hardware existir.
 - **Salvar e carregar projetos da criança.**

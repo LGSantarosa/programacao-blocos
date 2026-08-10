@@ -135,6 +135,18 @@
     background: #fdf3dc; border: 3px solid #c5dcf3; display: block;
   }
 
+  /* A missão fica acima da arena: é o que a criança lê antes de montar. */
+  #missao {
+    width: 100%; background: #0050f0; color: #fff; border-radius: 14px;
+    padding: 10px 12px; text-align: center; font-weight: 800; font-size: 16px;
+  }
+  #missao.cumprida { background: #37c26b; }
+  #proxima {
+    display: block; width: 100%; margin-top: 8px; font-size: 16px;
+    padding: 10px 14px; background: #fff; color: #0050f0; box-shadow: 0 4px 0 #cfe0ee;
+  }
+  #proxima:active { box-shadow: 0 1px 0 #cfe0ee; }
+
   #leitura {
     width: 100%;
     font-size: 16px; font-weight: 800; color: #002080;
@@ -221,6 +233,10 @@
   <main>
     <div id="editor"></div>
     <aside id="painel">
+      <div id="missao">
+        <span id="missao-texto">…</span>
+        <button id="proxima" type="button" hidden>próxima ▸</button>
+      </div>
       <canvas id="arena" width="400" height="400"></canvas>
       <div id="leitura">distância: —</div>
     </aside>
@@ -250,6 +266,7 @@
   <script src="niveis.js"></script>
   <script src="robo.js"></script>
   <script src="blocos.js"></script>
+  <script src="missoes.js"></script>
   <script src="rede.js"></script>
   <script src="arena.js"></script>
   <script src="app.js"></script>

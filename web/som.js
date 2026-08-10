@@ -19,13 +19,18 @@
   var ctx = null;
 
   var temArmazenamento = typeof localStorage !== 'undefined';
-  if (temArmazenamento) mudoAgora = localStorage.getItem(CHAVE) === '1';
+  try {
+    if (temArmazenamento) mudoAgora = localStorage.getItem(CHAVE) === '1';
+  } catch (e) { /* sem acesso: começa com som */ }
 
   function mudo() { return mudoAgora; }
 
   function alternarMudo() {
     mudoAgora = !mudoAgora;
-    if (temArmazenamento) localStorage.setItem(CHAVE, mudoAgora ? '1' : '0');
+    /* O Safari em navegação privada tem localStorage mas lança ao gravar. */
+    try {
+      if (temArmazenamento) localStorage.setItem(CHAVE, mudoAgora ? '1' : '0');
+    } catch (e) { /* só a memória desta sessão, e tudo bem */ }
     return mudoAgora;
   }
 

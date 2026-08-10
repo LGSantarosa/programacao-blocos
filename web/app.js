@@ -12,6 +12,9 @@
   var ctx = document.getElementById('arena').getContext('2d');
   var painel = document.getElementById('painel');
   var confete = document.getElementById('confete');
+  var caixaMissao = document.getElementById('missao');
+  var txtMissao = document.getElementById('missao-texto');
+  var btProxima = document.getElementById('proxima');
 
   var mapaPc = [];
   var blocoAceso = null;
@@ -20,6 +23,8 @@
   var poseAtual = null;
   var rodando = false;
 
+  var missao = Missoes.daVez(Missoes.atual());
+  var cumpriu = false;
   var tColisao = -Infinity, tFim = -Infinity, tParado = Date.now();
   var pediuParar = false;
   var confetes = [];
@@ -134,6 +139,31 @@
   }
 
   atualizarMudo();
+  mostrarMissao();
+
+  /* ---------- missão ---------- */
+
+  function mostrarMissao() {
+    txtMissao.textContent = missao.texto;
+    caixaMissao.className = '';
+    btProxima.hidden = true;
+  }
+
+  function cumprirMissao() {
+    if (cumpriu) return;
+    cumpriu = true;
+    txtMissao.textContent = 'Conseguiu!';
+    caixaMissao.className = 'cumprida';
+    btProxima.hidden = false;
+    Som.tocar('fim');
+    soltarConfete();
+  }
+
+  btProxima.addEventListener('click', function () {
+    missao = Missoes.daVez(Missoes.avancar());
+    cumpriu = false;
+    mostrarMissao();
+  });
 
   /* Abrir com ?diag mostra as medidas da página REAL na tela. Num tablet não
      há console, e medir a página de teste já provou não bastar: ela difere da
@@ -238,7 +268,7 @@
 
   function quadro() {
     var agora = Date.now();
-    Arena.desenhar(ctx, poseAtual);
+    Arena.desenhar(ctx, poseAtual, missao);
     if (poseAtual) {
       var qual = Robo.reacao({
         msDesdeColisao: agora - tColisao,
@@ -307,6 +337,9 @@
           Som.tocar('batida');
         }
         divLeitura.textContent = 'distância: ' + t.dist + ' cm';
+        /* A estrela não existe na física: quem decide a chegada é aqui, com a
+           posição que a telemetria já traz. */
+        if (Missoes.chegou(t, missao)) cumprirMissao();
       },
     });
   }

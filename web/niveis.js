@@ -134,14 +134,24 @@
   var CHAVE = 'robo_nivel';
   var temArmazenamento = typeof localStorage !== 'undefined';
 
+  var emMemoria = null;
+
   function atual() {
-    var v = temArmazenamento ? localStorage.getItem(CHAVE) : null;
-    return LISTA.indexOf(v) >= 0 ? v : 'medio';
+    var v = null;
+    try {
+      if (temArmazenamento) v = localStorage.getItem(CHAVE);
+    } catch (e) { /* sem acesso */ }
+    if (LISTA.indexOf(v) >= 0) return v;
+    return LISTA.indexOf(emMemoria) >= 0 ? emMemoria : 'medio';
   }
 
   function definir(nivel) {
     var v = LISTA.indexOf(nivel) >= 0 ? nivel : 'medio';
-    if (temArmazenamento) localStorage.setItem(CHAVE, v);
+    emMemoria = v;
+    /* O Safari em navegação privada tem localStorage mas lança ao gravar. */
+    try {
+      if (temArmazenamento) localStorage.setItem(CHAVE, v);
+    } catch (e) { /* só a memória, e tudo bem */ }
     return v;
   }
 

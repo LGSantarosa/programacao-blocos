@@ -8,7 +8,7 @@
   var RAIO_M = 0.08;
   var OBSTACULOS = [{ x0: 0.80, y0: 1.40, x1: 1.20, y1: 1.60 }];
 
-  function desenhar(ctx, estado) {
+  function desenhar(ctx, estado, alvo) {
     var px = ctx.canvas.width;
     var m = function (v) { return (v / LADO_M) * px; };
     /* y do canvas cresce para baixo; y da arena cresce para cima */
@@ -27,6 +27,10 @@
       ctx.fillRect(m(o.x0), my(o.y1), m(o.x1 - o.x0), m(o.y1 - o.y0));
     }
 
+    /* A estrela da missão. Desenhada antes do feixe e do robô para eles
+       passarem por cima dela, como um objeto no chão. */
+    if (alvo) desenharEstrela(ctx, m(alvo.x), my(alvo.y), m(0.075));
+
     if (!estado) return;
 
     /* feixe do ultrassônico */
@@ -42,5 +46,23 @@
     ctx.stroke();
   }
 
-  raiz.Arena = { desenhar };
+  /* Cinco pontas, desenhadas por ângulo. Sem imagem: um PNG a mais custaria
+     flash na placa, e a estrela precisa poder mudar de tamanho com a tela. */
+  function desenharEstrela(ctx, cx, cy, raio) {
+    var pontas = 5, giro = -Math.PI / 2, passo = Math.PI / pontas;
+    ctx.beginPath();
+    for (var i = 0; i < pontas * 2; i++) {
+      var r = (i % 2 === 0) ? raio : raio * 0.45;
+      ctx.lineTo(cx + Math.cos(giro) * r, cy + Math.sin(giro) * r);
+      giro += passo;
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#f0c000';
+    ctx.fill();
+    ctx.strokeStyle = '#c79f00';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  raiz.Arena = { desenhar: desenhar };
 })(typeof self !== 'undefined' ? self : globalThis);

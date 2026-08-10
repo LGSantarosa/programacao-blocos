@@ -140,7 +140,7 @@ test('dá para chegar na estrela em toda missão', () => {
 
 test('o labirinto tem paredes, senão não é labirinto', () => {
   const maze = Missoes.LISTA[Missoes.LISTA.length - 1];
-  assert.ok(maze.obstaculos.length >= 3,
+  assert.ok(maze.obstaculos.length >= 2,
     'a última fase deveria ser o labirinto');
   assert.notStrictEqual(maze.obstaculos, Missoes.BLOCO);
 });

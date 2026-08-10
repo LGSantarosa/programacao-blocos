@@ -16,31 +16,60 @@
   /* O bloco do meio, que era a arena única do projeto. */
   var BLOCO = [{ x0: 0.80, y0: 1.40, x1: 1.20, y1: 1.60 }];
 
-  /* Um labirinto de corredores. Cada parede é um retângulo; a largura livre
-     entre elas é 0.36 m, contra os 0.16 m de diâmetro do robô — folga para
-     uma criança errar alguns graus no giro e ainda passar. */
+  /* Labirinto em S: duas paredes compridas, uma com passagem em cima e outra
+     com passagem embaixo. Obriga a planejar um caminho de quatro pernas.
+
+     As passagens têm 60 cm de vão contra os 16 cm de diâmetro do robô. A
+     primeira versão tinha quatro paredes e vãos de 28 cm — no papel cabia, na
+     prática o robô raspava, porque cada giro erra alguns graus e o erro se
+     acumula. Folga generosa não é desperdício aqui, é o que separa desafio de
+     loteria. */
   var LABIRINTO = [
-    { x0: 0.44, y0: 0.00, x1: 0.60, y1: 1.28 },
-    { x0: 0.96, y0: 0.44, x1: 1.12, y1: 2.00 },
-    { x0: 1.48, y0: 0.00, x1: 1.64, y1: 1.28 },
-    { x0: 0.44, y0: 1.56, x1: 1.12, y1: 1.72 }
+    { x0: 0.50, y0: 0.00, x1: 0.66, y1: 1.40 },
+    { x0: 1.10, y0: 0.60, x1: 1.26, y1: 2.00 }
   ];
 
   var INICIO_PADRAO = { x: 1.00, y: 0.40, theta: Math.PI / 2 };
-  var INICIO_LABIRINTO = { x: 0.22, y: 0.22, theta: Math.PI / 2 };
+  var INICIO_LABIRINTO = { x: 0.25, y: 0.25, theta: Math.PI / 2 };
 
+  /* O gabarito é feito do mesmo passo curto que o nível Pequeno usa: 0,5 s de
+     movimento, ~11,7 cm. Assim ele funciona igual nos três níveis, e ensina de
+     passagem que mais blocos é mais longe — em vez de esconder a resposta num
+     número que a criança de quatro anos não lê.
+
+     Cada passo é { andar: n } ou { girar: graus }. Um "andar" com n > 1 vira um
+     bloco repetir; com n = 1 vira um bloco só. */
   var LISTA = [
     { texto: 'Leve o robô até a estrela', x: 1.00, y: 1.15,
-      inicio: INICIO_PADRAO, obstaculos: BLOCO },
+      inicio: INICIO_PADRAO, obstaculos: BLOCO,
+      gabarito: [{ andar: 6 }] },
+
     { texto: 'Agora a estrela está do lado', x: 1.60, y: 0.40,
-      inicio: INICIO_PADRAO, obstaculos: BLOCO },
+      inicio: INICIO_PADRAO, obstaculos: BLOCO,
+      gabarito: [{ girar: 90 }, { andar: 5 }] },
+
     { texto: 'Chegue no cantinho de cima', x: 1.62, y: 1.62,
-      inicio: INICIO_PADRAO, obstaculos: BLOCO },
+      inicio: INICIO_PADRAO, obstaculos: BLOCO,
+      gabarito: [{ girar: 90 }, { andar: 5 }, { girar: -90 }, { andar: 10 }] },
+
     { texto: 'A estrela está atrás do bloco', x: 1.00, y: 1.82,
-      inicio: INICIO_PADRAO, obstaculos: BLOCO },
-    { texto: 'Saia do labirinto', x: 1.80, y: 1.80,
-      inicio: INICIO_LABIRINTO, obstaculos: LABIRINTO }
+      inicio: INICIO_PADRAO, obstaculos: BLOCO,
+      gabarito: [{ girar: 90 }, { andar: 5 }, { girar: -90 }, { andar: 12 },
+                 { girar: -90 }, { andar: 5 }] },
+
+    { texto: 'Saia do labirinto', x: 1.75, y: 1.75,
+      inicio: INICIO_LABIRINTO, obstaculos: LABIRINTO,
+      gabarito: [{ andar: 12 }, { girar: 90 }, { andar: 5 }, { girar: 90 },
+                 { andar: 11 }, { girar: -90 }, { andar: 7 }, { girar: -90 },
+                 { andar: 12 }] }
   ];
+
+  /* Quantos passos em falso antes de oferecer o gabarito. Três é o número que
+     separa "ainda tentando" de "travou": duas tentativas ainda é exploração. */
+  var TENTATIVAS_ATE_AJUDA = 3;
+
+  /* O passo curto do gabarito, em segundos. Bate com o do nível Pequeno. */
+  var PASSO_S = 0.5;
 
   /* Perto o bastante para valer. Generoso de propósito: o robô real erra
      alguns graus por giro, e o virtual imita esse erro — exigir precisão de
@@ -104,7 +133,8 @@
 
   function avancar() { return definir(atual() + 1); }
 
-  var api = { LISTA: LISTA, RAIO: RAIO, BLOCO: BLOCO, LABIRINTO: LABIRINTO, quantas: quantas, daVez: daVez,
+  var api = { LISTA: LISTA, RAIO: RAIO, BLOCO: BLOCO, LABIRINTO: LABIRINTO,
+              TENTATIVAS_ATE_AJUDA: TENTATIVAS_ATE_AJUDA, PASSO_S: PASSO_S, quantas: quantas, daVez: daVez,
               chegou: chegou, atual: atual, definir: definir, avancar: avancar };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Missoes = api;

@@ -194,6 +194,13 @@ node --test tests/                  # compilador, bridge, níveis, som, navegado
 cd firmware && pio run && cd ..     # o firmware compila
 ```
 
+O mais lento deles é `tests/gabaritos.test.js`, uns três minutos: ele monta cada
+gabarito, aperta PLAY e vê se a missão é cumprida — as cinco fases nos três
+níveis. Vale o tempo. Um gabarito que não resolve é pior que gabarito nenhum,
+porque a criança que travou segue a resposta, não funciona, e conclui que o erro
+é dela. E isso não dá para conferir no papel: as duas primeiras versões que
+escrevi pareciam certas e raspavam na parede.
+
 O `node --test tests/` inclui um teste que **dirige um Chromium de verdade** por
 CDP, com cliente WebSocket escrito à mão — sem npm, como o resto do projeto. Ele
 monta um programa, troca de nível, aperta PLAY e confere quais blocos acendem.
@@ -262,6 +269,16 @@ de melhor.
 O raio de acerto é generoso (16 cm) de propósito: o robô real erra alguns graus
 por giro e o virtual imita esse erro, então exigir precisão de centímetro
 transformaria a missão em sorte.
+
+Depois de três tentativas sem chegar, aparece **"me mostra como faz"**: o
+gabarito se monta sozinho no espaço de trabalho, e a criança aperta PLAY e
+assiste. Vem montado em bloco, e não descrito em palavras, porque quem ainda
+não lê precisa ver a peça.
+
+O gabarito é uma trilha só, desenhada conforme o nível: no Pequeno vira pilha de
+passos curtos dentro de um `repetir`, que é o vocabulário dele; no Médio e no
+Grande vira um bloco com os segundos somados, que é como alguém que lê número
+escreveria.
 
 **Cada missão traz a própria arena** — onde o robô nasce e o que há no caminho —
 e a última é um labirinto. A arena deixou de ser constante compilada: o

@@ -150,6 +150,15 @@
      isto o botão fica visível o tempo todo — a criança pula a missão sem ter
      cumprido. */
   #proxima[hidden] { display: none; }
+  /* Só aparece depois de algumas tentativas: oferecer a resposta cedo demais
+     tira da criança a parte que ensina. */
+  #gabarito {
+    display: block; width: 100%; margin-top: 8px; font-size: 15px;
+    padding: 10px 12px; background: #f0c000; color: #4a3a00;
+    box-shadow: 0 4px 0 #c79f00;
+  }
+  #gabarito:active { box-shadow: 0 1px 0 #c79f00; }
+  #gabarito[hidden] { display: none; }
 
   #leitura {
     width: 100%;
@@ -240,6 +249,7 @@
       <div id="missao">
         <span id="missao-texto">…</span>
         <button id="proxima" type="button" hidden>próxima ▸</button>
+        <button id="gabarito" type="button" hidden>me mostra como faz</button>
       </div>
       <canvas id="arena" width="400" height="400"></canvas>
       <div id="leitura">distância: —</div>

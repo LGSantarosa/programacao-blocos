@@ -15,6 +15,7 @@
   var caixaMissao = document.getElementById('missao');
   var txtMissao = document.getElementById('missao-texto');
   var btProxima = document.getElementById('proxima');
+  var btGabarito = document.getElementById('gabarito');
 
   var mapaPc = [];
   var blocoAceso = null;
@@ -25,6 +26,7 @@
 
   var missao = Missoes.daVez(Missoes.atual());
   var cumpriu = false;
+  var tentativas = 0;
   var tColisao = -Infinity, tFim = -Infinity, tParado = Date.now();
   var confetes = [];
 
@@ -146,6 +148,7 @@
     txtMissao.textContent = missao.texto;
     caixaMissao.className = '';
     btProxima.hidden = true;
+    btGabarito.hidden = tentativas < Missoes.TENTATIVAS_ATE_AJUDA;
     enviarArena();
   }
 
@@ -168,7 +171,53 @@
   btProxima.addEventListener('click', function () {
     missao = Missoes.daVez(Missoes.avancar());
     cumpriu = false;
+    tentativas = 0;
     mostrarMissao();
+  });
+
+  /* Monta o gabarito no espaço de trabalho em vez de descrever em palavras: a
+     criança que ainda não lê precisa ver a peça, não a instrução. Ela aperta
+     PLAY e assiste — depois pode desmontar e mexer. */
+  /* Monta o gabarito no espaço de trabalho em vez de descrever em palavras: a
+     criança que ainda não lê precisa ver a peça, não a instrução. Ela aperta
+     PLAY e assiste — depois pode desmontar e mexer.
+
+     A trilha é uma só, mas o desenho muda com o nível: no Pequeno vira uma
+     pilha de passos curtos dentro de um repetir, que é o vocabulário dela; no
+     Médio e no Grande vira um bloco só com os segundos somados, que é como
+     alguém que lê número escreveria. Mesmo caminho, mesma distância, escrito
+     na língua de quem está olhando. */
+  function blocoAndar(passos) {
+    var mover = { type: 'mover_frente',
+                  fields: { SEG: Missoes.PASSO_S, VEL: '200' } };
+    if (nivel === 'pequeno') {
+      return (passos > 1)
+        ? { type: 'repetir', fields: { N: passos },
+            inputs: { CORPO: { block: mover } } }
+        : mover;
+    }
+    /* Arredonda para o décimo, que é a precisão do campo. */
+    var segundos = Math.round(passos * Missoes.PASSO_S * 10) / 10;
+    return { type: 'mover_frente', fields: { SEG: segundos, VEL: '200' } };
+  }
+
+  btGabarito.addEventListener('click', function () {
+    var passos = missao.gabarito || [];
+    var corpo = null, ultimo = null;
+    for (var i = 0; i < passos.length; i++) {
+      var p = passos[i];
+      var bloco = p.andar
+        ? blocoAndar(p.andar)
+        : { type: 'girar', fields: { DIR: String(p.girar), GRAUS: p.girar } };
+      if (!corpo) { corpo = bloco; ultimo = bloco; }
+      else { ultimo.next = { block: bloco }; ultimo = bloco; }
+    }
+    var raizNova = { type: 'quando_play', x: 40, y: 30 };
+    if (corpo) raizNova.inputs = { CORPO: { block: corpo } };
+    Blockly.serialization.workspaces.load(
+      { blocks: { languageVersion: 0, blocks: [raizNova] } }, workspace);
+    aplicarNivel();
+    Som.tocar('play');
   });
 
   /* Abrir com ?diag mostra as medidas da página REAL na tela. Num tablet não
@@ -294,6 +343,13 @@
 
   function definirRodando(estaRodando) {
     if (rodando && !estaRodando) {
+      /* Rodou e não chegou: uma tentativa. Depois de algumas, a ajuda aparece
+         sozinha — sem a criança precisar pedir, que é justamente o que quem
+         travou não faz. */
+      if (!cumpriu) {
+        tentativas++;
+        if (tentativas >= Missoes.TENTATIVAS_ATE_AJUDA) btGabarito.hidden = false;
+      }
       /* Sem festa aqui. O programa acabar não é vencer: vencer é chegar na
          estrela, e quem comemora é cumprirMissao(). Comemorar todo fim de
          execução premiaria rodar qualquer coisa e esvaziaria o sentido da

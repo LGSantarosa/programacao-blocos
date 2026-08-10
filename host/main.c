@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -48,6 +49,37 @@ static void processar_linha(char *l) {
         }
         vm_load(&vm, prog_bytes, (uint16_t)(len / 2));
         pc_enviado = 0xFFFF;
+    } else if (l[0] == 'A') {
+        /* A <x_mm> <y_mm> <theta_decigraus> <n> <x0 y0 x1 y1>*n — a fase.
+           Tudo em milímetros: inteiro atravessa o protocolo sem arredondar
+           diferente dos dois lados. */
+        double px = 0, py = 0, pt = 0;
+        int n = 0, lidos = 0;
+        char *p = l + 1;
+        long v[4 + MAX_OBSTACULOS * 4];
+        while (lidos < (int)(sizeof(v) / sizeof(v[0]))) {
+            char *fim;
+            long x = strtol(p, &fim, 10);
+            if (fim == p) break;
+            v[lidos++] = x;
+            p = fim;
+        }
+        if (lidos < 4) return;
+        px = v[0] / 1000.0; py = v[1] / 1000.0;
+        pt = (v[2] / 10.0) * M_PI / 180.0;
+        n  = (int)v[3];
+        if (n < 0) n = 0;
+        if (n > MAX_OBSTACULOS) n = MAX_OBSTACULOS;
+        if (lidos < 4 + n * 4) return;      /* mensagem cortada: ignora inteira */
+        FisRect r[MAX_OBSTACULOS];
+        for (int i = 0; i < n; i++) {
+            r[i].x0 = v[4 + i * 4 + 0] / 1000.0;
+            r[i].y0 = v[4 + i * 4 + 1] / 1000.0;
+            r[i].x1 = v[4 + i * 4 + 2] / 1000.0;
+            r[i].y1 = v[4 + i * 4 + 3] / 1000.0;
+        }
+        fis_definir_arena(px, py, pt, r, n);
+        fis_init();
     } else if (l[0] == 'R') {
         fis_init();
         vm_run(&vm);

@@ -3,7 +3,7 @@
 (function (raiz) {
   'use strict';
 
-  var T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03;
+  var T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03, T_ARENA = 0x04;
   var T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83;
 
   function conectar(url, manipuladores) {
@@ -51,6 +51,28 @@
         new DataView(quadro.buffer).setUint16(1, bytes.length / 7, true);
         quadro.set(bytes, 3);
         ws.send(quadro);
+      },
+      /* Manda a fase: onde o robô nasce e o que há no caminho. Em milímetros,
+         porque inteiro atravessa o protocolo sem os dois lados arredondarem
+         diferente. */
+      arena: function (inicio, obstaculos) {
+        if (!pronto()) return;
+        var n = obstaculos ? obstaculos.length : 0;
+        var q = new Uint8Array(8 + n * 8);
+        var d = new DataView(q.buffer);
+        d.setUint8(0, T_ARENA);
+        d.setInt16(1, Math.round(inicio.x * 1000), true);
+        d.setInt16(3, Math.round(inicio.y * 1000), true);
+        d.setInt16(5, Math.round(inicio.theta * 180 / Math.PI * 10), true);
+        d.setUint8(7, n);
+        for (var i = 0; i < n; i++) {
+          var o = obstaculos[i], b = 8 + i * 8;
+          d.setInt16(b + 0, Math.round(o.x0 * 1000), true);
+          d.setInt16(b + 2, Math.round(o.y0 * 1000), true);
+          d.setInt16(b + 4, Math.round(o.x1 * 1000), true);
+          d.setInt16(b + 6, Math.round(o.y1 * 1000), true);
+        }
+        ws.send(q);
       },
       rodar: function () { if (pronto()) ws.send(new Uint8Array([T_RUN])); },
       parar: function () { if (pronto()) ws.send(new Uint8Array([T_STOP])); },

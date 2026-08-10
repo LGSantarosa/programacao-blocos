@@ -6,9 +6,13 @@
 
   var LADO_M = 2.0;           /* precisa bater com ARENA_LADO em physics.h */
   var RAIO_M = 0.08;
-  var OBSTACULOS = [{ x0: 0.80, y0: 1.40, x1: 1.20, y1: 1.60 }];
+  /* A arena vem de fora, junto com a missão. Antes esta lista era constante e
+     tinha uma gêmea no physics.c — duas cópias da mesma verdade, livres para
+     divergirem em silêncio. Agora existe uma só, em missoes.js, e as duas
+     pontas a recebem. */
+  var OBSTACULOS = [];
 
-  function desenhar(ctx, estado, alvo) {
+  function desenhar(ctx, estado, alvo, obstaculos) {
     var px = ctx.canvas.width;
     var m = function (v) { return (v / LADO_M) * px; };
     /* y do canvas cresce para baixo; y da arena cresce para cima */
@@ -23,7 +27,8 @@
     ctx.strokeRect(2, 2, px - 4, px - 4);
 
     ctx.fillStyle = '#20b0f0';
-    for (var o of OBSTACULOS) {
+    var lista = obstaculos || OBSTACULOS;
+    for (var o of lista) {
       ctx.fillRect(m(o.x0), my(o.y1), m(o.x1 - o.x0), m(o.y1 - o.y0));
     }
 

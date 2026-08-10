@@ -204,9 +204,12 @@ test('a criança monta, roda e sobe de nível sem perder nada',
     assert.strictEqual(
       await aval(`document.getElementById('missao').className`), '',
       'a missão foi dada como cumprida sem o robô chegar na estrela');
+    /* hidden no atributo não basta: uma regra de display no CSS vence a do
+       navegador e o botão aparece assim mesmo. Quem decide é o que se vê. */
     assert.strictEqual(
-      await aval(`document.getElementById('proxima').hidden`), true,
-      'o botão de próxima missão apareceu sem a missão ter sido cumprida');
+      await aval(`getComputedStyle(document.getElementById('proxima')).display`),
+      'none',
+      'o botão de próxima missão está visível sem a missão ter sido cumprida');
 
     assert.deepStrictEqual(erros, [], 'o console do navegador acusou erro');
 

@@ -263,12 +263,22 @@ O raio de acerto é generoso (16 cm) de propósito: o robô real erra alguns gra
 por giro e o virtual imita esse erro, então exigir precisão de centímetro
 transformaria a missão em sorte.
 
+**Cada missão traz a própria arena** — onde o robô nasce e o que há no caminho —
+e a última é um labirinto. A arena deixou de ser constante compilada: o
+navegador manda a fase pelo protocolo (quadro `0x04`, linha `A` no texto) e a
+física troca de cenário sem recompilar.
+
+O teste que mais importa aqui não é o de geometria, é o de **alcance**: ele varre
+a arena numa grade de 2 cm e espalha a partir do robô, andando só por onde o
+corpo dele cabe. Estrela em espaço livre e robô em espaço livre não garantem
+nada — as paredes podem selar o caminho entre os dois, e nenhuma outra
+verificação pega isso.
+
 ## O que vem depois
 
-- **Mundo com conteúdo** — vários cenários e rastro do caminho. Exige antes que
-  a arena vire dado: hoje a lista de obstáculos está escrita à mão em dois
-  lugares, `physics.c` e `arena.js`, e elas podem divergir em silêncio. As
-  estrelas das missões já são dado, mas a arena em volta delas não.
+- **Rastro do caminho percorrido**, para a criança ver por onde o robô passou.
+- **Mais fases**, agora que a arena é dado: acrescentar uma é uma entrada em
+  `web/missoes.js`, e o teste de alcance diz na hora se ela tem solução.
 - **A ponte para o real** — trocar de alvo na interface, persistência em NVS e
   autostart ao ligar a placa. Espera o hardware existir.
 - **Salvar e carregar projetos da criança.**

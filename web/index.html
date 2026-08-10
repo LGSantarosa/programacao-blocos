@@ -146,6 +146,10 @@
     padding: 10px 14px; background: #fff; color: #0050f0; box-shadow: 0 4px 0 #cfe0ee;
   }
   #proxima:active { box-shadow: 0 1px 0 #cfe0ee; }
+  /* display:block acima vence a regra padrão do navegador para [hidden], e sem
+     isto o botão fica visível o tempo todo — a criança pula a missão sem ter
+     cumprido. */
+  #proxima[hidden] { display: none; }
 
   #leitura {
     width: 100%;

@@ -12,7 +12,7 @@ const PORTA = Number(process.env.PORTA || 8080);
 
 const GUID_WS = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
-const T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03;
+const T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03, T_ARENA = 0x04;
 const T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83;
 
 /* Carimbo de versão: um resumo do estado real dos arquivos servidos. Injetado
@@ -153,6 +153,16 @@ function paraLinhaDoRobo(carga) {
       const n = carga.readUInt16LE(1);
       if (carga.length !== 3 + n * 7) return null;
       return `L ${carga.subarray(3).toString('hex')}`;
+    }
+    case T_ARENA: {
+      /* 0x04 x(i16) y(i16) theta(i16) n(u8) depois n*4 int16, tudo em mm. */
+      if (carga.length < 8) return null;
+      const n = carga.readUInt8(7);
+      if (carga.length !== 8 + n * 8) return null;
+      const p = [carga.readInt16LE(1), carga.readInt16LE(3),
+                 carga.readInt16LE(5), n];
+      for (let i = 0; i < n * 4; i++) p.push(carga.readInt16LE(8 + i * 2));
+      return 'A ' + p.join(' ');
     }
     case T_RUN:  return 'R';
     case T_STOP: return 'S';

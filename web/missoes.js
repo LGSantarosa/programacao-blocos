@@ -13,12 +13,33 @@
   /* Metros, na arena de 2 x 2. O robô nasce em (1.0, 0.40) apontando para
      cima, e o obstáculo ocupa de (0.80, 1.40) a (1.20, 1.60) — nenhuma estrela
      cai em cima dele nem em cima do robô. */
+  /* O bloco do meio, que era a arena única do projeto. */
+  var BLOCO = [{ x0: 0.80, y0: 1.40, x1: 1.20, y1: 1.60 }];
+
+  /* Um labirinto de corredores. Cada parede é um retângulo; a largura livre
+     entre elas é 0.36 m, contra os 0.16 m de diâmetro do robô — folga para
+     uma criança errar alguns graus no giro e ainda passar. */
+  var LABIRINTO = [
+    { x0: 0.44, y0: 0.00, x1: 0.60, y1: 1.28 },
+    { x0: 0.96, y0: 0.44, x1: 1.12, y1: 2.00 },
+    { x0: 1.48, y0: 0.00, x1: 1.64, y1: 1.28 },
+    { x0: 0.44, y0: 1.56, x1: 1.12, y1: 1.72 }
+  ];
+
+  var INICIO_PADRAO = { x: 1.00, y: 0.40, theta: Math.PI / 2 };
+  var INICIO_LABIRINTO = { x: 0.22, y: 0.22, theta: Math.PI / 2 };
+
   var LISTA = [
-    { texto: 'Leve o robô até a estrela', x: 1.00, y: 1.15 },
-    { texto: 'Agora a estrela está do lado', x: 1.60, y: 0.40 },
-    { texto: 'Chegue no cantinho de cima', x: 1.62, y: 1.62 },
-    { texto: 'A estrela está atrás do bloco', x: 1.00, y: 1.82 },
-    { texto: 'Volte lá para trás', x: 0.35, y: 0.32 }
+    { texto: 'Leve o robô até a estrela', x: 1.00, y: 1.15,
+      inicio: INICIO_PADRAO, obstaculos: BLOCO },
+    { texto: 'Agora a estrela está do lado', x: 1.60, y: 0.40,
+      inicio: INICIO_PADRAO, obstaculos: BLOCO },
+    { texto: 'Chegue no cantinho de cima', x: 1.62, y: 1.62,
+      inicio: INICIO_PADRAO, obstaculos: BLOCO },
+    { texto: 'A estrela está atrás do bloco', x: 1.00, y: 1.82,
+      inicio: INICIO_PADRAO, obstaculos: BLOCO },
+    { texto: 'Saia do labirinto', x: 1.80, y: 1.80,
+      inicio: INICIO_LABIRINTO, obstaculos: LABIRINTO }
   ];
 
   /* Perto o bastante para valer. Generoso de propósito: o robô real erra
@@ -83,7 +104,7 @@
 
   function avancar() { return definir(atual() + 1); }
 
-  var api = { LISTA: LISTA, RAIO: RAIO, quantas: quantas, daVez: daVez,
+  var api = { LISTA: LISTA, RAIO: RAIO, BLOCO: BLOCO, LABIRINTO: LABIRINTO, quantas: quantas, daVez: daVez,
               chegou: chegou, atual: atual, definir: definir, avancar: avancar };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Missoes = api;

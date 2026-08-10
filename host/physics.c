@@ -5,22 +5,37 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-typedef struct { double x0, y0, x1, y1; } Rect;
+typedef FisRect Rect;
 
-/* Arena da v1: um obstáculo retangular no meio. Sem editor por enquanto. */
-static const Rect obstaculos[] = {
+/* A arena é dado, não constante: o navegador manda a fase antes de rodar.
+   Estes valores são só o padrão de quando ninguém mandou nada — um obstáculo
+   no meio, que é a arena com que o projeto nasceu. */
+static Rect obstaculos[MAX_OBSTACULOS] = {
     { 0.80, 1.40, 1.20, 1.60 }
 };
-static const int n_obstaculos = (int)(sizeof(obstaculos) / sizeof(obstaculos[0]));
+static int n_obstaculos = 1;
+
+/* Onde o robô nasce. fis_init() volta para cá, e um labirinto precisa que a
+   entrada dele seja o começo. */
+static double ini_x = 1.0, ini_y = 0.40, ini_ang = M_PI / 2;
+
+void fis_definir_arena(double x, double y, double theta,
+                       const FisRect *obst, int n) {
+    ini_x = x; ini_y = y; ini_ang = theta;
+    if (n < 0) n = 0;
+    if (n > MAX_OBSTACULOS) n = MAX_OBSTACULOS;
+    for (int i = 0; i < n; i++) obstaculos[i] = obst[i];
+    n_obstaculos = n;
+}
 
 static double  pos_x, pos_y, ang;
 static int16_t mot_esq, mot_dir;
 static int     bateu;
 
 void fis_init(void) {
-    pos_x = 1.0;
-    pos_y = 0.40;
-    ang   = M_PI / 2;
+    pos_x = ini_x;
+    pos_y = ini_y;
+    ang   = ini_ang;
     mot_esq = mot_dir = 0;
     bateu = 0;
 }

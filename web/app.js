@@ -146,6 +146,12 @@
     txtMissao.textContent = missao.texto;
     caixaMissao.className = '';
     btProxima.hidden = true;
+    enviarArena();
+  }
+
+  /* A física precisa saber a fase, senão o robô atravessa parede desenhada. */
+  function enviarArena() {
+    if (robo && robo.arena) robo.arena(missao.inicio, missao.obstaculos);
   }
 
   function cumprirMissao() {
@@ -268,7 +274,9 @@
 
   function quadro() {
     var agora = Date.now();
-    Arena.desenhar(ctx, poseAtual, missao);
+    /* Some ao ser pega: é a única confirmação que a criança vê no momento
+       exato em que o robô encosta, antes mesmo de ler o painel. */
+    Arena.desenhar(ctx, poseAtual, cumpriu ? null : missao, missao.obstaculos);
     if (poseAtual) {
       var qual = Robo.reacao({
         msDesdeColisao: agora - tColisao,
@@ -305,6 +313,9 @@
       aoConectar: function () {
         spEstado.textContent = 'parado';
         btPlay.disabled = false;
+        /* Cada conexão sobe um robô virtual novo, com a arena padrão: ele
+           precisa saber em que fase estamos. */
+        enviarArena();
       },
       aoDesconectar: function () {
         spEstado.textContent = 'desconectado';

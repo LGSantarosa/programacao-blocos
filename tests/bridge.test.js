@@ -21,6 +21,34 @@ test('LOAD com tamanho inconsistente é descartado', () => {
   assert.strictEqual(paraLinhaDoRobo(carga), null);
 });
 
+test('ARENA vira a linha A, em milímetros', () => {
+  /* 0x04 x y theta n, depois n retângulos. Tudo int16 little-endian. */
+  const c = Buffer.alloc(8 + 8);
+  c[0] = 0x04;
+  c.writeInt16LE(1000, 1);   /* x = 1,000 m */
+  c.writeInt16LE(400, 3);    /* y = 0,400 m */
+  c.writeInt16LE(900, 5);    /* 90,0 graus  */
+  c.writeUInt8(1, 7);
+  c.writeInt16LE(800, 8); c.writeInt16LE(1400, 10);
+  c.writeInt16LE(1200, 12); c.writeInt16LE(1600, 14);
+  assert.strictEqual(paraLinhaDoRobo(c), 'A 1000 400 900 1 800 1400 1200 1600');
+});
+
+test('ARENA sem obstáculo nenhum é válida', () => {
+  const c = Buffer.alloc(8);
+  c[0] = 0x04;
+  c.writeInt16LE(220, 1); c.writeInt16LE(220, 3); c.writeInt16LE(900, 5);
+  c.writeUInt8(0, 7);
+  assert.strictEqual(paraLinhaDoRobo(c), 'A 220 220 900 0');
+});
+
+test('ARENA com tamanho inconsistente é descartada', () => {
+  const c = Buffer.alloc(8 + 8);
+  c[0] = 0x04;
+  c.writeUInt8(5, 7);        /* diz 5 retângulos, traz 1 */
+  assert.strictEqual(paraLinhaDoRobo(c), null);
+});
+
 test('RUN e STOP viram R e S', () => {
   assert.strictEqual(paraLinhaDoRobo(Buffer.from([0x02])), 'R');
   assert.strictEqual(paraLinhaDoRobo(Buffer.from([0x03])), 'S');

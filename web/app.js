@@ -102,10 +102,27 @@
     if (id) marcar(id, true);
   }
 
+  /* Duas armadilhas do Safari antigo, as duas neste ponto:
+     - classList não existe em elemento SVG antes do Safari 10, e getSvgRoot()
+       devolve um <g>;
+     - o segundo argumento de toggle() também só chegou no Safari 10.
+     Mexer no atributo class na mão funciona em qualquer navegador. */
+  function marcarClasse(el, nome, ligado) {
+    if (!el) return;
+    var atual = el.getAttribute('class') || '';
+    var partes = atual.split(/\s+/);
+    var fora = [];
+    for (var i = 0; i < partes.length; i++) {
+      if (partes[i] && partes[i] !== nome) fora.push(partes[i]);
+    }
+    if (ligado) fora.push(nome);
+    el.setAttribute('class', fora.join(' '));
+  }
+
   function marcar(id, ligado) {
     var b = workspace.getBlockById(id);
     if (!b || !b.getSvgRoot) return;
-    b.getSvgRoot().classList.toggle('aceso', ligado);
+    marcarClasse(b.getSvgRoot(), 'aceso', ligado);
   }
 
   /* ---------- confete ---------- */
@@ -250,7 +267,7 @@
   function atualizarMudo() {
     var m = Som.mudo();
     btMudo.textContent = m ? '🔇' : '🔊';
-    btMudo.classList.toggle('silenciado', m);
+    marcarClasse(btMudo, 'silenciado', m);
   }
 
   btMudo.addEventListener('click', function () {

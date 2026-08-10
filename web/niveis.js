@@ -44,7 +44,6 @@
     pequeno: {
       mover_frente: '<field name="SEG">0.5</field>',
       mover_tras:   '<field name="SEG">0.5</field>',
-      girar:        null,   /* tratado à parte: são duas entradas */
     },
   };
 

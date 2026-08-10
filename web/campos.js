@@ -44,7 +44,13 @@
          numérico — criança de 4 anos não digita. No modo número, o editor
          normal do Blockly serve. */
       showEditor_() {
-        if (!this.modoBolinhas) return super.showEditor_();
+        /* Um valor que não cabe em bolinhas também não se edita por cliques:
+           avançar de um em um seria interminável e voltar para 1 apagaria o
+           número que a criança escolheu num nível acima. Mesma regra do
+           desenho — quando o controle simples não serve, entrega o honesto. */
+        if (!this.modoBolinhas || Number(this.getValue()) > CASAS) {
+          return super.showEditor_();
+        }
         const v = Math.round(Number(this.getValue()));
         this.setValue(v >= CASAS ? 1 : v + 1);
       }

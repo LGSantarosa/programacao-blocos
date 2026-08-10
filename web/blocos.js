@@ -7,6 +7,10 @@
   const COR_SENSOR = 20;
   const COR_INICIO = 40;
 
+  /* Num lugar só: os dois blocos de movimento oferecem as mesmas opções, e
+     duplicá-las é como elas divergiriam. */
+  const VELOCIDADES = [['normal', '200'], ['devagar', '120'], ['rápido', '255']];
+
   let extensaoPronta = false;
 
   /* GRAUS é a fonte de verdade; o menu direita/esquerda é só um editor
@@ -48,9 +52,7 @@
           { type: 'field_label', name: 'T1', text: 'andar frente' },
           { type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 },
           { type: 'field_label', name: 'T2', text: 's' },
-          { type: 'field_dropdown', name: 'VEL', options: [
-            ['normal', '200'], ['devagar', '120'], ['rápido', '255'],
-          ] },
+          { type: 'field_dropdown', name: 'VEL', options: VELOCIDADES },
         ],
         previousStatement: null,
         nextStatement: null,
@@ -64,9 +66,7 @@
           { type: 'field_label', name: 'T1', text: 'andar trás' },
           { type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 },
           { type: 'field_label', name: 'T2', text: 's' },
-          { type: 'field_dropdown', name: 'VEL', options: [
-            ['normal', '200'], ['devagar', '120'], ['rápido', '255'],
-          ] },
+          { type: 'field_dropdown', name: 'VEL', options: VELOCIDADES },
         ],
         previousStatement: null,
         nextStatement: null,

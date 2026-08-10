@@ -26,3 +26,10 @@ test('registrar() devolve false fora do navegador, em vez de estourar', () => {
   assert.doesNotThrow(() => Campos.registrar());
   assert.strictEqual(Campos.registrar(), false);
 });
+
+test('clicar num valor que não cabe em bolinhas não o apaga', () => {
+  /* Um 12 herdado do nível Grande não pode virar 1 por um clique — seria
+     perder o que a criança escolheu sem ela pedir. */
+  assert.strictEqual(Campos.paraBolinhas(12), '12');
+  assert.ok(Campos.CASAS === 5, 'a regra depende de CASAS ser 5');
+});

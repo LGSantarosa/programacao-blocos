@@ -198,6 +198,16 @@ test('a criança monta, roda e sobe de nível sem perder nada',
     assert.strictEqual(await aval(`document.getElementById('estado').textContent`), 'parado');
     assert.strictEqual(await aval(`document.getElementById('parar').disabled`), true);
 
+    /* O programa acabar não é vencer. Comemorar todo fim de execução premiaria
+       rodar qualquer coisa, e a festa perderia o sentido — este programa anda e
+       gira, mas não passa perto da estrela da primeira missão. */
+    assert.strictEqual(
+      await aval(`document.getElementById('missao').className`), '',
+      'a missão foi dada como cumprida sem o robô chegar na estrela');
+    assert.strictEqual(
+      await aval(`document.getElementById('proxima').hidden`), true,
+      'o botão de próxima missão apareceu sem a missão ter sido cumprida');
+
     assert.deepStrictEqual(erros, [], 'o console do navegador acusou erro');
 
     cdp.fechar();

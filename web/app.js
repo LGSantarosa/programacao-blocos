@@ -26,7 +26,6 @@
   var missao = Missoes.daVez(Missoes.atual());
   var cumpriu = false;
   var tColisao = -Infinity, tFim = -Infinity, tParado = Date.now();
-  var pediuParar = false;
   var confetes = [];
 
   Campos.registrar();
@@ -155,6 +154,7 @@
     txtMissao.textContent = 'Conseguiu!';
     caixaMissao.className = 'cumprida';
     btProxima.hidden = false;
+    tFim = Date.now();            /* o pulinho do robô */
     Som.tocar('fim');
     soltarConfete();
   }
@@ -286,18 +286,12 @@
 
   function definirRodando(estaRodando) {
     if (rodando && !estaRodando) {
+      /* Sem festa aqui. O programa acabar não é vencer: vencer é chegar na
+         estrela, e quem comemora é cumprirMissao(). Comemorar todo fim de
+         execução premiaria rodar qualquer coisa e esvaziaria o sentido da
+         festa — o mesmo motivo pelo qual o PARAR também não comemora. */
       tParado = Date.now();
-      /* O robô para do mesmo jeito quando o programa acaba e quando a criança
-         aperta PARAR — o protocolo manda o mesmo E 0 nos dois casos. Só o
-         navegador sabe a diferença, e ela importa: comemorar uma desistência
-         premia desistir e esvazia o sentido da festa. */
-      if (!pediuParar) {
-        tFim = Date.now();
-        Som.tocar('fim');
-        soltarConfete();
-      }
     }
-    pediuParar = false;
     rodando = estaRodando;
     btPlay.disabled = estaRodando || !robo || !robo.pronto();
     btParar.disabled = !estaRodando;
@@ -316,7 +310,6 @@
         spEstado.textContent = 'desconectado';
         /* Cair a conexão no meio de uma execução não é terminar o programa. */
         rodando = false;
-        pediuParar = false;
         btPlay.disabled = true;
         btParar.disabled = true;
         setTimeout(conectar, 1500);
@@ -364,10 +357,7 @@
     robo.rodar();
   });
 
-  btParar.addEventListener('click', function () {
-    pediuParar = true;
-    robo.parar();
-  });
+  btParar.addEventListener('click', function () { robo.parar(); });
 
   function atualizarMudo() {
     var m = Som.mudo();

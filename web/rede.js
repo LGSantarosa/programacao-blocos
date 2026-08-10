@@ -3,19 +3,19 @@
 (function (raiz) {
   'use strict';
 
-  const T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03;
-  const T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83;
+  var T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03;
+  var T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83;
 
   function conectar(url, manipuladores) {
-    const ws = new WebSocket(url);
+    var ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 
-    ws.onopen = () => manipuladores.aoConectar && manipuladores.aoConectar();
-    ws.onclose = () => manipuladores.aoDesconectar && manipuladores.aoDesconectar();
-    ws.onerror = () => manipuladores.aoDesconectar && manipuladores.aoDesconectar();
+    ws.onopen = function () { if (manipuladores.aoConectar) manipuladores.aoConectar(); };
+    ws.onclose = function () { if (manipuladores.aoDesconectar) manipuladores.aoDesconectar(); };
+    ws.onerror = function () { if (manipuladores.aoDesconectar) manipuladores.aoDesconectar(); };
 
-    ws.onmessage = (ev) => {
-      const d = new DataView(ev.data);
+    ws.onmessage = function (ev) {
+      var d = new DataView(ev.data);
       if (d.byteLength === 0) return;
       switch (d.getUint8(0)) {
         case T_PC:
@@ -46,7 +46,7 @@
       pronto,
       carregar(bytes) {
         if (!pronto()) return;
-        const quadro = new Uint8Array(3 + bytes.length);
+        var quadro = new Uint8Array(3 + bytes.length);
         new DataView(quadro.buffer).setUint8(0, T_LOAD);
         new DataView(quadro.buffer).setUint16(1, bytes.length / 7, true);
         quadro.set(bytes, 3);

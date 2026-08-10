@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
+require('./dom_falso.js');   /* precisa vir antes do Blockly */
 const Blockly = require('../web/vendor/blockly_compressed.js');
 globalThis.Blockly = Blockly;
 const Campos = require('../web/campos.js');

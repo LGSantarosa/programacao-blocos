@@ -38,6 +38,19 @@ O seletor **nível** no cabeçalho troca entre Pequeno, Médio e Grande. Trocar 
 nível nunca desmonta o programa: os campos somem e voltam com os valores
 intactos. O botão 🔊 corta o som e lembra a escolha.
 
+### Funciona em
+
+Navegador moderno, e também em **tablet antigo**: a interface inteira é ES5 e o
+Blockly é a versão 8, a última compilada sem `let`, `const` ou arrow function.
+Testado num **iPad 2 com iOS 9** — o Safari dele não lê sintaxe moderna, e uma
+versão mais nova do Blockly nem chega a carregar.
+
+O mesmo vale para o CSS: nada de `gap` em flexbox (iOS 14.5+), `aspect-ratio`
+(iOS 15+) ou `var()`. Se for mexer no visual, vale conferir em
+`http://localhost:8080/ipad.html`, uma página de diagnóstico que roda no
+aparelho e diz na tela o que aquele navegador tem — útil porque num tablet você
+não tem console.
+
 ### Precisa de
 
 - **Node.js 18+** — só módulos embutidos

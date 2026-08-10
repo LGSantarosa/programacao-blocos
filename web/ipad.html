@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teste do iPad</title>
+<style>
+  /* Só CSS que o Safari do iOS 9 entende: nada de gap, aspect-ratio ou var(). */
+  body { margin: 0; padding: 12px; font-family: Helvetica, Arial, sans-serif;
+         background: #eef5fb; color: #1b3a57; font-size: 17px; }
+  h1 { font-size: 20px; margin: 0 0 10px 0; }
+  #log { background: #fff; border: 2px solid #cfe0ee; border-radius: 10px;
+         padding: 10px; margin-bottom: 12px; }
+  .linha { padding: 5px 0; border-bottom: 1px solid #eef5fb; }
+  .ok   { color: #1f7a44; font-weight: bold; }
+  .nao  { color: #c0392b; font-weight: bold; }
+  #erro { background: #ffe9e6; border: 2px solid #f25c4a; border-radius: 10px;
+          padding: 10px; margin-bottom: 12px; display: none;
+          white-space: pre-wrap; word-wrap: break-word; font-size: 14px; }
+  #editor { height: 300px; border: 2px solid #cfe0ee; border-radius: 10px;
+            background: #fff; }
+</style>
+</head>
+<body>
+<h1>Teste do iPad</h1>
+
+<div id="erro"></div>
+<div id="log"></div>
+<div id="editor"></div>
+
+<script>
+/* Captura qualquer erro ANTES de tudo: num tablet sem console, um erro
+   silencioso é indistinguível de uma tela travada. */
+var caixaErro = document.getElementById('erro');
+window.onerror = function (msg, arq, lin, col) {
+  caixaErro.style.display = 'block';
+  caixaErro.appendChild(document.createTextNode(
+    'ERRO: ' + msg + '\n' + (arq || '') + ' linha ' + lin + ':' + col + '\n\n'));
+  return false;
+};
+
+var log = document.getElementById('log');
+function diz(rotulo, ok, extra) {
+  var d = document.createElement('div');
+  d.className = 'linha';
+  d.appendChild(document.createTextNode(rotulo + ': '));
+  var m = document.createElement('span');
+  m.className = ok ? 'ok' : 'nao';
+  m.appendChild(document.createTextNode(ok ? 'SIM' : 'NÃO'));
+  d.appendChild(m);
+  if (extra) d.appendChild(document.createTextNode('  ' + extra));
+  log.appendChild(d);
+  return ok;
+}
+
+diz('navegador', true, navigator.userAgent.substring(0, 60));
+
+/* O que o Blockly 11 exige e o iOS 9 não tem. */
+var temArrow = true;
+try { eval('var f = function(){ return (x) => x; };'); } catch (e) { temArrow = false; }
+diz('arrow function (Blockly 11 precisa)', temArrow);
+
+var temLet = true;
+try { eval('let zz = 1;'); } catch (e) { temLet = false; }
+diz('let/const', temLet);
+
+var temClasse = true;
+try { eval('class Zz {}'); } catch (e) { temClasse = false; }
+diz('class', temClasse);
+
+var temTemplate = true;
+try { eval('var s = `a`;'); } catch (e) { temTemplate = false; }
+diz('template literal', temTemplate);
+
+diz('WebSocket', typeof WebSocket !== 'undefined');
+diz('canvas', !!document.createElement('canvas').getContext);
+diz('Web Audio', typeof AudioContext !== 'undefined' ||
+                 typeof webkitAudioContext !== 'undefined');
+diz('CSS flex gap', window.CSS && CSS.supports && CSS.supports('gap', '1px'));
+diz('CSS aspect-ratio', window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1'));
+diz('CSS var()', window.CSS && CSS.supports && CSS.supports('--a', '1'));
+</script>
+
+<!-- Blockly 8: o último compilado em ES5. Se ele carregar, dá para adaptar. -->
+<script src="vendor/blockly_compressed.js"></script>
+<script src="vendor/pt-br.js"></script>
+<script>
+var t0 = new Date().getTime();
+var carregou = diz('Blockly 8 carregou', typeof Blockly !== 'undefined');
+
+if (carregou) {
+  try {
+    Blockly.defineBlocksWithJsonArray([{
+      type: 'teste_frente',
+      message0: '⬆ andar frente %1 s',
+      args0: [{ type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10 }],
+      previousStatement: null, nextStatement: null, colour: '#3e8fe0'
+    }, {
+      type: 'teste_girar',
+      message0: 'girar %1',
+      args0: [{ type: 'field_dropdown', name: 'DIR',
+                options: [['↻', '90'], ['↺', '-90']] }],
+      previousStatement: null, nextStatement: null, colour: '#3e8fe0'
+    }]);
+
+    var ws = Blockly.inject('editor', {
+      toolbox: '<xml><category name="Movimento" colour="#3e8fe0">' +
+               '<block type="teste_frente"></block>' +
+               '<block type="teste_girar"></block>' +
+               '</category></xml>',
+      trashcan: true
+    });
+    diz('workspace criado', true);
+
+    var temSer = !!(Blockly.serialization && Blockly.serialization.blocks);
+    diz('API de serialização', temSer);
+    if (temSer) {
+      Blockly.serialization.blocks.append(
+        { type: 'teste_frente', x: 20, y: 20 }, ws);
+      diz('bloco desenhado', ws.getAllBlocks(false).length > 0);
+    }
+
+    var campo = ws.getAllBlocks(false)[0].getField('SEG');
+    diz('esconder campo (o truque dos níveis)',
+        typeof campo.setVisible === 'function');
+
+    diz('tempo até aqui', true, (new Date().getTime() - t0) + ' ms');
+  } catch (e) {
+    diz('montar o editor', false, e.message);
+  }
+}
+
+var d = document.createElement('p');
+d.appendChild(document.createTextNode(
+  'Agora tente arrastar um bloco da caixa para a área branca. Se arrastar liso, dá para adaptar.'));
+log.appendChild(d);
+</script>
+</body>
+</html>

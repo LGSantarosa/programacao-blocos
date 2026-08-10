@@ -1,42 +1,43 @@
 (function () {
   'use strict';
 
-  const btPlay = document.getElementById('play');
-  const btParar = document.getElementById('parar');
-  const btMudo = document.getElementById('mudo');
-  const botoesNivel = [...document.querySelectorAll('#niveis button')];
-  const spEstado = document.getElementById('estado');
-  const spErro = document.getElementById('erro');
-  const divLeitura = document.getElementById('leitura');
-  const ctx = document.getElementById('arena').getContext('2d');
-  const painel = document.getElementById('painel');
-  const confete = document.getElementById('confete');
+  var btPlay = document.getElementById('play');
+  var btParar = document.getElementById('parar');
+  var btMudo = document.getElementById('mudo');
+  var botoesNivel = Array.prototype.slice.call(
+    document.querySelectorAll('#niveis button'));
+  var spEstado = document.getElementById('estado');
+  var spErro = document.getElementById('erro');
+  var divLeitura = document.getElementById('leitura');
+  var ctx = document.getElementById('arena').getContext('2d');
+  var painel = document.getElementById('painel');
+  var confete = document.getElementById('confete');
 
-  let mapaPc = [];
-  let blocoAceso = null;
-  let robo = null;
-  let viuTelemetria = false;
-  let poseAtual = null;
-  let rodando = false;
+  var mapaPc = [];
+  var blocoAceso = null;
+  var robo = null;
+  var viuTelemetria = false;
+  var poseAtual = null;
+  var rodando = false;
 
-  let tColisao = -Infinity, tFim = -Infinity, tParado = Date.now();
-  let pediuParar = false;
-  let confetes = [];
+  var tColisao = -Infinity, tFim = -Infinity, tParado = Date.now();
+  var pediuParar = false;
+  var confetes = [];
 
   Campos.registrar();
   Blocos.definir();
 
-  let nivel = Niveis.atual();
+  var nivel = Niveis.atual();
   marcarNivel();
 
   /* A fonte dos blocos vai pelo tema, não pelo CSS: o Blockly mede o texto
      para dimensionar o bloco, e trocar a família por fora estoura a borda. */
-  const tema = Blockly.Theme.defineTheme('robo', {
+  var tema = Blockly.Theme.defineTheme('robo', {
     base: Blockly.Themes.Classic,
     fontStyle: { family: 'system-ui, sans-serif', weight: 'bold', size: 11 },
   });
 
-  const workspace = Blockly.inject('editor', {
+  var workspace = Blockly.inject('editor', {
     theme: tema,
     toolbox: Niveis.caixaXml(nivel),
     trashcan: true,
@@ -45,7 +46,7 @@
   });
 
   /* O bloco raiz nasce fixo: a criança não precisa saber que ele existe. */
-  const raiz = Blockly.serialization.blocks.append(
+  var raiz = Blockly.serialization.blocks.append(
     { type: 'quando_play', x: 40, y: 30 }, workspace);
   raiz.setDeletable(false);
   raiz.setMovable(false);
@@ -55,7 +56,7 @@
      paleta mostra número e texto mesmo no Pequeno: a criança escolhe a peça
      vendo o que ela não deveria ver, e o bloco só simplifica depois de solto. */
   function aplicarNaPaleta() {
-    const f = workspace.getFlyout && workspace.getFlyout();
+    var f = workspace.getFlyout && workspace.getFlyout();
     if (f) Niveis.aplicar(f.getWorkspace(), nivel);
   }
 
@@ -66,13 +67,13 @@
 
   aplicarNivel();
   /* Bloco novo arrastado da caixa também precisa nascer no nível certo. */
-  workspace.addChangeListener((e) => {
+  workspace.addChangeListener(function (e) {
     if (e.type === Blockly.Events.BLOCK_CREATE) Niveis.aplicar(workspace, nivel);
   });
 
-  const paleta = workspace.getFlyout && workspace.getFlyout();
+  var paleta = workspace.getFlyout && workspace.getFlyout();
   if (paleta) {
-    paleta.getWorkspace().addChangeListener((e) => {
+    paleta.getWorkspace().addChangeListener(function (e) {
       if (e.type === Blockly.Events.BLOCK_CREATE) aplicarNaPaleta();
     });
   }
@@ -89,7 +90,7 @@
   }
 
   function marcar(id, ligado) {
-    const b = workspace.getBlockById(id);
+    var b = workspace.getBlockById(id);
     if (!b || !b.getSvgRoot) return;
     b.getSvgRoot().classList.toggle('aceso', ligado);
   }
@@ -99,9 +100,9 @@
   function soltarConfete() {
     confete.width = window.innerWidth;
     confete.height = window.innerHeight;
-    const cores = ['#ffb703', '#1f9d4d', '#1f6feb', '#e0533d', '#a855f7'];
+    var cores = ['#ffb703', '#1f9d4d', '#1f6feb', '#e0533d', '#a855f7'];
     confetes = [];
-    for (let i = 0; i < 90; i++) {
+    for (var i = 0; i < 90; i++) {
       confetes.push({
         x: Math.random() * confete.width,
         y: -20 - Math.random() * confete.height * 0.4,
@@ -114,11 +115,11 @@
   }
 
   function desenharConfete() {
-    const c = confete.getContext('2d');
+    var c = confete.getContext('2d');
     c.clearRect(0, 0, confete.width, confete.height);
     if (confetes.length === 0) return;
-    let vivos = 0;
-    for (const p of confetes) {
+    var vivos = 0;
+    for (var p of confetes) {
       p.x += p.vx; p.y += p.vy; p.giro += 0.1;
       if (p.y < confete.height + 20) vivos++;
       c.save();
@@ -134,10 +135,10 @@
   /* ---------- laço de desenho ---------- */
 
   function quadro() {
-    const agora = Date.now();
+    var agora = Date.now();
     Arena.desenhar(ctx, poseAtual);
     if (poseAtual) {
-      const qual = Robo.reacao({
+      var qual = Robo.reacao({
         msDesdeColisao: agora - tColisao,
         msDesdeFim: agora - tFim,
         msParado: rodando ? 0 : agora - tParado,
@@ -173,8 +174,8 @@
   }
 
   function conectar() {
-    const protocolo = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    robo = Rede.conectar(`${protocolo}//${location.host}/`, {
+    var protocolo = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    robo = Rede.conectar(protocolo + '//' + location.host + '/', {
       aoConectar() {
         spEstado.textContent = 'parado';
         btPlay.disabled = false;
@@ -189,7 +190,7 @@
         setTimeout(conectar, 1500);
       },
       aoPc(pc) {
-        const id = pc < mapaPc.length ? mapaPc[pc] : null;
+        var id = pc < mapaPc.length ? mapaPc[pc] : null;
         if (id && id !== blocoAceso) Som.tocar('comando');
         acender(id);
       },
@@ -203,20 +204,20 @@
           tColisao = Date.now();
           Som.tocar('batida');
         }
-        divLeitura.textContent = `distância: ${t.dist} cm`;
+        divLeitura.textContent = 'distância: ' + t.dist + ' cm';
       },
     });
   }
 
   /* Sem telemetria por 2 s significa robô real: esconde a arena. */
-  setTimeout(() => { if (!viuTelemetria) painel.style.display = 'none'; }, 2000);
+  setTimeout(function () { if (!viuTelemetria) painel.style.display = 'none'; }, 2000);
 
   /* ---------- controles ---------- */
 
-  btPlay.addEventListener('click', () => {
+  btPlay.addEventListener('click', function () {
     spErro.textContent = '';
     Som.tocar('play');
-    let compilado;
+    var compilado;
     try {
       compilado = Compilador.compilar(Blocos.workspaceParaAst(workspace));
     } catch (e) {
@@ -228,18 +229,18 @@
     robo.rodar();
   });
 
-  btParar.addEventListener('click', () => {
+  btParar.addEventListener('click', function () {
     pediuParar = true;
     robo.parar();
   });
 
   function atualizarMudo() {
-    const m = Som.mudo();
+    var m = Som.mudo();
     btMudo.textContent = m ? '🔇' : '🔊';
     btMudo.classList.toggle('silenciado', m);
   }
 
-  btMudo.addEventListener('click', () => {
+  btMudo.addEventListener('click', function () {
     Som.alternarMudo();
     atualizarMudo();
   });
@@ -247,7 +248,7 @@
   /* Três botões em vez de um menu suspenso: criança de quatro anos não abre
      dropdown. O botão do nível ativo fica afundado, como uma tecla apertada. */
   function marcarNivel() {
-    for (const b of botoesNivel) {
+    for (var b of botoesNivel) {
       b.setAttribute('aria-pressed', String(b.dataset.nivel === nivel));
     }
   }
@@ -260,9 +261,11 @@
     aplicarNivel();
   }
 
-  for (const b of botoesNivel) {
-    b.addEventListener('click', () => trocarNivel(b.dataset.nivel));
-  }
+  /* forEach, e não for: com var o laço não cria escopo, e todos os botões
+     acabariam apontando para o último. */
+  botoesNivel.forEach(function (b) {
+    b.addEventListener('click', function () { trocarNivel(b.dataset.nivel); });
+  });
 
   conectar();
 })();

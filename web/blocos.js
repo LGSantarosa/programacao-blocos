@@ -5,16 +5,16 @@
   /* Cores dos blocos. O "quando apertar PLAY" é o mesmo verde do botão PLAY:
      liga o bloco ao gesto, que é uma relação de verdade e não enfeite.
      Laço em laranja é a convenção que a criança reencontra depois no Scratch. */
-  const COR_MOVIMENTO = '#3e8fe0';
-  const COR_LACO      = '#f5a623';
-  const COR_SENSOR    = '#a26bd8';
-  const COR_INICIO    = '#37c26b';
+  var COR_MOVIMENTO = '#3e8fe0';
+  var COR_LACO      = '#f5a623';
+  var COR_SENSOR    = '#a26bd8';
+  var COR_INICIO    = '#37c26b';
 
   /* Num lugar só: os dois blocos de movimento oferecem as mesmas opções, e
      duplicá-las é como elas divergiriam. */
-  const VELOCIDADES = [['normal', '200'], ['devagar', '120'], ['rápido', '255']];
+  var VELOCIDADES = [['normal', '200'], ['devagar', '120'], ['rápido', '255']];
 
-  let extensaoPronta = false;
+  var extensaoPronta = false;
 
   /* GRAUS é a fonte de verdade; o menu direita/esquerda é só um editor
      amigável dela. É isso que deixa o compilador ignorar o nível. */
@@ -26,7 +26,7 @@
       return;
     }
     Blockly.Extensions.register('girar_dir_escreve_graus', function () {
-      const bloco = this;
+      var bloco = this;
       bloco.getField('DIR').setValidator(function (novo) {
         bloco.setFieldValue(Number(novo), 'GRAUS');
         return novo;
@@ -141,7 +141,7 @@
     ]);
   }
 
-  const CAIXA_XML =
+  var CAIXA_XML =
     '<xml id="caixa" style="display: none">' +
     '  <category name="Movimento" colour="' + COR_MOVIMENTO + '">' +
     '    <block type="mover_frente"></block>' +
@@ -158,7 +158,7 @@
     '</xml>';
 
   function blocoParaNo(b) {
-    const id = b.id;
+    var id = b.id;
     switch (b.type) {
       case 'mover_frente':
         return { op: 'frente', segundos: Number(b.getFieldValue('SEG')),
@@ -190,7 +190,7 @@
   }
 
   function pilhaParaAst(bloco) {
-    const nos = [];
+    var nos = [];
     while (bloco) {
       if (bloco.isEnabled() && !bloco.isInsertionMarker()) {
         nos.push(blocoParaNo(bloco));
@@ -201,12 +201,13 @@
   }
 
   function workspaceParaAst(workspace) {
-    const raizes = workspace.getBlocksByType('quando_play', false);
+    var raizes = workspace.getBlocksByType('quando_play', false);
     if (raizes.length === 0) return [];
     return pilhaParaAst(raizes[0].getInputTargetBlock('CORPO'));
   }
 
-  const api = { definir, workspaceParaAst, CAIXA_XML };
+  var api = { definir: definir, workspaceParaAst: workspaceParaAst,
+              CAIXA_XML: CAIXA_XML };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Blocos = api;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -69,7 +69,22 @@
      Safari do iOS 9. Sem isso o workspace nasce com tamanho zero — e um
      workspace de tamanho zero não desenha caixa de blocos nenhuma, sem dar
      erro. Avisar na mão é o remédio, e não custa nada em navegador novo. */
+  /* O Safari do iOS 9 tem flexbox de primeira geração e não dá tamanho a um
+     item aninhado como o editor: ele nasce com zero, o Blockly não tem onde
+     desenhar e não reclama — a tela fica sem blocos, sem erro nenhum.
+
+     Só intervimos quando o layout falhou de fato. Em navegador moderno o flex
+     resolve sozinho e cravar medida aqui só atrapalharia. */
   function ajustarTamanho() {
+    var ed = document.getElementById('editor');
+    if (ed && (ed.offsetHeight < 100 || ed.offsetWidth < 100)) {
+      var cab = document.getElementsByTagName('header')[0];
+      var painelLado = (painel && window.innerWidth > 900) ? painel.offsetWidth + 16 : 0;
+      var altura = window.innerHeight - (cab ? cab.offsetHeight : 0) - 32;
+      var largura = window.innerWidth - 32 - painelLado;
+      ed.style.height = (altura > 320 ? altura : 320) + 'px';
+      if (largura > 200) ed.style.width = largura + 'px';
+    }
     if (Blockly.svgResize) Blockly.svgResize(workspace);
   }
   window.addEventListener('resize', ajustarTamanho);

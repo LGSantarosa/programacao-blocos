@@ -117,3 +117,36 @@ test('trilha vazia ainda dá um quando_play, para a tela não ficar em branco', 
   assert.strictEqual(raiz.type, 'quando_play');
   assert.ok(!raiz.inputs, 'sem passos, o quando_play não tem corpo');
 });
+
+test('no Pequeno o ate_perto vira passos cegos, porque não há sensor', () => {
+  const blocos = blocosDe([{ ate_perto: 20, andar: 13 }], 'pequeno');
+  assert.deepStrictEqual(
+    blocos.filter((b) => b.type === 'repetir').map((b) => b.fields.N), [5, 5, 3]);
+  for (const t of ['repetir_ate_perto', 'repetir_sempre', 'parar', 'se_obstaculo']) {
+    assert.strictEqual(blocos.filter((b) => b.type === t).length, 0,
+      `Pequeno não tem ${t}`);
+  }
+});
+
+test('no Médio o ate_perto usa para sempre, se obstáculo e parar', () => {
+  const blocos = blocosDe([{ ate_perto: 20, andar: 13 }], 'medio');
+  const sempre = blocos.find((b) => b.type === 'repetir_sempre');
+  assert.ok(sempre, 'faltou o repetir para sempre');
+  const se = sempre.inputs.CORPO.block;
+  assert.strictEqual(se.type, 'se_obstaculo');
+  assert.strictEqual(se.fields.CM, 20);
+  assert.strictEqual(se.inputs.CORPO.block.type, 'parar');
+  /* O teste vem antes do andar: é o que iguala esta forma ao repetir até. */
+  assert.strictEqual(se.next.block.type, 'mover_frente');
+  assert.strictEqual(se.next.block.fields.SEG, PASSO_S);
+});
+
+test('no Grande o ate_perto vira o bloco de laço com sensor', () => {
+  const blocos = blocosDe([{ ate_perto: 20, andar: 13 }], 'grande');
+  const laco = blocos.find((b) => b.type === 'repetir_ate_perto');
+  assert.ok(laco, 'faltou o repetir até perto');
+  assert.strictEqual(laco.fields.CM, 20);
+  assert.strictEqual(laco.inputs.CORPO.block.type, 'mover_frente');
+  assert.strictEqual(laco.inputs.CORPO.block.fields.SEG, PASSO_S);
+  assert.strictEqual(blocos.filter((b) => b.type === 'repetir').length, 0);
+});

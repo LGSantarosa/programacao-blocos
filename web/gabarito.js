@@ -70,8 +70,29 @@
              fields: { DIR: String(graus), GRAUS: graus } };
   }
 
+  /* O mesmo caminho nas três línguas. O Pequeno não tem sensor, então anda
+     cego; o Médio compõe os três blocos que ele ganhou; o Grande usa o bloco
+     de laço com sensor, que é o dele.
+
+     No Médio o teste vem antes do andar dentro do laço — é o que torna esta
+     forma equivalente ao "repetir até", que também testa antes de rodar. */
+  function blocosAtePerto(passo, nivel, passoS) {
+    if (nivel === 'pequeno') {
+      return blocosDeAndar(passo.andar, nivel, passoS);
+    }
+    if (nivel === 'grande') {
+      return [{ type: 'repetir_ate_perto', fields: { CM: passo.ate_perto },
+                inputs: { CORPO: { block: blocoAndar(passoS) } } }];
+    }
+    var se = { type: 'se_obstaculo', fields: { CM: passo.ate_perto },
+               inputs: { CORPO: { block: { type: 'parar' } } },
+               next: { block: blocoAndar(passoS) } };
+    return [{ type: 'repetir_sempre', inputs: { CORPO: { block: se } } }];
+  }
+
   function blocosDoPasso(passo, nivel, passoS) {
     if (passo.girar !== undefined) return [blocoGirar(passo.girar)];
+    if (passo.ate_perto !== undefined) return blocosAtePerto(passo, nivel, passoS);
     return blocosDeAndar(passo.andar, nivel, passoS);
   }
 

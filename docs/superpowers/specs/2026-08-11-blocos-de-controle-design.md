@@ -150,8 +150,17 @@ o conceito sendo ensinado; o olho diz *sensor*. Colorir de ciano ensinaria a coi
 errada — o que o bloco faz é repetir.
 
 Os campos reaproveitam os nomes existentes (`CM`, `T1`, `T2`), então o mapa de
-visibilidade de `niveis.js` cobre os blocos novos sem campo novo. A única adição é
-`T3`, o rótulo `senão`, que segue `T1`/`T2` no mapa por consistência.
+visibilidade de `niveis.js` cobre os blocos novos **sem nenhum campo novo e sem
+nenhuma linha nova no mapa.**
+
+Três textos ficam de propósito como texto cru do `message`, não como
+`field_label`: `repetir para sempre`, `parar tudo` e o `senão`. Rótulo virou campo
+no ciclo A por um motivo único — precisar sumir no Pequeno, junto com o número que
+ele acompanha. Nenhum destes três acompanha número, e nenhum dos três blocos é
+oferecido no Pequeno. Mas um bloco montado no Grande continua no espaço de
+trabalho quando se desce de nível, e aí a diferença aparece: como texto cru eles
+seguem legíveis, enquanto como campo o `se…senão` viraria `👁 20` com os dois
+ramos indistinguíveis, e o `parar tudo` viraria um `🛑` mudo.
 
 ### Compilação — zero opcode novo
 
@@ -188,9 +197,13 @@ Corpo vazio no `para sempre` compila para um `JMP` que aponta para si mesmo. Nã
 trava nada: a VM executa uma instrução por `vm_tick`, então é um laço ocioso que o
 botão PARAR encerra. Não vale proibir.
 
-**`OP_JMP` existe em `core/vm.c` desde a v1 e nunca foi emitido por ninguém.**
-Estes blocos são o primeiro uso real dele. Por isso entra teste de VM em C para o
-`JMP`, que hoje não existe.
+**`OP_JMP` existe em `core/vm.c` desde a v1 e nunca foi emitido pelo
+compilador.** Estes blocos são o primeiro uso real dele.
+
+`tests/vm_test.c` já tem `teste_jmp_incondicional`, mas ele só cobre salto **para
+frente** — pular por cima de uma instrução. Os três blocos novos emitem salto
+**para trás**, que é o que fecha um laço, e isso a VM nunca executou em teste
+nenhum. Entra um caso novo para o salto para trás, não para o `JMP` em geral.
 
 ### Distribuição por nível
 
@@ -303,7 +316,7 @@ Verificar na implementação: `fis_arena` com `n = 0` obstáculos. A leitura de
 | `tests/gabarito.test.js` *(novo)* | corrente ≤ 5; nenhum `N` > 5 em 6 fases × 3 níveis; formas por nível; trecho de 1 passo sem `repetir` | ms |
 | `tests/compilador.test.js` | bytecode dos quatro, alvos de salto, aninhamento, registradores não consumidos, `se…senão` com ramo vazio | ms |
 | `tests/blocos.test.js` | AST dos quatro tipos novos | ms |
-| `tests/niveis.test.js` | caixa com 4 / 8 / 10 blocos; `T3` no mapa de campos | ms |
+| `tests/niveis.test.js` | caixa com 4 / 8 / 10 blocos; texto cru sobrevive ao Pequeno | ms |
 | `tests/vm_test.c` | **`OP_JMP`** — na VM desde a v1, nunca emitido nem testado | ms |
 | `tests/missoes.test.js` | fase 6, arena vazia, tipo de passo `ate_perto` | ms |
 | `tests/gabaritos.test.js` | passa de 15 para **18** execuções reais | ~4 min |
@@ -319,9 +332,10 @@ bateria inteira verde antes de commitar: Node, `vm_test`, `physics_test`,
 |---|---|
 | `web/blocos.js` | 4 definições novas, 4 casos em `blocoParaNo`, `CAIXA_XML` |
 | `web/compilador.js` | 4 casos novos em `gerar` |
-| `web/niveis.js` | tipos novos nas listas por nível, `T3` no mapa, `caixaXml` |
+| `web/niveis.js` | tipos novos nas listas por nível e em `caixaXml` (mapa de campos intacto) |
 | `web/gabarito.js` | **novo** — `montar(passos, nivel)`, corrente de `repetir` |
 | `web/app.js` | passa a chamar `Gabarito.montar`; sai o `blocoAndar` |
 | `web/missoes.js` | fase 6, tipo de passo `ate_perto` |
-| `web/index.html`, `web/ipad.html` | `<script>` do módulo novo |
+| `web/index.html` | `<script src="gabarito.js">` depois de `missoes.js` |
+| `web/ipad.html` | **nada** — não carrega `app.js` nem `missoes.js`, não tem gabarito |
 | `core/`, `host/`, `firmware/src/` | **nada** — só regravar `firmware/data/*.gz` |

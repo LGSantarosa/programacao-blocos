@@ -54,11 +54,10 @@
     grid: { spacing: 22, length: 3, colour: '#dde3ea', snap: true },
   });
 
-  /* O bloco raiz nasce fixo: a criança não precisa saber que ele existe. */
-  var raiz = Blockly.serialization.blocks.append(
-    { type: 'quando_play', x: 40, y: 30 }, workspace);
-  raiz.setDeletable(false);
-  raiz.setMovable(false);
+  /* O bloco raiz nasce fixo: a criança não precisa saber que ele existe. A
+     regra mora no blocos.js porque o "limpar" precisa exatamente dela, e duas
+     cópias da mesma regra é como elas divergem. */
+  Blocos.criarRaiz(workspace);
 
   /* A caixa de blocos é um workspace à parte do principal, e é reconstruída
      toda vez que a criança abre uma categoria. Sem reaplicar o nível ali, a

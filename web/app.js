@@ -177,45 +177,13 @@
 
   /* Monta o gabarito no espaço de trabalho em vez de descrever em palavras: a
      criança que ainda não lê precisa ver a peça, não a instrução. Ela aperta
-     PLAY e assiste — depois pode desmontar e mexer. */
-  /* Monta o gabarito no espaço de trabalho em vez de descrever em palavras: a
-     criança que ainda não lê precisa ver a peça, não a instrução. Ela aperta
      PLAY e assiste — depois pode desmontar e mexer.
 
-     A trilha é uma só, mas o desenho muda com o nível: no Pequeno vira uma
-     pilha de passos curtos dentro de um repetir, que é o vocabulário dela; no
-     Médio e no Grande vira um bloco só com os segundos somados, que é como
-     alguém que lê número escreveria. Mesmo caminho, mesma distância, escrito
-     na língua de quem está olhando. */
-  function blocoAndar(passos) {
-    var mover = { type: 'mover_frente',
-                  fields: { SEG: Missoes.PASSO_S, VEL: '200' } };
-    if (nivel === 'pequeno') {
-      return (passos > 1)
-        ? { type: 'repetir', fields: { N: passos },
-            inputs: { CORPO: { block: mover } } }
-        : mover;
-    }
-    /* Arredonda para o décimo, que é a precisão do campo. */
-    var segundos = Math.round(passos * Missoes.PASSO_S * 10) / 10;
-    return { type: 'mover_frente', fields: { SEG: segundos, VEL: '200' } };
-  }
-
+     A trilha é uma só; quem a desenha na língua do nível é o web/gabarito.js,
+     que fica separado justamente para poder ser testado sem navegador. */
   btGabarito.addEventListener('click', function () {
-    var passos = missao.gabarito || [];
-    var corpo = null, ultimo = null;
-    for (var i = 0; i < passos.length; i++) {
-      var p = passos[i];
-      var bloco = p.andar
-        ? blocoAndar(p.andar)
-        : { type: 'girar', fields: { DIR: String(p.girar), GRAUS: p.girar } };
-      if (!corpo) { corpo = bloco; ultimo = bloco; }
-      else { ultimo.next = { block: bloco }; ultimo = bloco; }
-    }
-    var raizNova = { type: 'quando_play', x: 40, y: 30 };
-    if (corpo) raizNova.inputs = { CORPO: { block: corpo } };
     Blockly.serialization.workspaces.load(
-      { blocks: { languageVersion: 0, blocks: [raizNova] } }, workspace);
+      Gabarito.montar(missao.gabarito || [], nivel, Missoes.PASSO_S), workspace);
     aplicarNivel();
     Som.tocar('play');
   });

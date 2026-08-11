@@ -191,3 +191,101 @@ test('ângulo livre vira TURN com o ângulo pedido, não 90 fixo', () => {
   assert.strictEqual(bytes[0], OP.TURN);
   assert.strictEqual(dv.getInt16(1, true), 45);
 });
+
+test('parar vira um HALT antes do HALT final', () => {
+  const { bytes } = compilar([{ op: 'parar', blockId: 'p' }]);
+  assert.strictEqual(bytes.length, 2 * 7);
+  assert.strictEqual(bytes[0], OP.HALT);
+  assert.strictEqual(bytes[7], OP.HALT);
+});
+
+test('repetir para sempre fecha com um JMP para trás', () => {
+  const { bytes } = compilar([
+    { op: 'repetir_sempre', blockId: 's', corpo: [
+      { op: 'girar', graus: 90, blockId: 'g' },
+    ] },
+  ]);
+  const dv = new DataView(bytes.buffer);
+  assert.strictEqual(bytes.length, 3 * 7);
+  assert.strictEqual(bytes[0], OP.TURN);
+  assert.strictEqual(bytes[7], OP.JMP);
+  assert.strictEqual(dv.getInt16(8, true), 0);      /* volta para o pc 0 */
+  assert.strictEqual(bytes[14], OP.HALT);
+});
+
+test('repetir para sempre com corpo vazio salta para si mesmo', () => {
+  /* Não trava: a VM executa uma instrução por tick, então é um laço ocioso que
+     o botão PARAR encerra. Proibir custaria mais do que vale. */
+  const { bytes } = compilar([{ op: 'repetir_sempre', blockId: 's', corpo: [] }]);
+  const dv = new DataView(bytes.buffer);
+  assert.strictEqual(bytes[0], OP.JMP);
+  assert.strictEqual(dv.getInt16(1, true), 0);
+});
+
+test('se…senão pula o então quando não há obstáculo', () => {
+  const { bytes } = compilar([
+    { op: 'se_senao', cm: 20, blockId: 'x',
+      entao: [{ op: 'girar', graus: 90, blockId: 'a' }],
+      senao: [{ op: 'girar', graus: -90, blockId: 'b' }] },
+  ]);
+  const dv = new DataView(bytes.buffer);
+  assert.strictEqual(bytes.length, 5 * 7);
+  assert.strictEqual(bytes[0], OP.JMP_IF_GE);
+  assert.strictEqual(dv.getInt16(1, true), 0);      /* sensor de distância */
+  assert.strictEqual(dv.getInt16(3, true), 20);
+  assert.strictEqual(dv.getInt16(5, true), 3);      /* longe → vai ao senão */
+  assert.strictEqual(bytes[7], OP.TURN);            /* então */
+  assert.strictEqual(bytes[14], OP.JMP);
+  assert.strictEqual(dv.getInt16(15, true), 4);     /* então pula o senão */
+  assert.strictEqual(bytes[21], OP.TURN);           /* senão */
+  assert.strictEqual(bytes[28], OP.HALT);
+});
+
+test('se…senão com o ramo senão vazio ainda salta para o fim', () => {
+  const { bytes } = compilar([
+    { op: 'se_senao', cm: 30, blockId: 'x',
+      entao: [{ op: 'girar', graus: 90, blockId: 'a' }], senao: [] },
+  ]);
+  const dv = new DataView(bytes.buffer);
+  assert.strictEqual(bytes.length, 4 * 7);
+  assert.strictEqual(dv.getInt16(5, true), 3);      /* senão começa no fim */
+  assert.strictEqual(dv.getInt16(15, true), 3);     /* e o pulo também */
+});
+
+test('repetir até perto testa antes de rodar o corpo', () => {
+  const { bytes } = compilar([
+    { op: 'repetir_ate_perto', cm: 20, blockId: 'a', corpo: [
+      { op: 'girar', graus: 90, blockId: 'g' },
+    ] },
+  ]);
+  const dv = new DataView(bytes.buffer);
+  assert.strictEqual(bytes.length, 5 * 7);
+  assert.strictEqual(bytes[0], OP.JMP_IF_GE);
+  assert.strictEqual(dv.getInt16(3, true), 20);
+  assert.strictEqual(dv.getInt16(5, true), 2);      /* longe → entra no corpo */
+  assert.strictEqual(bytes[7], OP.JMP);
+  assert.strictEqual(dv.getInt16(8, true), 4);      /* perto → sai */
+  assert.strictEqual(bytes[14], OP.TURN);           /* corpo */
+  assert.strictEqual(bytes[21], OP.JMP);
+  assert.strictEqual(dv.getInt16(22, true), 0);     /* volta para o teste */
+  assert.strictEqual(bytes[28], OP.HALT);
+});
+
+test('os laços novos não gastam registrador', () => {
+  /* Só o "repetir N vezes" usa DEC_JNZ, e o limite de quatro aninhados é só
+     dele. Quatro repetir dentro de dois laços novos tem que compilar. */
+  let dentro = { op: 'girar', graus: 90, blockId: 'g' };
+  for (let i = 0; i < 4; i++) {
+    dentro = { op: 'repetir', vezes: 2, blockId: 'r' + i, corpo: [dentro] };
+  }
+  assert.doesNotThrow(() => compilar([
+    { op: 'repetir_sempre', blockId: 's', corpo: [
+      { op: 'repetir_ate_perto', cm: 20, blockId: 'a', corpo: [dentro] },
+    ] },
+  ]));
+});
+
+test('cada instrução nova aponta para o bloco que a gerou', () => {
+  const { pcMap } = compilar([{ op: 'parar', blockId: 'meu-parar' }]);
+  assert.strictEqual(pcMap[0], 'meu-parar');
+});

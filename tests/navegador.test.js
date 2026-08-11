@@ -1,7 +1,7 @@
 'use strict';
 /* Sobe o bridge, dirige um Chromium headless e confere o que a criança veria.
-   É o único nível em que dá para testar que trocar de nível não desmonta o
-   programa dela. Pula sozinho se não houver Chromium na máquina. */
+   É o único nível em que dá para testar o diálogo de troca de nível: ele é
+   DOM, evento e Blockly ao mesmo tempo. Pula sozinho se não houver Chromium. */
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -32,7 +32,7 @@ async function esperarPorta(url, limiteMs) {
   return false;
 }
 
-test('a criança monta, roda e sobe de nível sem perder nada',
+test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
   { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
   async (t) => {
     spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
@@ -142,24 +142,129 @@ test('a criança monta, roda e sobe de nível sem perder nada',
       })()`),
       false, 'no Pequeno a paleta não deveria mostrar a palavra');
 
-    /* Sobe para Médio: o programa continua, o número aparece com o valor. */
+    /* A aba está aberta desde a checagem da paleta, logo acima. Trocar de nível
+       com trabalho montado tem que perguntar antes — e, até responder, nada
+       pode ter mudado. */
     await aval(`(() => {
       document.querySelector('#niveis button[data-nivel=medio]').click();
       return 1;
     })()`);
-    await espera(400);
+    await espera(300);
 
+    assert.strictEqual(await aval(`document.getElementById('confirma').hidden`),
+      false, 'trocar de nível com trabalho montado deveria perguntar');
+    assert.strictEqual(
+      await aval(`document.getElementById('confirma-titulo').textContent`),
+      'Trocar para Médio?', 'o título deveria nomear o destino');
+    assert.strictEqual(
+      await aval(`document.querySelector('#niveis button[data-nivel=pequeno]')
+        .getAttribute('aria-pressed')`),
+      'true', 'o botão do nível não pode afundar antes de confirmar');
     assert.strictEqual(
       await aval(`Blockly.getMainWorkspace().getBlocksByType('mover_frente', false).length`),
-      1, 'o programa sumiu ao trocar de nível');
+      1, 'nada pode ser apagado antes de confirmar');
+
+    /* "Não" desfaz tudo: continua no Pequeno, com o programa intacto. */
+    await aval(`(() => {
+      document.getElementById('confirma-nao').click();
+      return 1;
+    })()`);
+    await espera(300);
+
+    assert.strictEqual(await aval(`document.getElementById('confirma').hidden`),
+      true, 'o diálogo deveria ter fechado');
+    assert.strictEqual(
+      await aval(`Blockly.getMainWorkspace().getBlocksByType('mover_frente', false).length`),
+      1, 'dizer não apagou o programa');
+    assert.strictEqual(
+      await aval(`document.querySelector('#niveis button[data-nivel=pequeno]')
+        .getAttribute('aria-pressed')`),
+      'true', 'dizer não trocou o nível assim mesmo');
+
+    /* Clicar no nível em que já está não é troca: não pergunta e não apaga. */
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=pequeno]').click();
+      return 1;
+    })()`);
+    await espera(300);
+
+    assert.strictEqual(await aval(`document.getElementById('confirma').hidden`),
+      true, 'clicar no nível ativo não deveria perguntar nada');
+    assert.strictEqual(
+      await aval(`Blockly.getMainWorkspace().getBlocksByType('mover_frente', false).length`),
+      1, 'clicar no nível ativo apagou o programa');
+
+    /* Agora confirma de verdade: troca, esvazia e fecha a aba. */
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=medio]').click();
+      return 1;
+    })()`);
+    await espera(300);
+    await aval(`(() => {
+      document.getElementById('confirma-sim').click();
+      return 1;
+    })()`);
+    await espera(500);
+
+    assert.strictEqual(
+      await aval(`document.querySelector('#niveis button[data-nivel=medio]')
+        .getAttribute('aria-pressed')`),
+      'true', 'o nível não trocou depois de confirmar');
+    assert.strictEqual(
+      await aval(`Blockly.getMainWorkspace().getBlocksByType('mover_frente', false).length`),
+      0, 'confirmar deveria ter apagado o programa');
+    assert.strictEqual(
+      await aval(`Blockly.getMainWorkspace().getAllBlocks(false).length`),
+      1, 'deveria sobrar só a raiz');
+    assert.strictEqual(
+      await aval(`Blockly.getMainWorkspace().getAllBlocks(false)[0].type`),
+      'quando_play', 'o que sobrou não é a raiz');
+
+    /* O defeito que começou tudo: a aba aberta continuava oferecendo as peças
+       do nível anterior, e dava para arrastar uma delas para dentro do
+       Pequeno. */
+    assert.strictEqual(
+      await aval(`(() => {
+        const f = Blockly.getMainWorkspace().getFlyout();
+        return !!(f && f.isVisible());
+      })()`),
+      false, 'a aba de blocos continuou aberta depois de trocar de nível');
+
+    /* Com o workspace vazio não há o que perder, e um diálogo que aparece sem
+       precisar ensina a criança a atravessá-lo sem ler. */
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=grande]').click();
+      return 1;
+    })()`);
+    await espera(300);
+
+    assert.strictEqual(await aval(`document.getElementById('confirma').hidden`),
+      true, 'workspace vazio não deveria perguntar nada');
+    assert.strictEqual(
+      await aval(`document.querySelector('#niveis button[data-nivel=grande]')
+        .getAttribute('aria-pressed')`),
+      'true', 'a troca sem diálogo não aconteceu');
+
+    /* Volta para o Médio e remonta, porque o resto do teste roda um programa. */
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=medio]').click();
+      const ws = Blockly.getMainWorkspace();
+      Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [{
+        type: 'quando_play', x: 40, y: 30,
+        inputs: { CORPO: { block: {
+          type: 'mover_frente', fields: { SEG: 0.5 },
+          next: { block: { type: 'girar', fields: { GRAUS: 90 } } }
+        } } }
+      }] } }, ws);
+      Niveis.aplicar(ws, 'medio');
+      return 1;
+    })()`);
+    await espera(300);
+
     assert.strictEqual(
       await aval(`Blockly.getMainWorkspace()
         .getBlocksByType('mover_frente', false)[0].getField('SEG').isVisible()`),
       true, 'no Médio o número deveria aparecer');
-    assert.strictEqual(
-      await aval(`Number(Blockly.getMainWorkspace()
-        .getBlocksByType('mover_frente', false)[0].getFieldValue('SEG'))`),
-      0.5, 'o valor escondido não foi preservado');
 
     /* Roda e confere a sequência de blocos acesos. */
     await aval(`(() => {

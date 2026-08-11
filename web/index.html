@@ -105,6 +105,38 @@
   #versao { font-size: 11px; color: #7fa4f0; font-family: monospace; }
   #erro { color: #ffe08a; font-size: 14px; font-weight: 700; max-width: 260px; }
 
+  /* ---------- diálogo de confirmação ---------- */
+  /* Sem <dialog>: não existe no Safari do iOS 9. Um div com position:fixed e
+     top/right/bottom/left faz o mesmo e abre em tudo. */
+
+  #confirma {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 200;
+    background: rgba(0, 32, 128, .55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  /* Obrigatório: o display:flex acima vence o [hidden] do navegador, e sem
+     esta linha o diálogo nasce visível e nunca fecha. */
+  #confirma[hidden] { display: none; }
+
+  #confirma-caixa {
+    background: #fff; border-radius: 22px; padding: 26px 28px;
+    max-width: 420px; text-align: center;
+    box-shadow: 0 10px 0 rgba(0, 32, 128, .25);
+  }
+  #confirma-titulo { margin: 0 0 10px; font-size: 24px; font-weight: 800;
+                     color: #002080; }
+  #confirma-texto { margin: 0 0 22px; font-size: 17px; font-weight: 700;
+                    color: #002080; line-height: 1.35; }
+  #confirma-botoes { display: flex; justify-content: center; }
+  #confirma-botoes button { margin: 0 8px; }
+
+  /* O "Não" é o botão pesado, e nasce com o foco: o que escapar por teclado
+     escapa para o lado seguro. */
+  #confirma-nao { background: #002080; box-shadow: 0 5px 0 #00185f; }
+  #confirma-sim { background: #f0c000; color: #002080;
+                  box-shadow: 0 5px 0 #c49c00; }
+
   /* ---------- corpo ---------- */
 
   main { flex: 1; display: flex; min-height: 0; padding: 12px; }
@@ -256,6 +288,18 @@
     </aside>
   </main>
   <canvas id="confete"></canvas>
+
+  <div id="confirma" hidden>
+    <div id="confirma-caixa" role="dialog" aria-modal="true"
+         aria-labelledby="confirma-titulo">
+      <h2 id="confirma-titulo">Trocar de nível?</h2>
+      <p id="confirma-texto">Os blocos que você montou vão ser apagados.</p>
+      <div id="confirma-botoes">
+        <button id="confirma-nao" type="button">Não</button>
+        <button id="confirma-sim" type="button">Trocar</button>
+      </div>
+    </div>
+  </div>
 
   <script>
   /* Escrito em ES5 de propósito, e antes de tudo: se um navegador velho não

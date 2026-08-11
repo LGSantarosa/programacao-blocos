@@ -185,3 +185,54 @@ test('parar e para sempre não têm campo nenhum que possa sumir', () => {
     }
   }
 });
+
+/* criarRaiz e limpar mexem no workspace de verdade, e o evento de criação do
+   Blockly monta XML com document.createElementNS — o mesmo motivo pelo qual o
+   helper "carregar" desliga os eventos. Aqui vale o mesmo cuidado. */
+function semEventos(fn) {
+  Blockly.Events.disable();
+  try { return fn(); } finally { Blockly.Events.enable(); }
+}
+
+test('criarRaiz põe um quando_play que a criança não apaga nem arrasta', () => {
+  const ws = new Blockly.Workspace();
+  const raiz = semEventos(() => Blocos.criarRaiz(ws));
+  assert.strictEqual(raiz.type, 'quando_play');
+  assert.strictEqual(raiz.isDeletable(), false, 'a raiz não pode ser apagável');
+  assert.strictEqual(raiz.isMovable(), false, 'a raiz não pode ser arrastável');
+  assert.strictEqual(ws.getAllBlocks(false).length, 1);
+});
+
+test('temTrabalho é falso quando só existe a raiz vazia', () => {
+  const ws = carregar([{ type: 'quando_play' }]);
+  assert.strictEqual(Blocos.temTrabalho(ws), false);
+});
+
+test('temTrabalho é verdadeiro com um bloco dentro da raiz', () => {
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: { type: 'mover_frente' } } },
+  }]);
+  assert.strictEqual(Blocos.temTrabalho(ws), true);
+});
+
+test('temTrabalho conta bloco solto, fora da pilha', () => {
+  /* Um bloco arrastado para o canto e nunca encaixado continua sendo trabalho
+     dela: apagá-lo sem avisar seria a mesma perda. */
+  const ws = carregar([{ type: 'quando_play' }, { type: 'girar' }]);
+  assert.strictEqual(Blocos.temTrabalho(ws), true);
+});
+
+test('limpar deixa exatamente uma raiz, e ela continua fixa', () => {
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: { type: 'mover_frente' } } },
+  }, { type: 'girar' }]);
+  const raiz = semEventos(() => Blocos.limpar(ws));
+  const todos = ws.getAllBlocks(false);
+  assert.strictEqual(todos.length, 1, 'sobrou bloco depois de limpar');
+  assert.strictEqual(todos[0].type, 'quando_play');
+  assert.strictEqual(raiz.isDeletable(), false);
+  assert.strictEqual(raiz.isMovable(), false);
+  assert.strictEqual(Blocos.temTrabalho(ws), false);
+});

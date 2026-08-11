@@ -177,8 +177,13 @@ ganha os dois blocos sem condição embutida; o Grande, os dois com condição.
 
 Uma regra atravessa o desenho todo: **quando o controle simples não representa o
 valor, aparece o honesto.** Um `repetir 12` mostra o número em vez de bolinhas;
-um giro de 45° mostra o ângulo em vez de mentir "direita". Nada se perde ao
-descer de nível.
+um giro de 45° mostra o ângulo em vez de mentir "direita".
+
+Dentro de um nível nada se perde: o valor escondido continua guardado, e é isso
+que deixa o gabarito se escrever na língua de cada nível. **Trocar** de nível é
+outra coisa — ele pergunta antes e apaga o que estava montado, porque os blocos
+de controle não têm desenho simplificado possível: um `se…senão` no Pequeno não
+é o `se obstáculo` com menos campos, é outra coisa.
 
 Isso vale para um valor herdado de um nível acima. O gabarito nunca produz um:
 no Pequeno ele quebra a trilha em corrente de `repetir` de até cinco, porque

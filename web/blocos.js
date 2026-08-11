@@ -296,7 +296,36 @@
     return pilhaParaAst(raizes[0].getInputTargetBlock('CORPO'));
   }
 
+  /* A raiz nasce fixa: a criança não precisa saber que ela existe, e não pode
+     apagá-la sem querer — sem ela o PLAY não tem por onde começar. */
+  function criarRaiz(workspace) {
+    var raiz = Blockly.serialization.blocks.append(
+      { type: 'quando_play', x: 40, y: 30 }, workspace);
+    raiz.setDeletable(false);
+    raiz.setMovable(false);
+    return raiz;
+  }
+
+  /* Tem alguma coisa além da raiz fixa? Conta bloco solto também: um bloco
+     arrastado para o canto e nunca encaixado continua sendo trabalho dela, e
+     apagá-lo sem avisar seria a mesma perda. */
+  function temTrabalho(workspace) {
+    var todos = workspace.getAllBlocks(false);
+    for (var i = 0; i < todos.length; i++) {
+      if (todos[i].type !== 'quando_play') return true;
+    }
+    return false;
+  }
+
+  /* setDeletable(false) impede a criança de apagar, não o programa: o clear do
+     Blockly leva a raiz junto, por isso ela é recriada aqui. */
+  function limpar(workspace) {
+    workspace.clear();
+    return criarRaiz(workspace);
+  }
+
   var api = { definir: definir, workspaceParaAst: workspaceParaAst,
+              criarRaiz: criarRaiz, temTrabalho: temTrabalho, limpar: limpar,
               CAIXA_XML: CAIXA_XML };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Blocos = api;

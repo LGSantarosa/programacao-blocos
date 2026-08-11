@@ -16,6 +16,11 @@
   var txtMissao = document.getElementById('missao-texto');
   var btProxima = document.getElementById('proxima');
   var btGabarito = document.getElementById('gabarito');
+  var caixaConfirma = document.getElementById('confirma');
+  var tituloConfirma = document.getElementById('confirma-titulo');
+  var btConfirmaNao = document.getElementById('confirma-nao');
+  var btConfirmaSim = document.getElementById('confirma-sim');
+  var nivelPendente = null;
 
   var mapaPc = [];
   var blocoAceso = null;
@@ -54,11 +59,10 @@
     grid: { spacing: 22, length: 3, colour: '#dde3ea', snap: true },
   });
 
-  /* O bloco raiz nasce fixo: a criança não precisa saber que ele existe. */
-  var raiz = Blockly.serialization.blocks.append(
-    { type: 'quando_play', x: 40, y: 30 }, workspace);
-  raiz.setDeletable(false);
-  raiz.setMovable(false);
+  /* O bloco raiz nasce fixo: a criança não precisa saber que ele existe. A
+     regra mora no blocos.js porque o "limpar" precisa exatamente dela, e duas
+     cópias da mesma regra é como elas divergem. */
+  Blocos.criarRaiz(workspace);
 
   /* A caixa de blocos é um workspace à parte do principal, e é reconstruída
      toda vez que a criança abre uma categoria. Sem reaplicar o nível ali, a
@@ -413,13 +417,72 @@
     }
   }
 
-  function trocarNivel(novo) {
+  /* A aba de blocos é um workspace à parte, e o updateToolbox reconstrói a
+     caixa sem fechá-la: sem isto ela continua oferecendo as peças do nível que
+     se acabou de sair, e dá para arrastar um se…senão para dentro do Pequeno. */
+  function fecharPaleta() {
+    var f = workspace.getFlyout && workspace.getFlyout();
+    if (f && f.isVisible && f.isVisible()) f.hide();
+    /* A categoria selecionada também precisa soltar: só esconder o flyout
+       deixa a aba marcada como aberta, e o toque seguinte nela não faz nada. */
+    var tb = workspace.getToolbox && workspace.getToolbox();
+    if (tb && tb.clearSelection) tb.clearSelection();
+  }
+
+  function aplicarTroca(novo) {
+    /* Trocar de nível no meio de uma execução deixaria o robô andando na arena
+       com um programa que não existe mais na tela. */
+    if (rodando && robo && robo.parar) robo.parar();
     nivel = Niveis.definir(novo);
     marcarNivel();
-    /* A caixa muda, o programa montado não. */
     workspace.updateToolbox(Niveis.caixaXml(nivel));
+    fecharPaleta();
+    Blocos.limpar(workspace);
+    /* A fase fica: o nível decide como os blocos são desenhados, não quais
+       fases já foram vencidas. Mas as tentativas dela naquela fase eram de um
+       programa que não existe mais. */
+    tentativas = 0;
+    btGabarito.hidden = true;
     aplicarNivel();
   }
+
+  function perguntarTroca(novo) {
+    nivelPendente = novo;
+    tituloConfirma.textContent = 'Trocar para ' + Niveis.NOMES[novo] + '?';
+    caixaConfirma.hidden = false;
+    btConfirmaNao.focus();
+  }
+
+  function fecharConfirma() {
+    caixaConfirma.hidden = true;
+    nivelPendente = null;
+  }
+
+  function trocarNivel(novo) {
+    /* Clicar no nível em que já está não é troca. Sem esta guarda, apagaria o
+       trabalho sem que nada mudasse na tela. */
+    if (novo === nivel) return;
+    /* Nada montado, nada a perder — e um diálogo que aparece sem precisar
+       ensina a criança a atravessá-lo sem ler, e aí ele para de proteger. */
+    if (!Blocos.temTrabalho(workspace)) { aplicarTroca(novo); return; }
+    perguntarTroca(novo);
+  }
+
+  btConfirmaNao.addEventListener('click', fecharConfirma);
+  btConfirmaSim.addEventListener('click', function () {
+    var novo = nivelPendente;
+    fecharConfirma();
+    if (novo) aplicarTroca(novo);
+  });
+  /* Tocar no fundo é o mesmo que "Não" — só no fundo, não na caixa. */
+  caixaConfirma.addEventListener('click', function (e) {
+    if (e.target === caixaConfirma) fecharConfirma();
+  });
+  /* keyCode além de key: o Safari do iOS 9 não tem event.key confiável. */
+  document.addEventListener('keydown', function (e) {
+    if (caixaConfirma.hidden) return;
+    if (e.key === 'Escape' || e.keyCode === 27) fecharConfirma();
+  });
 
   /* forEach, e não for: com var o laço não cria escopo, e todos os botões
      acabariam apontando para o último. */

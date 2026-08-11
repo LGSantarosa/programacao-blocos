@@ -23,13 +23,16 @@
       bolinhas: true,
     },
     medio: {
-      blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'repetir', 'se_obstaculo'],
+      blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'parar',
+               'repetir', 'repetir_sempre', 'se_obstaculo'],
       campos: { T1: true, T2: true, SEG: true, VEL: false,
                 DIR: true, GRAUS: false, N: true, CM: true },
       bolinhas: false,
     },
     grande: {
-      blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'repetir', 'se_obstaculo'],
+      blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'parar',
+               'repetir', 'repetir_sempre', 'repetir_ate_perto',
+               'se_obstaculo', 'se_senao'],
       campos: { T1: true, T2: true, SEG: true, VEL: true,
                 DIR: false, GRAUS: true, N: true, CM: true },
       bolinhas: false,
@@ -75,18 +78,30 @@
       }
     }
     if (tem('esperar')) movimento += bloco('esperar');
+    /* Azul, junto do movimento: é controle de fluxo e por essa lógica seria
+       amarelo, mas o modelo mental de quem tem quatro anos é «blocos azuis são
+       o que o robô faz», e parar é o que o robô faz. */
+    if (tem('parar')) movimento += bloco('parar');
 
     var xml = '<xml id="caixa" style="display: none">';
     /* Nomes curtos e em verbo: cabem na aba, e uma criança de quatro anos lê
        "Mover" antes de ler "Movimento". */
     xml += '<category name="Mover" colour="' + COR_MOVIMENTO + '">' + movimento + '</category>';
-    if (tem('repetir')) {
+    var laco = '';
+    if (tem('repetir')) laco += bloco('repetir');
+    if (tem('repetir_sempre')) laco += bloco('repetir_sempre');
+    if (tem('repetir_ate_perto')) laco += bloco('repetir_ate_perto');
+    if (laco) {
       xml += '<category name="Repetir" colour="' + COR_LACO + '">' +
-             bloco('repetir') + '</category>';
+             laco + '</category>';
     }
-    if (tem('se_obstaculo')) {
+
+    var sentir = '';
+    if (tem('se_obstaculo')) sentir += bloco('se_obstaculo');
+    if (tem('se_senao')) sentir += bloco('se_senao');
+    if (sentir) {
       xml += '<category name="Sentir" colour="' + COR_SENSOR + '">' +
-             bloco('se_obstaculo') + '</category>';
+             sentir + '</category>';
     }
     xml += '</xml>';
     return xml;

@@ -1,4 +1,4 @@
-/* Os seis blocos da v1 e a tradução do workspace para a AST do compilador. */
+/* Os blocos e a tradução do workspace para a AST do compilador. */
 (function (raiz) {
   'use strict';
 
@@ -145,6 +145,66 @@
         colour: COR_SENSOR,
         tooltip: 'Só faz os blocos de dentro se tiver algo perto na frente.',
       },
+      {
+        type: 'repetir_sempre',
+        /* Texto cru, não campo: não acompanha número nenhum, então não tem
+           motivo para sumir no Pequeno — e um bloco herdado do Grande que
+           descesse de nível viraria um 🔁 mudo, igual ao repetir comum. */
+        message0: '🔁 repetir para sempre',
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        previousStatement: null,
+        /* Sem nextStatement de propósito: nada depois dele jamais roda, e o
+           encaixe de baixo seria uma promessa falsa. */
+        colour: COR_LACO,
+        tooltip: 'Repete os blocos de dentro sem parar, até apertar PARAR.',
+      },
+      {
+        type: 'parar',
+        message0: '🛑 parar tudo',
+        previousStatement: null,
+        /* Idem: o programa acaba aqui. */
+        colour: COR_MOVIMENTO,
+        tooltip: 'O robô para e o programa acaba, mesmo dentro de um repetir.',
+      },
+      {
+        type: 'se_senao',
+        message0: '👁 %1 %2 %3',
+        args0: [
+          { type: 'field_label', name: 'T1', text: 'se obstáculo a menos de' },
+          { type: 'field_number', name: 'CM', value: 20, min: 2, max: 400, precision: 1 },
+          { type: 'field_label', name: 'T2', text: 'cm' },
+        ],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        /* Texto cru: é o que separa os dois ramos, e um bloco herdado do
+           Grande precisa continuar legível num nível abaixo. */
+        message2: 'senão',
+        message3: '%1',
+        args3: [{ type: 'input_statement', name: 'SENAO' }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_SENSOR,
+        tooltip: 'Faz uns blocos se tiver algo perto na frente, e outros se não tiver.',
+      },
+      {
+        type: 'repetir_ate_perto',
+        /* Amarelo com olho: a forma e a cor dizem laço, que é o conceito; o
+           ícone diz sensor. Ciano ensinaria a coisa errada — o que ele faz é
+           repetir. */
+        message0: '🔁👁 %1 %2 %3',
+        args0: [
+          { type: 'field_label', name: 'T1', text: 'repetir até chegar a menos de' },
+          { type: 'field_number', name: 'CM', value: 20, min: 2, max: 400, precision: 1 },
+          { type: 'field_label', name: 'T2', text: 'cm' },
+        ],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_LACO,
+        tooltip: 'Repete os blocos de dentro até o robô chegar perto de alguma coisa.',
+      },
     ]);
   }
 
@@ -187,6 +247,29 @@
       case 'se_obstaculo':
         return {
           op: 'se_obstaculo',
+          cm: Number(b.getFieldValue('CM')),
+          corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')),
+          blockId: id,
+        };
+      case 'parar':
+        return { op: 'parar', blockId: id };
+      case 'repetir_sempre':
+        return {
+          op: 'repetir_sempre',
+          corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')),
+          blockId: id,
+        };
+      case 'se_senao':
+        return {
+          op: 'se_senao',
+          cm: Number(b.getFieldValue('CM')),
+          entao: pilhaParaAst(b.getInputTargetBlock('CORPO')),
+          senao: pilhaParaAst(b.getInputTargetBlock('SENAO')),
+          blockId: id,
+        };
+      case 'repetir_ate_perto':
+        return {
+          op: 'repetir_ate_perto',
           cm: Number(b.getFieldValue('CM')),
           corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')),
           blockId: id,

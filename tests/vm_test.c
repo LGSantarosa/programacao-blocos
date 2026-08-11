@@ -350,6 +350,43 @@ static void teste_dourado(void) {
     checar_trace(esperado, 17);
 }
 
+/* O JMP para trás é o que fecha um laço, e é o que os blocos "repetir para
+   sempre" e "repetir até chegar perto" emitem. O teste que já existia só cobre
+   salto para frente, pulando por cima de uma instrução — caminho diferente.
+
+   O programa aqui é exatamente a forma que o compilador gera para o "repetir
+   até chegar perto": testa antes, corpo no meio, volta no fim. */
+static void teste_jmp_para_tras_fecha_laco(void) {
+    printf("teste_jmp_para_tras_fecha_laco\n");
+    VM vm;
+    uint8_t prog[5 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_JMP_IF_GE, SENSOR_DISTANCIA, 20, 2);  /* longe → corpo   */
+    p = emit(p, OP_JMP, 4, 0, 0);                        /* perto → sai     */
+    p = emit(p, OP_MOTOR, 5, 5, 0);                      /* corpo           */
+    p = emit(p, OP_JMP, 0, 0, 0);                        /* volta: p/ trás  */
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+
+    /* Longe: entra no corpo e o salto para trás recomeça o laço. */
+    fake_dist_set(100);
+    vm_tick(&vm);
+    CHECK(vm.pc == 2);
+    vm_tick(&vm);
+    CHECK(vm.pc == 3);
+    vm_tick(&vm);
+    CHECK(vm.pc == 0);          /* aqui está o salto para trás */
+    CHECK(vm.rodando == 1);
+
+    /* Perto: cai para o salto de saída e o programa acaba. */
+    fake_dist_set(10);
+    vm_tick(&vm);
+    CHECK(vm.pc == 1);
+    vm_tick(&vm);
+    CHECK(vm.pc == 4);
+    vm_tick(&vm);
+    CHECK(vm.rodando == 0);
+}
+
 int main(void) {
     teste_programa_vazio();
     teste_sequencia_linear();
@@ -357,6 +394,7 @@ int main(void) {
     teste_repetir_tres_vezes();
     teste_laco_aninhado();
     teste_jmp_incondicional();
+    teste_jmp_para_tras_fecha_laco();
     teste_turn_desliga_motores_no_fim();
     teste_turn_esquerda_inverte_os_motores();
     teste_sensor_perto_entra_no_corpo();

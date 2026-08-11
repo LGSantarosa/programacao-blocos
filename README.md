@@ -166,11 +166,24 @@ como `andar frente [1] s`.
 | `⏸` esperar | — | `[1] s` | `[1] s` |
 | `🔁` repetir | `●●●○○` | `[4] vezes` | `[4] vezes` |
 | `👁` se obstáculo | — | `[20] cm` | `[20] cm` |
+| `🛑` parar tudo | — | sim | sim |
+| `🔁` repetir para sempre | — | sim | sim |
+| `👁` se…senão | — | — | `[20] cm` |
+| `🔁👁` repetir até perto | — | — | `[20] cm` |
+
+O Pequeno fica nos quatro primeiros de propósito: ele vale por ser pequeno, e
+cada peça nova é uma escolha a mais na frente de quem tem quatro anos. O Médio
+ganha os dois blocos sem condição embutida; o Grande, os dois com condição.
 
 Uma regra atravessa o desenho todo: **quando o controle simples não representa o
 valor, aparece o honesto.** Um `repetir 12` mostra o número em vez de bolinhas;
 um giro de 45° mostra o ângulo em vez de mentir "direita". Nada se perde ao
 descer de nível.
+
+Isso vale para um valor herdado de um nível acima. O gabarito nunca produz um:
+no Pequeno ele quebra a trilha em corrente de `repetir` de até cinco, porque
+naquele nível o clique nas bolinhas volta a 1 depois de cinco — mostrar uma peça
+que a criança não consegue construir esvazia o sentido do botão.
 
 ### Como cada bloco vira bytecode
 
@@ -182,6 +195,15 @@ descer de nível.
 | `esperar [n] s`              | `WAIT n*1000`                                      |
 | `repetir [n] vezes { corpo }`| `SET_REG rk,n` ; corpo ; `DEC_JNZ rk,início`       |
 | `se obstáculo < [n] cm { c }`| `JMP_IF_GE 0,n,depois` ; corpo ; `depois:`         |
+| `parar tudo`                 | `HALT`                                             |
+| `repetir para sempre { c }`  | `início:` corpo ; `JMP início`                     |
+| `se…senão < [n] cm`          | `JMP_IF_GE 0,n,senão` ; então ; `JMP fim` ; `senão:` senão ; `fim:` |
+| `repetir até < [n] cm { c }` | `início:` `JMP_IF_GE 0,n,corpo` ; `JMP fim` ; `corpo:` c ; `JMP início` ; `fim:` |
+
+`JMP_IF_GE` salta quando a leitura é **maior ou igual** ao limite, ou seja quando
+*não* há obstáculo dentro da distância — por isso o alvo é o `senão` no
+condicional e o corpo no laço. Os quatro últimos não precisaram de opcode novo:
+`JMP` já existia desde a v1, sem nunca ter sido emitido.
 
 ---
 

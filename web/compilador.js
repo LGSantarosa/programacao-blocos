@@ -81,6 +81,49 @@
             break;
           }
 
+          case 'parar':
+            emitir(OP.HALT, 0, 0, 0, no.blockId);
+            break;
+
+          case 'repetir_sempre': {
+            /* Primeiro uso real do OP_JMP: ele existe na VM desde a v1 e nunca
+               tinha sido emitido por ninguém. */
+            var inicioSempre = instrucoes.length;
+            gerar(no.corpo || []);
+            emitir(OP.JMP, inicioSempre, 0, 0, no.blockId);
+            break;
+          }
+
+          case 'se_senao': {
+            /* JMP_IF_GE salta quando a leitura é maior ou igual, isto é quando
+               NÃO há obstáculo dentro da distância. Por isso o alvo do salto é
+               o ramo "senão", e não o "então". */
+            var testeSe = instrucoes.length;
+            emitir(OP.JMP_IF_GE, SENSOR_DISTANCIA, Math.round(no.cm), 0, no.blockId);
+            gerar(no.entao || []);
+            var pulaSenao = instrucoes.length;
+            emitir(OP.JMP, 0, 0, 0, no.blockId);
+            instrucoes[testeSe].c = instrucoes.length;
+            gerar(no.senao || []);
+            instrucoes[pulaSenao].a = instrucoes.length;
+            break;
+          }
+
+          case 'repetir_ate_perto': {
+            /* Testa antes de rodar, não depois. Um do-while custaria duas
+               instruções a menos, mas daria um passo mesmo já estando colado na
+               parede — e o bloco diz "até chegar", não "pelo menos uma vez". */
+            var inicioAte = instrucoes.length;
+            emitir(OP.JMP_IF_GE, SENSOR_DISTANCIA, Math.round(no.cm), 0, no.blockId);
+            var saidaAte = instrucoes.length;
+            emitir(OP.JMP, 0, 0, 0, no.blockId);
+            instrucoes[inicioAte].c = instrucoes.length;
+            gerar(no.corpo || []);
+            emitir(OP.JMP, inicioAte, 0, 0, no.blockId);
+            instrucoes[saidaAte].a = instrucoes.length;
+            break;
+          }
+
           default:
             throw new Error('Bloco desconhecido: ' + no.op);
         }

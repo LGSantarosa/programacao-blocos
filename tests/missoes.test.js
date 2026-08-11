@@ -139,9 +139,13 @@ test('dá para chegar na estrela em toda missão', () => {
 });
 
 test('o labirinto tem paredes, senão não é labirinto', () => {
-  const maze = Missoes.LISTA[Missoes.LISTA.length - 1];
-  assert.ok(maze.obstaculos.length >= 2,
-    'a última fase deveria ser o labirinto');
+  /* Achado pelas paredes, não pela posição na lista: a fase do labirinto era a
+     última até a da parede entrar depois dela, e amarrar o teste à ordem faz
+     ele quebrar toda vez que uma fase nova é acrescentada — sem que nada do
+     que ele afirma tenha deixado de valer. */
+  const maze = Missoes.LISTA.find((m) => m.obstaculos === Missoes.LABIRINTO);
+  assert.ok(maze, 'nenhuma fase usa o labirinto');
+  assert.ok(maze.obstaculos.length >= 2, 'o labirinto precisa de paredes');
   assert.notStrictEqual(maze.obstaculos, Missoes.BLOCO);
 });
 
@@ -189,4 +193,30 @@ test('toda missão tem um texto curto, que criança lê', () => {
     assert.ok(m.texto.length <= 40,
       `"${m.texto}" tem ${m.texto.length} letras; não cabe no painel`);
   }
+});
+
+test('a fase da parede existe, em arena vazia', () => {
+  const m = Missoes.daVez(5);
+  assert.strictEqual(Missoes.quantas(), 6);
+  assert.deepStrictEqual(m.obstaculos, []);
+  assert.strictEqual(m.inicio.x, 1.00);
+  assert.strictEqual(m.inicio.y, 0.25);
+  assert.strictEqual(m.x, 1.00);
+  assert.strictEqual(m.y, 1.70);
+});
+
+test('a trilha da parede guarda a condição e os passos cegos', () => {
+  const passo = Missoes.daVez(5).gabarito[0];
+  assert.strictEqual(passo.ate_perto, 20);
+  assert.strictEqual(passo.andar, 13);
+});
+
+test('bater na parede não cumpre a fase da parede', () => {
+  /* colide limita o centro do robô a y <= 1,92. Se a estrela estivesse colada
+     em 2,00, bater seria uma forma de vencer — e a fase perderia o sentido. */
+  const m = Missoes.daVez(5);
+  assert.ok(!Missoes.chegou({ x: 1.00, y: 1.92 }, m),
+    'bater na parede está cumprindo a missão');
+  assert.ok(Missoes.chegou({ x: 1.00, y: 1.771 }, m),
+    'parar pelo sensor deveria cumprir');
 });

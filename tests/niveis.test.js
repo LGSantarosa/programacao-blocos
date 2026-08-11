@@ -184,3 +184,44 @@ test('ângulo que não cabe no menu aparece como número, mesmo no Pequeno', () 
 test('nível desconhecido cai no Médio em vez de quebrar', () => {
   assert.strictEqual(Niveis.definicao('inventado'), Niveis.definicao('medio'));
 });
+
+test('o Pequeno continua com quatro blocos e nenhum de controle', () => {
+  const xml = Niveis.caixaXml('pequeno');
+  for (const t of ['repetir_sempre', 'parar', 'se_senao', 'repetir_ate_perto']) {
+    assert.ok(!xml.includes('"' + t + '"'), `Pequeno não deve oferecer ${t}`);
+  }
+});
+
+test('o Médio ganha parar e repetir para sempre, e só isso', () => {
+  const xml = Niveis.caixaXml('medio');
+  assert.ok(xml.includes('"parar"'), 'faltou parar no Médio');
+  assert.ok(xml.includes('"repetir_sempre"'), 'faltou repetir para sempre no Médio');
+  assert.ok(!xml.includes('"se_senao"'), 'se…senão é só do Grande');
+  assert.ok(!xml.includes('"repetir_ate_perto"'), 'até perto é só do Grande');
+});
+
+test('o Grande oferece os dez', () => {
+  const xml = Niveis.caixaXml('grande');
+  for (const t of ['mover_frente', 'mover_tras', 'girar', 'esperar', 'parar',
+                   'repetir', 'repetir_sempre', 'repetir_ate_perto',
+                   'se_obstaculo', 'se_senao']) {
+    assert.ok(xml.includes('"' + t + '"'), `faltou ${t} no Grande`);
+  }
+});
+
+test('cada nível oferece a quantidade certa de blocos', () => {
+  const quantos = function (nivel) {
+    return (Niveis.caixaXml(nivel).match(/<block /g) || []).length;
+  };
+  assert.strictEqual(quantos('pequeno'), 5);   /* girar aparece duas vezes */
+  assert.strictEqual(quantos('medio'), 8);
+  assert.strictEqual(quantos('grande'), 10);
+});
+
+test('o mapa de campos não precisou de linha nova', () => {
+  /* Os blocos novos reaproveitam CM, T1 e T2. Se alguém acrescentar um campo
+     aqui, é sinal de que criou nome novo sem necessidade. */
+  const campos = Object.keys(Niveis.definicao('grande').campos).sort();
+  assert.deepStrictEqual(campos,
+    ['CM', 'DIR', 'GRAUS', 'N', 'SEG', 'T1', 'T2', 'VEL']);
+});

@@ -32,6 +32,13 @@
   var INICIO_PADRAO = { x: 1.00, y: 0.40, theta: Math.PI / 2 };
   var INICIO_LABIRINTO = { x: 0.25, y: 0.25, theta: Math.PI / 2 };
 
+  /* A fase da parede não tem obstáculo desenhado: o alvo é a borda da arena,
+     que o sensor já enxerga — ponto_bloqueado trata a borda como obstáculo
+     (host/physics.c). Arena vazia porque encostar no bloco vindo de baixo é a
+     mesma foto da fase 1. */
+  var SEM_OBSTACULOS = [];
+  var INICIO_PAREDE = { x: 1.00, y: 0.25, theta: Math.PI / 2 };
+
   /* O gabarito é feito do mesmo passo curto que o nível Pequeno usa: 0,5 s de
      movimento, ~11,7 cm. Assim ele funciona igual nos três níveis, e ensina de
      passagem que mais blocos é mais longe — em vez de esconder a resposta num
@@ -61,7 +68,18 @@
       inicio: INICIO_LABIRINTO, obstaculos: LABIRINTO,
       gabarito: [{ andar: 12 }, { girar: 90 }, { andar: 5 }, { girar: 90 },
                  { andar: 11 }, { girar: -90 }, { andar: 7 }, { girar: -90 },
-                 { andar: 12 }] }
+                 { andar: 12 }] },
+
+    /* A estrela fica em 1,70 e não colada em 2,00 de propósito: colide limita o
+       centro do robô a y <= 1,92, então bater na parede fica a 0,22 da estrela
+       e falha, enquanto parar pelo sensor para em ~1,77 e cumpre.
+
+       O passo "ate_perto" guarda as duas leituras do mesmo caminho: a condição,
+       para quem tem sensor, e o equivalente em passos cegos, para o Pequeno,
+       que não tem. Fonte de verdade única, como as outras trilhas. */
+    { texto: 'Chegue bem pertinho da parede', x: 1.00, y: 1.70,
+      inicio: INICIO_PAREDE, obstaculos: SEM_OBSTACULOS,
+      gabarito: [{ ate_perto: 20, andar: 13 }] }
   ];
 
   /* Quantos passos em falso antes de oferecer o gabarito. Três é o número que

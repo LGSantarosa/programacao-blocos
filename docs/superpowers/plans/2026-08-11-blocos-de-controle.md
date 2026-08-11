@@ -23,6 +23,7 @@ Estas valem para **todas** as tarefas. Não são opcionais e não são estilo.
 - **Commits em português, no imperativo**, descrevendo a intenção e não o diff — siga `git log`.
 - **Como rodar os testes:**
   - JS: `node --test tests/` a partir da raiz do repositório.
+  - Tudo menos o lento: `node --test $(ls tests/*.test.js | grep -v gabaritos.test.js)`. Nada de `--test-skip-pattern`: esta máquina tem Node 18, e a flag só existe da 20 em diante.
   - Um arquivo só: `node --test tests/gabarito.test.js`
   - C: `make -C tests test`
   - Ponta a ponta do host: `bash tests/host_test.sh`
@@ -345,7 +346,7 @@ Não mexa em `web/ipad.html`: ela não carrega `app.js` nem `missoes.js` e não 
 
 - [ ] **Step 7: Rodar a bateria rápida**
 
-Run: `node --test tests/ --test-skip-pattern="gabaritos"`
+Run: `node --test $(ls tests/*.test.js | grep -v gabaritos.test.js)`
 Expected: PASS. Em particular `es5.test.js` tem que aprovar `gabarito.js` — se acusar `let / const` ou arrow function, você escreveu JS moderno num arquivo que precisa abrir num iPad de 2011.
 
 - [ ] **Step 8: Rodar o teste lento, que é o que prova**
@@ -580,7 +581,7 @@ Expected: PASS, todos.
 
 - [ ] **Step 5: Conferir que nada mais quebrou**
 
-Run: `node --test tests/ --test-skip-pattern="gabaritos"`
+Run: `node --test $(ls tests/*.test.js | grep -v gabaritos.test.js)`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -844,7 +845,7 @@ Expected: PASS, todos.
 
 - [ ] **Step 7: Bateria rápida e commit**
 
-Run: `node --test tests/ --test-skip-pattern="gabaritos"`
+Run: `node --test $(ls tests/*.test.js | grep -v gabaritos.test.js)`
 Expected: PASS.
 
 ```bash
@@ -990,7 +991,7 @@ Expected: PASS, todos.
 
 - [ ] **Step 6: Bateria rápida e commit**
 
-Run: `node --test tests/ --test-skip-pattern="gabaritos"`
+Run: `node --test $(ls tests/*.test.js | grep -v gabaritos.test.js)`
 Expected: PASS.
 
 ```bash
@@ -1278,7 +1279,7 @@ Repare que o teste `no Pequeno nenhum repetir passa de cinco` da Task 1 agora co
 
 - [ ] **Step 6: Bateria rápida**
 
-Run: `node --test tests/ --test-skip-pattern="gabaritos"`
+Run: `node --test $(ls tests/*.test.js | grep -v gabaritos.test.js)`
 Expected: PASS.
 
 - [ ] **Step 7: O teste que julga a aritmética**

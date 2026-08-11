@@ -1392,10 +1392,12 @@ que a criança não consegue construir esvazia o sentido do botão.
 
 - [ ] **Step 5: Commit final**
 
+`firmware/data/` está no `.gitignore` — é artefato de build, regerado antes de gravar na placa, e não entra em commit. Só o README:
+
 ```bash
-git add firmware/data README.md
+git add README.md
 git commit -F - <<'EOF'
-Regrava os arquivos da placa e descreve os blocos novos
+Descreve os blocos novos no README
 EOF
 ```
 

@@ -3,9 +3,10 @@
 Uma criança monta blocos na tela, aperta PLAY, e o robô executa na hora. Hoje
 num robô virtual no navegador; amanhã numa ESP32, sem mudar a lógica.
 
-A tela serve dos 4 aos 10 anos: quem ainda não lê vê só setas, quem já lê vê
-números, e quem quer mais vê ângulo livre e velocidade. O robô virtual é o
-ensaio — a criança vê o que vai acontecer antes de mandar no robô de verdade.
+A tela serve dos 4 aos 12 anos: quem ainda não lê vê só setas, quem já lê vê
+números, quem quer mais vê ângulo livre e velocidade, e quem chegou ao teto
+começa a fazer contas. O robô virtual é o ensaio — a criança vê o que vai
+acontecer antes de mandar no robô de verdade.
 
 ---
 
@@ -244,17 +245,25 @@ Um bloco nunca troca de tipo entre níveis. Ele ganha controles. O `⬆` que a
 criança de 4 anos empilha é literalmente o mesmo bloco Blockly que a de 9 vê
 como `andar frente [1] s`.
 
-| | Pequeno (4-6) | Médio (7-9) | Grande (10+) |
-|---|---|---|---|
-| `⬆` `⬇` | passo fixo de 0,5 s | `[1] s` | `[1] s` + velocidade |
-| `↷` `↶` | 90°, fixo | menu direita/esquerda | `[90]` graus livres |
-| `⏸` esperar | — | `[1] s` | `[1] s` |
-| `🔁` repetir | `●●●○○` | `[4] vezes` | `[4] vezes` |
-| `👁` se obstáculo | — | `[20] cm` | `[20] cm` |
-| `🛑` parar tudo | — | sim | sim |
-| `🔁` repetir para sempre | — | sim | sim |
-| `👁` se…senão | — | — | `[20] cm` |
-| `🔁👁` repetir até perto | — | — | `[20] cm` |
+| | Pequeno (4-6) | Médio (7-9) | Grande (10+) | Gigante (12+) |
+|---|---|---|---|---|
+| `⬆` `⬇` | passo fixo de 0,5 s | `[1] s` | `[1] s` + velocidade | idem |
+| `↷` `↶` | 90°, fixo | menu direita/esquerda | `[90]` graus livres | idem |
+| `⏸` esperar | — | `[1] s` | `[1] s` | idem |
+| `🔁` repetir | `●●●○○` | `[4] vezes` | `[4] vezes` | idem |
+| `👁` se obstáculo | — | `[20] cm` | `[20] cm` | idem |
+| `🛑` parar tudo | — | sim | sim | idem |
+| `🔁` repetir para sempre | — | sim | sim | idem |
+| `👁` se…senão | — | — | `[20] cm` | idem |
+| `🔁👁` repetir até perto | — | — | `[20] cm` | idem |
+| `➕` contas | — | — | — | `+ − × ÷` |
+| `🎲` aleatório | — | — | — | `de [1] a [5]` |
+| `< > =` comparações | — | — | — | sim |
+| `e` `ou` `não` | — | — | — | sim |
+| `👁` distância cm | — | — | — | como **valor** |
+| `se ( ) então` | — | — | — | sim |
+| `se ( ) senão` | — | — | — | sim |
+| `🔁` repetir até ( ) | — | — | — | sim |
 
 O Pequeno fica nos quatro primeiros de propósito: ele vale por ser pequeno, e
 cada peça nova é uma escolha a mais na frente de quem tem quatro anos. O Médio
@@ -275,7 +284,24 @@ no Pequeno ele quebra a trilha em corrente de `repetir` de até cinco, porque
 naquele nível o clique nas bolinhas volta a 1 depois de cinco — mostrar uma peça
 que a criança não consegue construir esvazia o sentido do botão.
 
-No Grande aparece mais um botão: **`{ } ver código`**. Ele mostra o programa
+O Gigante é o Grande mais as contas, e existe porque o Grande virou teto. Até
+ali todo número é uma constante que a criança digita; no Gigante um número pode
+ser **uma conta** — `andar frente (🎲 aleatório de 1 a 3) s`. Todo campo numérico
+virou encaixe: o desenho é o mesmo nos três níveis de baixo, e no Gigante ele
+recebe uma peça.
+
+O bloco que carrega a lição é o **`👁 distância cm`**. Com ele, o `👁 se obstáculo
+a menos de [20] cm`, que ela usa desde os sete anos, vira um caso particular de
+`se ((distância cm) < (20))`. Os dois convivem lado a lado no Gigante de
+propósito: o ciano **sente**, o amarelo **decide**. E a diferença vale até no
+bytecode — os dois compilam exatamente a mesma coisa.
+
+O Blockly recusa o encaixe que não faz sentido antes do PLAY: `andar frente
+(3 < 4) s` não entra, porque «três é menor que quatro» não é uma quantidade de
+segundos; e `se (5)` não entra, porque um número não responde sim nem não. É
+essa exigência que ensina a diferença entre «quanto» e «se».
+
+No Grande e no Gigante aparece mais um botão: **`{ } ver código`**. Ele mostra o programa
 montado escrito em C++, pronto para gravar num Arduino — o degrau seguinte ao
 teto dos blocos. O arquivo roda o programa uma vez ao ligar, depois de três
 segundos de espera, porque na placa não existe botão PLAY: quem virou PLAY foi
@@ -283,23 +309,35 @@ o RESET.
 
 ### Como cada bloco vira bytecode
 
+Todo valor passa pela pilha: um número vira `PUSH`, uma conta vira a subárvore
+inteira. Caminho único de propósito — a alternativa era literal quando dá e
+pilha quando precisa, e duas regras por bloco é o dobro de jeitos de errar.
+
 | bloco                        | bytecode                                           |
 |------------------------------|----------------------------------------------------|
-| `andar frente [n] s`         | `MOTOR v,v` ; `WAIT n*1000` ; `MOTOR 0,0`          |
-| `andar trás [n] s`           | `MOTOR -v,-v` ; `WAIT n*1000` ; `MOTOR 0,0`        |
-| `girar [g] graus`            | `TURN g`                                           |
-| `esperar [n] s`              | `WAIT n*1000`                                      |
-| `repetir [n] vezes { corpo }`| `SET_REG rk,n` ; corpo ; `DEC_JNZ rk,início`       |
-| `se obstáculo < [n] cm { c }`| `JMP_IF_GE 0,n,depois` ; corpo ; `depois:`         |
+| `andar frente [n] s`         | `PUSH v` ; `PUSH v` ; `MOTOR` ; `PUSH n*1000` ; `WAIT` ; `PUSH 0` ; `PUSH 0` ; `MOTOR` |
+| `girar [g] graus`            | `PUSH g` ; `TURN`                                  |
+| `esperar [n] s`              | `PUSH n*1000` ; `WAIT`                             |
+| `repetir [n] vezes { corpo }`| `PUSH n` ; `SET_REG rk` ; corpo ; `DEC_JNZ rk,início` |
+| `se ( cond ) { c }`          | cond ; `JMP_FALSE depois` ; corpo ; `depois:`      |
+| `se…senão`                   | cond ; `JMP_FALSE senão` ; então ; `JMP fim` ; `senão:` senão ; `fim:` |
+| `repetir até ( cond ) { c }` | `início:` cond ; `UN não` ; `JMP_FALSE fim` ; corpo ; `JMP início` ; `fim:` |
 | `parar tudo`                 | `HALT`                                             |
 | `repetir para sempre { c }`  | `início:` corpo ; `JMP início`                     |
-| `se…senão < [n] cm`          | `JMP_IF_GE 0,n,senão` ; então ; `JMP fim` ; `senão:` senão ; `fim:` |
-| `repetir até < [n] cm { c }` | `início:` `JMP_IF_GE 0,n,corpo` ; `JMP fim` ; `corpo:` c ; `JMP início` ; `fim:` |
+| `( a ) + ( b )`              | a ; b ; `BIN +`                                    |
+| `👁 distância cm`            | `SENSOR 0`                                         |
 
-`JMP_IF_GE` salta quando a leitura é **maior ou igual** ao limite, ou seja quando
-*não* há obstáculo dentro da distância — por isso o alvo é o `senão` no
-condicional e o corpo no laço. Os quatro últimos não precisaram de opcode novo:
-`JMP` já existia desde a v1, sem nunca ter sido emitido.
+**Os três blocos de sensor do Grande não têm opcode próprio.** O `se obstáculo a
+menos de [20] cm` é `SENSOR 0` ; `PUSH 20` ; `BIN <` ; `JMP_FALSE` — exatamente o
+que a criança monta à mão no Gigante. Era um opcode dedicado, o `JMP_IF_GE`, que
+saiu quando o sensor virou valor; o número 7 ficou vago na tabela de propósito,
+porque reusá-lo faria bytecode antigo rodar errado.
+
+A pilha nasce e morre dentro do cálculo de um valor: nenhuma instrução que
+devolve o controle ao `loop()` deixa coisa pendurada nela. É isso que mantém o
+watchdog e a não-bloqueância intactos. Dividir por zero dá zero, de propósito —
+uma criança vai dividir por zero, e um robô que morre no meio da sala ensina
+menos que um que anda estranho.
 
 ### Como cada bloco vira C++
 
@@ -315,6 +353,11 @@ condicional e o corpo no laço. Os quatro últimos não precisaram de opcode nov
 | `repetir para sempre { c }`  | `while (true) { c }`                       |
 | `se…senão < [n] cm`          | `if (…) { … } else { … }`                  |
 | `repetir até < [n] cm { c }` | `while (distanciaCm() >= n) { c }`         |
+| `( a ) + ( b )`              | `a + b`, com parênteses em toda conta composta |
+| `🎲 aleatório de ( ) a ( )`  | `aleatorio(a, b)`                          |
+| `👁 distância cm`            | `distanciaCm()`                            |
+| `se ( ) então { c }`         | `if (cond) { c }`                          |
+| `repetir até ( ) { c }`      | `while (!(cond)) { c }`                    |
 
 O arquivo carrega só as funções que o programa usa: um programa que não sente
 nada não leva o HC-SR04 junto. E o `.ino` não herda os limites da VM — 256
@@ -338,6 +381,13 @@ níveis. Vale o tempo. Um gabarito que não resolve é pior que gabarito nenhum,
 porque a criança que travou segue a resposta, não funciona, e conclui que o erro
 é dela. E isso não dá para conferir no papel: as duas primeiras versões que
 escrevi pareciam certas e raspavam na parede.
+
+O `tests/quadros_test.c` cobre o que nenhum outro alcança: a remontagem de uma
+mensagem WebSocket partida. O ESPAsyncWebServer entrega mensagem grande em
+pedaços, e o firmware descartava tudo que não chegasse inteiro de uma vez — um
+programa de 256 instruções já são 1795 bytes, acima do MTU de 1436, então
+programa grande nunca carregaria na placa. O montador é C puro e sem Arduino de
+propósito, para caber num teste de mesa.
 
 O `tests/arduino.test.js` faz uma coisa que os outros não fazem: ele **compila**
 o C++ que gerou. Um `g++ -fsyntax-only` contra um `fake_arduino.h` de stubs pega
@@ -458,5 +508,10 @@ verificação pega isso.
 - **A ponte para o real** — trocar de alvo na interface, persistência em NVS e
   autostart ao ligar a placa. Espera o hardware existir.
 - **Salvar e carregar projetos da criança.**
-- **Variáveis como blocos** — precisa de opcodes novos: os quatro registradores
-  hoje só sabem `SET_REG` e `DEC_JNZ`, sem aritmética.
+- **Caixas com nome** — variáveis, com a UI do Blockly. A VM já tem pilha; falta
+  o par `PUSH_VAR`/`STORE_VAR` e o `mudar _ por _`.
+- **Tarefas e eventos** — `quando começar`, `quando <condição>`, avisos entre
+  pedaços do programa. Precisa de mais de um `pc` na VM.
+- **Blocos que ela inventa** — funções do usuário.
+- **Execução viva** — clicar num bloco e ele rodar na hora, sem ciclo de envio.
+  É o que o MicroBlocks faz, e o que mais mudaria a sensação de usar.

@@ -51,15 +51,11 @@ Exemplo completo, para `repetir 3 { andar 1 s; girar 90 }` seguido de
 
 ```cpp
 /* Robô de Blocos — o seu programa, virado código Arduino.
-   Placa: ESP32 dev  •  Motores: TB6612FNG  •  Sensor: HC-SR04
+   ESP32 dev, motores TB6612FNG, sensor HC-SR04.
 
-   Salve este arquivo numa pasta chamada robo/ — o Arduino IDE pede isso, e
-   oferece criar a pasta sozinho quando você abre. Pode dizer que sim.
-
-   Gravar este arquivo APAGA a tela de blocos que mora na placa.
-   Para voltar aos blocos: grave o firmware de novo (pasta firmware/).
-
-   Ao ligar, o robô espera 3 segundos e roda o programa uma vez. */
+   Salve numa pasta chamada robo/ — o Arduino IDE oferece criar sozinho.
+   Gravar isto apaga a tela de blocos da placa; para voltar, grave o
+   firmware de novo (pasta firmware/). */
 
 const int PWMA = 25, AIN1 = 26, AIN2 = 27;   /* motor esquerdo */
 const int PWMB = 33, BIN1 = 14, BIN2 = 12;   /* motor direito  */
@@ -74,7 +70,9 @@ void fiacao() {
   pinMode(ECHO, INPUT);
 }
 
-/* Velocidade de -255 a 255. Negativo é para trás. */
+/* Velocidade de -255 a 255. Negativo é para trás.
+   O robô chia: o analogWrite liga e desliga o motor mil vezes por
+   segundo, e o ouvido escuta. */
 void motores(int esq, int dir) {
   digitalWrite(AIN1, esq >= 0 ? HIGH : LOW);
   digitalWrite(AIN2, esq >= 0 ? LOW : HIGH);
@@ -92,8 +90,7 @@ void andarFrente(float segundos, int velocidade) {
   parar();
 }
 
-/* Gira no lugar: um motor para frente, o outro para trás. 5 ms por grau,
-   a 180 de velocidade — a mesma conta que o robô de blocos usa. */
+/* Gira no lugar: um motor para frente, o outro para trás. */
 void girar(int graus) {
   int v = graus >= 0 ? 180 : -180;
   motores(v, -v);
@@ -234,8 +231,17 @@ justamente para ficar acima da audição. O `analogWrite` do Arduino usa ~1 kHz,
 `analogWriteFrequency`, mas a assinatura dessa função mudou entre o core 2.x e o
 3.x, e resolver isso exigiria `#if` no meio de um arquivo que uma criança de dez
 anos vai ler — o remédio custaria mais que a doença. A escolha é aceitar o chiado
-e explicá-lo em uma linha de comentário no `fiacao()`, para que o barulho seja uma
-diferença compreendida e não um defeito.
+e explicá-lo em duas linhas de comentário sobre o `motores()`, onde o
+`analogWrite` está, para que o barulho seja uma diferença compreendida e não um
+defeito.
+
+**Comentário curto, e pouco.** Quem abre o arquivo veio ler o próprio programa,
+não um manual, e um `.ino` mais comentado que codificado esconde justamente o que
+a criança foi ver. Fica só o que ela não tem como descobrir sozinha: a pasta que
+o IDE exige, que gravar isto apaga a tela de blocos, a faixa de -255 a 255, o
+chiado, o zero do eco e o porquê dos 3 segundos. O que explica as nossas
+entranhas — a calibração vir do `vm.h`, a simetria com o compilador — é assunto
+do `web/arduino.js`, não do que ele gera.
 
 ## A interface
 

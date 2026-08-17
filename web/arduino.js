@@ -155,17 +155,17 @@
     }
   }
 
+  /* O comentário do topo é curto de propósito: quem abre este arquivo veio
+     ler o próprio programa, não um manual. Fica só o que ele não tem como
+     descobrir sozinho — a pasta que o IDE exige, e que gravar isto apaga a
+     tela de blocos. */
   var CABECALHO = [
     '/* Robô de Blocos — o seu programa, virado código Arduino.',
-    '   Placa: ESP32 dev, motores TB6612FNG, sensor HC-SR04.',
+    '   ESP32 dev, motores TB6612FNG, sensor HC-SR04.',
     '',
-    '   Salve numa pasta chamada robo/ — o Arduino IDE pede isso, e oferece',
-    '   criar a pasta sozinho quando você abre. Pode dizer que sim.',
-    '',
-    '   Gravar este arquivo APAGA a tela de blocos que mora na placa.',
-    '   Para voltar aos blocos, grave o firmware de novo (pasta firmware/).',
-    '',
-    '   Ao ligar, o robô espera 3 segundos e roda o programa uma vez. */',
+    '   Salve numa pasta chamada robo/ — o Arduino IDE oferece criar sozinho.',
+    '   Gravar isto apaga a tela de blocos da placa; para voltar, grave o',
+    '   firmware de novo (pasta firmware/). */',
     ''
   ];
 
@@ -203,10 +203,8 @@
 
   var MOTORES = [
     '/* Velocidade de -255 a 255. Negativo é para trás.',
-    '',
-    '   O robô chia um pouco: o analogWrite liga e desliga o motor umas mil',
-    '   vezes por segundo, e isso o ouvido escuta. O programa de blocos usa',
-    '   vinte mil vezes, rápido demais para ouvir. */',
+    '   O robô chia: o analogWrite liga e desliga o motor mil vezes por',
+    '   segundo, e o ouvido escuta. */',
     'void motores(int esq, int dir) {',
     '  digitalWrite(AIN1, esq >= 0 ? HIGH : LOW);',
     '  digitalWrite(AIN2, esq >= 0 ? LOW : HIGH);',
@@ -239,9 +237,7 @@
   ];
 
   var GIRAR = [
-    '/* Gira no lugar: um motor para frente, o outro para trás. ' +
-      MS_POR_GRAU + ' ms por grau,',
-    '   a ' + VEL_GIRO + ' de velocidade — a mesma conta que o robô de blocos usa. */',
+    '/* Gira no lugar: um motor para frente, o outro para trás. */',
     'void girar(int graus) {',
     '  int v = graus >= 0 ? ' + VEL_GIRO + ' : -' + VEL_GIRO + ';',
     '  motores(v, -v);',

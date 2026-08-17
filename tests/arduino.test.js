@@ -4,7 +4,13 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { gerar } = require('../web/arduino.js');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+const { gerar, PINOS, VEL_GIRO, MS_POR_GRAU } = require('../web/arduino.js');
+
+const RAIZ = path.join(__dirname, '..');
 
 /* Só o corpo do programa(), sem o resto do arquivo: é ali que mora a tradução,
    e comparar o arquivo inteiro faria cada teste falhar por causa do cabeçalho.
@@ -206,3 +212,72 @@ test('sensor escondido dentro de um senão também conta', () => {
   assert.ok(txt.includes('int distanciaCm()'), 'faltou distanciaCm');
   assert.ok(txt.includes('void girar('), 'faltou girar, que está dentro do senão');
 });
+
+/* O .ino repete números que moram em arquivos C. Se um mudar sozinho, o robô
+   de blocos e o .ino passam a girar diferente, e a criança conclui que o
+   código é que está errado. Estes dois testes são o que impede isso. */
+
+test('os pinos do .ino são os mesmos do firmware', () => {
+  const hal = fs.readFileSync(
+    path.join(RAIZ, 'firmware/src/hal_esp32.cpp'), 'utf8');
+  for (const nome of Object.keys(PINOS)) {
+    const m = hal.match(new RegExp('PIN_' + nome + '\\s*=\\s*(\\d+)'));
+    assert.ok(m, 'não achei PIN_' + nome + ' no hal_esp32.cpp');
+    assert.strictEqual(Number(m[1]), PINOS[nome],
+      'o pino ' + nome + ' divergiu entre o firmware e o .ino');
+  }
+});
+
+test('a calibração do giro é a mesma da VM', () => {
+  const vm = fs.readFileSync(path.join(RAIZ, 'core/vm.h'), 'utf8');
+  const vel = vm.match(/#define\s+VEL_GIRO\s+(\d+)/);
+  const ms = vm.match(/#define\s+MS_POR_GRAU\s+(\d+)/);
+  assert.ok(vel && ms, 'não achei a calibração no core/vm.h');
+  assert.strictEqual(Number(vel[1]), VEL_GIRO, 'VEL_GIRO divergiu do vm.h');
+  assert.strictEqual(Number(ms[1]), MS_POR_GRAU, 'MS_POR_GRAU divergiu do vm.h');
+});
+
+function temGpp() {
+  return spawnSync('which', ['g++'], { encoding: 'utf8' }).status === 0;
+}
+
+/* Um programa que usa todo bloco existente, para o compilador ver o arquivo
+   inteiro de uma vez. */
+const TUDO = [
+  { op: 'repetir', vezes: 3, corpo: [
+    { op: 'frente', segundos: 1, velocidade: 255 },
+    { op: 'tras', segundos: 0.5 },
+    { op: 'girar', graus: -45 },
+    { op: 'esperar', segundos: 2 },
+    { op: 'repetir', vezes: 2, corpo: [
+      { op: 'se_senao', cm: 20,
+        entao: [{ op: 'repetir_ate_perto', cm: 10,
+                  corpo: [{ op: 'frente', segundos: 0.2 }] }],
+        senao: [{ op: 'se_obstaculo', cm: 30, corpo: [{ op: 'parar' }] }] }] }] },
+  { op: 'repetir_sempre', corpo: [{ op: 'girar', graus: 90 }] },
+];
+
+/* Sintaxe errada no texto gerado só apareceria com a criança na frente do
+   Arduino IDE. Um g++ resolve isso em milissegundos. Mesmo truque do
+   fake_hal.c, que deixa a VM ser testada sem hardware. */
+test('o sketch gerado compila',
+  { skip: temGpp() ? false : 'sem g++ nesta máquina' }, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ino-'));
+    const arq = path.join(dir, 'robo.cpp');
+    fs.writeFileSync(arq, '#include "fake_arduino.h"\n' + gerar(TUDO));
+    const r = spawnSync('g++', ['-fsyntax-only', '-Wall', '-I', __dirname, arq],
+      { encoding: 'utf8' });
+    fs.rmSync(dir, { recursive: true, force: true });
+    assert.strictEqual(r.status, 0, 'o sketch não compilou:\n' + r.stderr);
+  });
+
+test('o sketch mais simples possível também compila',
+  { skip: temGpp() ? false : 'sem g++ nesta máquina' }, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ino-'));
+    const arq = path.join(dir, 'vazio.cpp');
+    fs.writeFileSync(arq, '#include "fake_arduino.h"\n' + gerar([]));
+    const r = spawnSync('g++', ['-fsyntax-only', '-Wall', '-I', __dirname, arq],
+      { encoding: 'utf8' });
+    fs.rmSync(dir, { recursive: true, force: true });
+    assert.strictEqual(r.status, 0, 'o sketch vazio não compilou:\n' + r.stderr);
+  });

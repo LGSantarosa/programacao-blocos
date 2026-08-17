@@ -33,6 +33,7 @@ void vm_run(VM *vm) {
     vm->parar_ao_fim = 0;
     vm->rodando      = 1;
     vm->ultimo_tick  = hal_millis();
+    vm->topo         = 0;
     memset(vm->reg, 0, sizeof(vm->reg));
 }
 
@@ -56,6 +57,19 @@ void vm_watchdog_check(VM *vm, uint32_t agora) {
     if ((int32_t)(agora - vm->ultimo_tick) > WATCHDOG_MS) vm_stop(vm);
 }
 
+static void empilhar(VM *vm, int32_t v) {
+    if (vm->topo >= PILHA_MAX) { vm_stop(vm); return; }
+    vm->pilha[vm->topo++] = v;
+}
+
+/* Pilha vazia é programa torto, e programa torto para — mesma regra do
+   registrador fora da faixa. O valor devolvido não importa: quem chamou
+   confere vm->rodando antes de usá-lo. */
+static int32_t desempilhar(VM *vm) {
+    if (vm->topo == 0) { vm_stop(vm); return 0; }
+    return vm->pilha[--vm->topo];
+}
+
 void vm_tick(VM *vm) {
     if (!vm->rodando) return;
 
@@ -71,19 +85,84 @@ void vm_tick(VM *vm) {
     case OP_HALT:
         vm_stop(vm);
         break;
-    case OP_MOTOR:
-        hal_motors(i->a, i->b);
+    /* Desempilha a direita primeiro: o compilador empilha esquerda antes. */
+    case OP_MOTOR: {
+        int32_t dir = desempilhar(vm);
+        int32_t esq = desempilhar(vm);
+        if (!vm->rodando) break;
+        hal_motors((int16_t)esq, (int16_t)dir);
         vm->pc++;
         break;
-    case OP_WAIT:
-        vm->esperar_ate = agora + (uint32_t)(i->a > 0 ? i->a : 0);
+    }
+    case OP_WAIT: {
+        int32_t ms = desempilhar(vm);
+        if (!vm->rodando) break;
+        vm->esperar_ate = agora + (uint32_t)(ms > 0 ? ms : 0);
         vm->pc++;
         break;
-    case OP_SET_REG:
+    }
+    case OP_SET_REG: {
+        int32_t n = desempilhar(vm);
+        if (!vm->rodando) break;
         if (i->a < 0 || i->a >= N_REGS) { vm_stop(vm); break; }
-        vm->reg[i->a] = i->b;
+        /* Zero viraria laço infinito: o DEC_JNZ decrementa antes de comparar e
+           nunca chegaria a zero. Com número o compilador já resolve; com uma
+           conta da criança, só dá para saber aqui. */
+        vm->reg[i->a] = (int16_t)(n < 1 ? 1 : n);
         vm->pc++;
         break;
+    }
+    case OP_PUSH:
+        empilhar(vm, i->a);
+        vm->pc++;
+        break;
+    case OP_SENSOR:
+        empilhar(vm, (i->a == SENSOR_DISTANCIA) ? (int32_t)hal_distancia_cm() : 0);
+        vm->pc++;
+        break;
+    case OP_BIN: {
+        int32_t b = desempilhar(vm);
+        int32_t a = desempilhar(vm);
+        if (!vm->rodando) break;
+        int32_t r = 0;
+        switch (i->a) {
+        case BIN_MAIS:    r = a + b; break;
+        case BIN_MENOS:   r = a - b; break;
+        case BIN_VEZES:   r = a * b; break;
+        /* Zero dá zero: uma criança vai dividir por zero, e um robô que morre
+           no meio da sala ensina menos que um que anda estranho. */
+        case BIN_DIVIDIR: r = (b == 0) ? 0 : a / b; break;
+        case BIN_MENOR:   r = (a < b); break;
+        case BIN_MAIOR:   r = (a > b); break;
+        case BIN_IGUAL:   r = (a == b); break;
+        case BIN_E:       r = (a && b); break;
+        case BIN_OU:      r = (a || b); break;
+        case BIN_ALEATORIO: {
+            int32_t lo = (a < b) ? a : b, hi = (a < b) ? b : a;
+            r = lo + (int32_t)(hal_millis() % (uint32_t)(hi - lo + 1));
+            break;
+        }
+        default: vm_stop(vm); return;
+        }
+        empilhar(vm, r);
+        vm->pc++;
+        break;
+    }
+    case OP_UN: {
+        int32_t a = desempilhar(vm);
+        if (!vm->rodando) break;
+        if (i->a != UN_NAO) { vm_stop(vm); return; }
+        empilhar(vm, !a);
+        vm->pc++;
+        break;
+    }
+    case OP_JMP_FALSE: {
+        int32_t c = desempilhar(vm);
+        if (!vm->rodando) break;
+        if (!c) vm->pc = (uint16_t)i->a;
+        else    vm->pc++;
+        break;
+    }
     case OP_DEC_JNZ:
         if (i->a < 0 || i->a >= N_REGS) { vm_stop(vm); break; }
         vm->reg[i->a]--;
@@ -94,8 +173,10 @@ void vm_tick(VM *vm) {
         vm->pc = (uint16_t)i->a;
         break;
     case OP_TURN: {
-        int16_t v = (i->a >= 0) ? VEL_GIRO : -VEL_GIRO;
-        int32_t graus = (i->a >= 0) ? i->a : -i->a;
+        int32_t pedido = desempilhar(vm);
+        if (!vm->rodando) break;
+        int16_t v = (pedido >= 0) ? VEL_GIRO : -VEL_GIRO;
+        int32_t graus = (pedido >= 0) ? pedido : -pedido;
         hal_motors(v, (int16_t)-v);
         vm->esperar_ate  = agora + (uint32_t)(graus * MS_POR_GRAU);
         vm->parar_ao_fim = 1;

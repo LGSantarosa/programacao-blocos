@@ -11,8 +11,26 @@ enum {
     OP_SET_REG   = 4,
     OP_DEC_JNZ   = 5,
     OP_JMP       = 6,
-    OP_JMP_IF_GE = 7
+    OP_JMP_IF_GE = 7,   /* sai quando ninguém mais o emitir */
+    OP_PUSH      = 8,
+    OP_SENSOR    = 9,
+    OP_BIN       = 10,
+    OP_UN        = 11,
+    OP_JMP_FALSE = 12
 };
+
+/* Um opcode com seletor em vez de um por conta: o campo "a" já existe e está
+   sobrando, e onze opcodes por onze contas engordariam a tabela sem ganhar
+   nada. */
+enum {
+    BIN_MAIS = 0, BIN_MENOS = 1, BIN_VEZES = 2, BIN_DIVIDIR = 3,
+    BIN_MENOR = 4, BIN_MAIOR = 5, BIN_IGUAL = 6,
+    BIN_E = 7, BIN_OU = 8, BIN_ALEATORIO = 9
+};
+
+enum { UN_NAO = 0 };
+
+#define PILHA_MAX 16
 
 #define MAX_INSTR        256
 #define INSTR_BYTES      7

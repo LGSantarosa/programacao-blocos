@@ -15,6 +15,11 @@ typedef struct {
     uint16_t n_instr;
     uint16_t pc;
     int16_t  reg[N_REGS];
+    /* Vive dentro do cálculo de um valor e morre nele: nenhuma instrução que
+       devolve o controle ao loop() deixa coisa pendurada aqui. É por isso que
+       ela pode ser pequena. */
+    int32_t  pilha[PILHA_MAX];
+    uint8_t  topo;
     uint32_t esperar_ate;
     uint8_t  parar_ao_fim;
     uint8_t  rodando;

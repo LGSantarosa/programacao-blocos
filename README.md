@@ -275,6 +275,12 @@ no Pequeno ele quebra a trilha em corrente de `repetir` de até cinco, porque
 naquele nível o clique nas bolinhas volta a 1 depois de cinco — mostrar uma peça
 que a criança não consegue construir esvazia o sentido do botão.
 
+No Grande aparece mais um botão: **`{ } ver código`**. Ele mostra o programa
+montado escrito em C++, pronto para gravar num Arduino — o degrau seguinte ao
+teto dos blocos. O arquivo roda o programa uma vez ao ligar, depois de três
+segundos de espera, porque na placa não existe botão PLAY: quem virou PLAY foi
+o RESET.
+
 ### Como cada bloco vira bytecode
 
 | bloco                        | bytecode                                           |
@@ -295,6 +301,26 @@ que a criança não consegue construir esvazia o sentido do botão.
 condicional e o corpo no laço. Os quatro últimos não precisaram de opcode novo:
 `JMP` já existia desde a v1, sem nunca ter sido emitido.
 
+### Como cada bloco vira C++
+
+| bloco                        | C++                                        |
+|------------------------------|--------------------------------------------|
+| `andar frente [n] s [v]`     | `andarFrente(n, v);`                       |
+| `andar trás [n] s [v]`       | `andarTras(n, v);`                         |
+| `girar [g] graus`            | `girar(g);`                                |
+| `esperar [n] s`              | `esperar(n);`                              |
+| `repetir [n] vezes { c }`    | `for (int i = 0; i < n; i++) { c }`        |
+| `se obstáculo < [n] cm { c }`| `if (distanciaCm() < n) { c }`             |
+| `parar tudo`                 | `parar(); return;`                         |
+| `repetir para sempre { c }`  | `while (true) { c }`                       |
+| `se…senão < [n] cm`          | `if (…) { … } else { … }`                  |
+| `repetir até < [n] cm { c }` | `while (distanciaCm() >= n) { c }`         |
+
+O arquivo carrega só as funções que o programa usa: um programa que não sente
+nada não leva o HC-SR04 junto. E o `.ino` não herda os limites da VM — 256
+instruções e quatro `repetir` aninhados são restrições dos 7 bytes e dos quatro
+registradores, não do C++.
+
 ---
 
 ## Testes
@@ -312,6 +338,12 @@ níveis. Vale o tempo. Um gabarito que não resolve é pior que gabarito nenhum,
 porque a criança que travou segue a resposta, não funciona, e conclui que o erro
 é dela. E isso não dá para conferir no papel: as duas primeiras versões que
 escrevi pareciam certas e raspavam na parede.
+
+O `tests/arduino.test.js` faz uma coisa que os outros não fazem: ele **compila**
+o C++ que gerou. Um `g++ -fsyntax-only` contra um `fake_arduino.h` de stubs pega
+chave não fechada e função com aridade errada em milissegundos — defeitos que de
+outro modo só apareceriam com a criança na frente do Arduino IDE. Pula sozinho
+se não houver `g++`.
 
 O `node --test tests/` inclui um teste que **dirige um Chromium de verdade** por
 CDP, com cliente WebSocket escrito à mão — sem npm, como o resto do projeto. Ele

@@ -6,19 +6,26 @@ cd "$(dirname "$0")/../host" || exit 1
 make --silent || exit 1
 
 # repetir 4 { frente 1s; girar direita } — o mesmo programa do teste dourado.
-# Montado instrução por instrução de propósito: um literal de 98 dígitos é
+# Montado instrução por instrução de propósito: um literal de 196 dígitos é
 # fácil demais de digitar errado, e o erro só aparece como "não rodou nada".
 PROG=""
-PROG="$PROG""04000004000000"   # SET_REG r0, 4
-PROG="$PROG""01c800c8000000"   # MOTOR 200, 200
-PROG="$PROG""02e80300000000"   # WAIT 1000
-PROG="$PROG""01000000000000"   # MOTOR 0, 0
-PROG="$PROG""035a0000000000"   # TURN 90
-PROG="$PROG""05000001000000"   # DEC_JNZ r0, 1
-PROG="$PROG""00000000000000"   # HALT
+PROG="$PROG""08040000000000"   # pc  0: PUSH 4
+PROG="$PROG""04000000000000"   # pc  1: SET_REG r0
+PROG="$PROG""08c80000000000"   # pc  2: PUSH 200
+PROG="$PROG""08c80000000000"   # pc  3: PUSH 200
+PROG="$PROG""01000000000000"   # pc  4: MOTOR
+PROG="$PROG""08e80300000000"   # pc  5: PUSH 1000
+PROG="$PROG""02000000000000"   # pc  6: WAIT
+PROG="$PROG""08000000000000"   # pc  7: PUSH 0
+PROG="$PROG""08000000000000"   # pc  8: PUSH 0
+PROG="$PROG""01000000000000"   # pc  9: MOTOR
+PROG="$PROG""085a0000000000"   # pc 10: PUSH 90
+PROG="$PROG""03000000000000"   # pc 11: TURN
+PROG="$PROG""05000002000000"   # pc 12: DEC_JNZ r0, 2
+PROG="$PROG""00000000000000"   # pc 13: HALT
 
-if [ "${#PROG}" -ne 98 ]; then
-    echo "  FALHOU: programa tem ${#PROG} dígitos hex, esperava 98"
+if [ "${#PROG}" -ne 196 ]; then
+    echo "  FALHOU: programa tem ${#PROG} dígitos hex, esperava 196"
     exit 1
 fi
 
@@ -60,21 +67,21 @@ else
 fi
 
 # O pc reportado é o da instrução em efeito, não o da próxima. Enquanto o
-# robô gira, quem tem que aparecer é o TURN (pc 4) — é ele que o navegador
+# robô gira, quem tem que aparecer é o TURN (pc 11) — é ele que o navegador
 # traduz para o bloco "girar" aceso. Reportar a próxima instrução acenderia o
 # bloco "repetir" e o "girar" nunca acenderia.
-if printf '%s\n' "$SAIDA" | grep --quiet '^P 4$'; then
-    echo "  ok: reportou o TURN em efeito (pc 4)"
+if printf '%s\n' "$SAIDA" | grep --quiet '^P 11$'; then
+    echo "  ok: reportou o TURN em efeito (pc 11)"
 else
     echo "  FALHOU: nunca reportou o pc 4 — o bloco 'girar' não acenderia"
     falhas=$((falhas + 1))
 fi
 
-# E precisa ter chegado no HALT, que é a última instrução (pc 6).
-if printf '%s\n' "$SAIDA" | grep --quiet '^P 6$'; then
+# E precisa ter chegado no HALT, que é a última instrução (pc 13).
+if printf '%s\n' "$SAIDA" | grep --quiet '^P 13$'; then
     echo "  ok: chegou até o HALT"
 else
-    echo "  FALHOU: nunca chegou no HALT (pc 6) — parou no meio do programa"
+    echo "  FALHOU: nunca chegou no HALT (pc 13) — parou no meio do programa"
     falhas=$((falhas + 1))
 fi
 

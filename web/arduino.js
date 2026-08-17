@@ -75,7 +75,15 @@
       if (no.op === 'tras') uso.tras = true;
       if (no.op === 'girar') uso.girar = true;
       if (no.op === 'esperar') uso.esperar = true;
+      if (no.op === 'se_obstaculo' || no.op === 'se_senao' ||
+          no.op === 'repetir_ate_perto') {
+        uso.sensor = true;
+      }
+      /* Os três ramos possíveis. O "senão" não se chama "corpo", e esquecê-lo
+         geraria um arquivo sem a função que o próprio arquivo chama. */
       if (no.corpo) usoDe(no.corpo, uso);
+      if (no.entao) usoDe(no.entao, uso);
+      if (no.senao) usoDe(no.senao, uso);
     }
     return uso;
   }
@@ -99,6 +107,47 @@
           break;
         case 'esperar':
           linhas.push(r + 'esperar(' + seg(no.segundos) + ');');
+          break;
+        case 'parar':
+          linhas.push(r + 'parar();');
+          linhas.push(r + 'return;');
+          break;
+        case 'repetir': {
+          /* Zero viraria um laço que nunca roda; o compilador força 1 pela
+             mesma razão. Só o repetir gasta um nome de variável: dar um nome a
+             cada laço faria o segundo repetir de um programa começar em "j"
+             sem motivo. */
+          var v = nomeLaco(profundidade);
+          var vezes = Math.max(1, inteiro(no.vezes, 1));
+          linhas.push(r + 'for (int ' + v + ' = 0; ' + v + ' < ' + vezes +
+                      '; ' + v + '++) {');
+          gerarNos(no.corpo || [], nivel + 1, profundidade + 1, linhas);
+          linhas.push(r + '}');
+          break;
+        }
+        case 'repetir_sempre':
+          linhas.push(r + 'while (true) {');
+          gerarNos(no.corpo || [], nivel + 1, profundidade, linhas);
+          linhas.push(r + '}');
+          break;
+        case 'repetir_ate_perto':
+          /* Testa antes de rodar: o bloco diz "até chegar", não "pelo menos
+             uma vez". Mesma escolha do compilador. */
+          linhas.push(r + 'while (distanciaCm() >= ' + inteiro(no.cm, 20) + ') {');
+          gerarNos(no.corpo || [], nivel + 1, profundidade, linhas);
+          linhas.push(r + '}');
+          break;
+        case 'se_obstaculo':
+          linhas.push(r + 'if (distanciaCm() < ' + inteiro(no.cm, 20) + ') {');
+          gerarNos(no.corpo || [], nivel + 1, profundidade, linhas);
+          linhas.push(r + '}');
+          break;
+        case 'se_senao':
+          linhas.push(r + 'if (distanciaCm() < ' + inteiro(no.cm, 20) + ') {');
+          gerarNos(no.entao || [], nivel + 1, profundidade, linhas);
+          linhas.push(r + '} else {');
+          gerarNos(no.senao || [], nivel + 1, profundidade, linhas);
+          linhas.push(r + '}');
           break;
         default:
           throw new Error('Bloco desconhecido: ' + no.op);
@@ -209,6 +258,21 @@
     ''
   ];
 
+  var SENSOR = [
+    'int distanciaCm() {',
+    '  digitalWrite(TRIG, LOW);  delayMicroseconds(2);',
+    '  digitalWrite(TRIG, HIGH); delayMicroseconds(10);',
+    '  digitalWrite(TRIG, LOW);',
+    '  unsigned long us = pulseIn(ECHO, HIGH, 25000UL);',
+    '  if (us == 0) return 400;              /* não voltou eco: nada por perto */',
+    '  int cm = us / 58;',
+    '  if (cm < 2) cm = 2;',
+    '  if (cm > 400) cm = 400;',
+    '  return cm;',
+    '}',
+    ''
+  ];
+
   var FIM = [
     'void setup() {',
     '  fiacao();',
@@ -238,6 +302,7 @@
     if (uso.tras) linhas = linhas.concat(ANDAR_TRAS);
     if (uso.girar) linhas = linhas.concat(GIRAR);
     if (uso.esperar) linhas = linhas.concat(ESPERAR);
+    if (uso.sensor) linhas = linhas.concat(SENSOR);
     linhas.push('void programa() {');
     linhas = linhas.concat(corpo);
     linhas.push('}');

@@ -427,7 +427,7 @@
      seria mais uma escolha na tela de quem ainda está aprendendo a ler, e o
      código mostraria números que aqueles níveis escondem de propósito. */
   function atualizarBotaoCodigo() {
-    btCodigo.hidden = nivel !== 'grande';
+    btCodigo.hidden = (nivel !== 'grande' && nivel !== 'gigante');
   }
 
   /* A aba de blocos é um workspace à parte, e o updateToolbox reconstrói a

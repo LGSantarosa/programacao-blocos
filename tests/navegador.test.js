@@ -271,6 +271,49 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
       await aval(`document.getElementById('painel-codigo').hidden`),
       true, 'o painel de código não fechou');
 
+    /* O Gigante: uma conta de verdade dentro de um bloco de movimento. É o
+       degrau que este ciclo abriu, e o teste só vale se o robô rodar com ela. */
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=gigante]').click();
+      const ws = Blockly.getMainWorkspace();
+      Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [{
+        type: 'quando_play', x: 40, y: 30,
+        inputs: { CORPO: { block: {
+          type: 'mover_frente',
+          inputs: { SEG: { block: {
+            type: 'conta_vezes',
+            inputs: {
+              A: { shadow: { type: 'numero', fields: { NUM: 0.25 } } },
+              B: { shadow: { type: 'numero', fields: { NUM: 2 } } },
+            },
+          } } },
+          fields: { VEL: '200' },
+        } } }
+      }] } }, ws);
+      Niveis.aplicar(ws, 'gigante');
+      return 1;
+    })()`);
+    await espera(300);
+
+    assert.strictEqual(
+      await aval(`document.getElementById('codigo').hidden`), false,
+      'o ver código deveria aparecer no Gigante também');
+
+    /* Aperta PLAY: se a conta não compilasse, o #erro mostraria a mensagem. */
+    await aval(`(() => { document.getElementById('play').click(); return 1; })()`);
+    await espera(500);
+    assert.strictEqual(await aval(`document.getElementById('erro').textContent`), '',
+      'a conta do Gigante não compilou');
+
+    await aval(`(() => { document.getElementById('parar').click(); return 1; })()`);
+    await espera(300);
+
+    /* Esvazia antes de descer de nível: com trabalho montado, trocar abre o
+       diálogo de confirmação — que é justamente o comportamento testado mais
+       acima, e aqui só atrapalharia. */
+    await aval(`(() => { Blocos.limpar(Blockly.getMainWorkspace()); return 1; })()`);
+    await espera(200);
+
     /* Volta para o Médio e remonta, porque o resto do teste roda um programa. */
     await aval(`(() => {
       document.querySelector('#niveis button[data-nivel=medio]').click();

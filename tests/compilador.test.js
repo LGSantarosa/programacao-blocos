@@ -368,3 +368,86 @@ test('cada instrução nova aponta para o bloco que a gerou', () => {
   const { pcMap } = compilar([{ op: 'parar', blockId: 'meu-parar' }]);
   assert.strictEqual(pcMap[0], 'meu-parar');
 });
+
+/* ---------- as contas do Gigante ---------- */
+
+test('uma conta vira a subárvore antes do comando', () => {
+  const { bytes } = compilar([
+    { op: 'girar', blockId: 'g',
+      graus: { op: 'vezes', a: 45, b: 2, blockId: 'c' } },
+  ]);
+  assert.deepStrictEqual(instrucoes(bytes).slice(0, 4), [
+    [OP.PUSH, 45, 0, 0],
+    [OP.PUSH, 2, 0, 0],
+    [OP.BIN, BIN.VEZES, 0, 0],
+    [OP.TURN, 0, 0, 0],
+  ]);
+});
+
+test('se com condição da criança usa JMP_FALSE', () => {
+  const { bytes } = compilar([
+    { op: 'se', blockId: 's',
+      cond: { op: 'menor', a: { op: 'distancia' }, b: 30 },
+      corpo: [{ op: 'parar', blockId: 'p' }] },
+  ]);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.SENSOR, 0, 0, 0],
+    [OP.PUSH, 30, 0, 0],
+    [OP.BIN, BIN.MENOR, 0, 0],
+    [OP.JMP_FALSE, 5, 0, 0],
+    [OP.HALT, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
+});
+
+test('segundos que são conta viram multiplicação por mil', () => {
+  const { bytes } = compilar([
+    { op: 'esperar', blockId: 'e',
+      segundos: { op: 'aleatorio', a: 1, b: 3, blockId: 'r' } },
+  ]);
+  assert.deepStrictEqual(instrucoes(bytes).slice(0, 6), [
+    [OP.PUSH, 1, 0, 0],
+    [OP.PUSH, 3, 0, 0],
+    [OP.BIN, BIN.ALEATORIO, 0, 0],
+    [OP.PUSH, 1000, 0, 0],
+    [OP.BIN, BIN.VEZES, 0, 0],
+    [OP.WAIT, 0, 0, 0],
+  ]);
+});
+
+test('repetir até do Gigante testa antes e volta no fim', () => {
+  const { bytes } = compilar([
+    { op: 'repetir_ate', blockId: 'r',
+      cond: { op: 'maior', a: { op: 'distancia' }, b: 50 },
+      corpo: [{ op: 'parar', blockId: 'p' }] },
+  ]);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.SENSOR, 0, 0, 0],
+    [OP.PUSH, 50, 0, 0],
+    [OP.BIN, BIN.MAIOR, 0, 0],
+    [OP.UN, UN.NAO, 0, 0],
+    [OP.JMP_FALSE, 7, 0, 0],
+    [OP.HALT, 0, 0, 0],
+    [OP.JMP, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
+});
+
+test('e, ou e não viram BIN e UN', () => {
+  const { bytes } = compilar([
+    { op: 'se', blockId: 's',
+      cond: { op: 'e', a: { op: 'nao', a: 1 }, b: 0 },
+      corpo: [] },
+  ]);
+  const i = instrucoes(bytes);
+  assert.deepStrictEqual(i[0], [OP.PUSH, 1, 0, 0]);
+  assert.deepStrictEqual(i[1], [OP.UN, UN.NAO, 0, 0]);
+  assert.deepStrictEqual(i[2], [OP.PUSH, 0, 0, 0]);
+  assert.deepStrictEqual(i[3], [OP.BIN, BIN.E, 0, 0]);
+});
+
+test('conta desconhecida é erro, não silêncio', () => {
+  assert.throws(
+    () => compilar([{ op: 'girar', graus: { op: 'raiz', a: 9 }, blockId: 'g' }]),
+    /Conta desconhecida/);
+});

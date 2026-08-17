@@ -261,3 +261,64 @@ test('o mapa de campos não precisou de linha nova', () => {
   assert.deepStrictEqual(campos,
     ['CM', 'DIR', 'GRAUS', 'N', 'SEG', 'T1', 'T2', 'VEL']);
 });
+
+/* ---------- o quarto nível ---------- */
+
+test('o Gigante é o quarto nível e herda tudo do Grande', () => {
+  assert.deepStrictEqual(Niveis.LISTA, ['pequeno', 'medio', 'grande', 'gigante']);
+  const grande = Niveis.definicao('grande').blocos;
+  const gigante = Niveis.definicao('gigante').blocos;
+  for (const t of grande) {
+    assert.ok(gigante.indexOf(t) >= 0, 'o Gigante perdeu o bloco ' + t);
+  }
+});
+
+test('só o Gigante oferece contas e o distância', () => {
+  for (const nivel of ['pequeno', 'medio', 'grande']) {
+    const b = Niveis.definicao(nivel).blocos;
+    assert.ok(b.indexOf('conta_mais') < 0, nivel + ' não deveria ter contas');
+    assert.ok(b.indexOf('distancia') < 0, nivel + ' não deveria ter o distância');
+  }
+  const g = Niveis.definicao('gigante').blocos;
+  for (const t of ['conta_mais', 'conta_menor', 'conta_e', 'conta_nao',
+                   'aleatorio', 'distancia', 'se', 'se_entao_senao',
+                   'repetir_ate']) {
+    assert.ok(g.indexOf(t) >= 0, 'faltou ' + t + ' no Gigante');
+  }
+});
+
+test('a caixa do Gigante tem a categoria Contas, e as de baixo não', () => {
+  assert.ok(Niveis.caixaXml('gigante').includes('name="Contas"'));
+  for (const nivel of ['pequeno', 'medio', 'grande']) {
+    assert.ok(!Niveis.caixaXml(nivel).includes('name="Contas"'),
+      nivel + ' não deveria ter a categoria Contas');
+  }
+});
+
+/* Um encaixe de conta sem shadow sairia da paleta com dois buracos, e a
+   criança teria de arrastar um número para dentro antes de poder somar. */
+test('as contas saem da paleta com número dentro', () => {
+  const xml = Niveis.caixaXml('gigante');
+  const pedaco = xml.slice(xml.indexOf('conta_mais'));
+  assert.ok(pedaco.includes('<shadow type="numero">'),
+    'o + saiu da caixa sem número nos encaixes');
+});
+
+/* O "se" tem encaixe de verdadeiro/falso, e ali um número não serve: o shadow
+   seria uma peça que não responde a pergunta nenhuma. */
+test('o se não vem com número no encaixe da condição', () => {
+  const xml = Niveis.caixaXml('gigante');
+  const pedaco = xml.slice(xml.indexOf('"se"'), xml.indexOf('"se_entao_senao"'));
+  assert.ok(!pedaco.includes('<shadow'), 'a condição não pode nascer com número');
+});
+
+/* O defeito que este teste guarda: os três blocos gerais de controle estavam
+   sendo somados à categoria depois de ela já ter ido para o XML, e nunca
+   apareciam na caixa. A lista de blocos do nível dizia que existiam. */
+test('a caixa do Gigante oferece de fato os blocos gerais de controle', () => {
+  const xml = Niveis.caixaXml('gigante');
+  for (const t of ['"se"', '"se_entao_senao"', '"repetir_ate"', '"distancia"',
+                   '"conta_nao"']) {
+    assert.ok(xml.includes('type=' + t), 'faltou ' + t + ' na caixa do Gigante');
+  }
+});

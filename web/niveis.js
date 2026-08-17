@@ -4,40 +4,51 @@
 (function (raiz) {
   'use strict';
 
-  var LISTA = ['pequeno', 'medio', 'grande'];
-  var NOMES = { pequeno: 'Pequeno', medio: 'Médio', grande: 'Grande' };
+  var LISTA = ['pequeno', 'medio', 'grande', 'gigante'];
+  var NOMES = { pequeno: 'Pequeno', medio: 'Médio', grande: 'Grande',
+                gigante: 'Gigante' };
 
   /* Precisa bater com web/blocos.js: a cor da categoria na caixa e a cor do
      bloco que sai dela são a mesma coisa para a criança. */
   var COR_MOVIMENTO = '#0050f0', COR_LACO = '#f0c000', COR_SENSOR = '#20b0f0';
+  var COR_CONTA = '#002080';
 
   /* T1 e T2 são as palavras dos blocos. Elas são campos justamente para poderem
      sumir no Pequeno — se fossem texto cru do message0, sobrariam na tela
      coisas como "⬆ andar frente  s" depois de esconder o número. */
   /* Cada encaixe nasce com o seu shadow, senão a peça sai da paleta com um
      buraco no lugar do número. O valor padrão é o que o campo tinha antes. */
-  var SHADOW = {
-    SEG:   ['numero', 1],
-    GRAUS: ['numero', 90],
-    CM:    ['numero', 20],
-    N:     ['numero_bolinhas', 4],
-  };
-
-  /* Quais encaixes cada bloco tem. Escrito aqui e não deduzido do bloco porque
-     a caixa é XML montado à mão, sem Blockly por perto. */
-  var ENCAIXES = {
-    mover_frente: ['SEG'], mover_tras: ['SEG'], girar: ['GRAUS'],
-    esperar: ['SEG'], repetir: ['N'], se_obstaculo: ['CM'],
-    se_senao: ['CM'], repetir_ate_perto: ['CM'],
-  };
-
-  function encaixe(nome, valor) {
-    var d = SHADOW[nome];
-    var v = (valor === undefined) ? d[1] : valor;
+  function encaixe(nome, tipo, valor) {
     return '<value name="' + nome + '">' +
-           '<shadow type="' + d[0] + '"><field name="NUM">' + v + '</field></shadow>' +
-           '</value>';
+           '<shadow type="' + tipo + '"><field name="NUM">' + valor +
+           '</field></shadow></value>';
   }
+
+  /* Quais encaixes cada bloco leva prontos ao sair da caixa, e com que número
+     dentro. Escrito aqui e não deduzido do bloco porque a caixa é XML montado
+     à mão, sem Blockly por perto.
+
+     Os encaixes de verdadeiro/falso — a condição do "se", os lados do "e" —
+     não aparecem: ali um número não responde pergunta nenhuma, e um shadow
+     seria uma peça que não serve para nada. */
+  var ENCAIXES = {
+    mover_frente:      [['SEG', 'numero', 1]],
+    mover_tras:        [['SEG', 'numero', 1]],
+    girar:             [['GRAUS', 'numero', 90]],
+    esperar:           [['SEG', 'numero', 1]],
+    repetir:           [['N', 'numero_bolinhas', 4]],
+    se_obstaculo:      [['CM', 'numero', 20]],
+    se_senao:          [['CM', 'numero', 20]],
+    repetir_ate_perto: [['CM', 'numero', 20]],
+    conta_mais:        [['A', 'numero', 1], ['B', 'numero', 1]],
+    conta_menos:       [['A', 'numero', 10], ['B', 'numero', 1]],
+    conta_vezes:       [['A', 'numero', 2], ['B', 'numero', 3]],
+    conta_dividir:     [['A', 'numero', 10], ['B', 'numero', 2]],
+    aleatorio:         [['A', 'numero', 1], ['B', 'numero', 5]],
+    conta_menor:       [['A', 'numero', 10], ['B', 'numero', 20]],
+    conta_maior:       [['A', 'numero', 20], ['B', 'numero', 10]],
+    conta_igual:       [['A', 'numero', 10], ['B', 'numero', 10]],
+  };
 
   function bloco(tipo, dentro) {
     var partes = ENCAIXES[tipo] || [];
@@ -45,8 +56,8 @@
     for (var i = 0; i < partes.length; i++) {
       /* O que veio pronto (o passo fixo do Pequeno) manda; o resto vem no
          padrão. */
-      if (!dentro || dentro.indexOf('name="' + partes[i] + '"') < 0) {
-        xml += encaixe(partes[i]);
+      if (!dentro || dentro.indexOf('name="' + partes[i][0] + '"') < 0) {
+        xml += encaixe(partes[i][0], partes[i][1], partes[i][2]);
       }
     }
     return '<block type="' + tipo + '">' + (dentro || '') + xml + '</block>';
@@ -77,6 +88,20 @@
     },
   };
 
+  /* O Gigante é o Grande mais as contas. Escrito a partir dele, e não como
+     lista própria, porque um bloco novo no Grande tem que aparecer no Gigante
+     — do contrário o degrau de cima teria menos peças que o de baixo. */
+  DEFINICOES.gigante = {
+    blocos: DEFINICOES.grande.blocos.concat([
+      'conta_mais', 'conta_menos', 'conta_vezes', 'conta_dividir',
+      'conta_menor', 'conta_maior', 'conta_igual',
+      'conta_e', 'conta_ou', 'conta_nao', 'aleatorio',
+      'distancia', 'se', 'se_entao_senao', 'repetir_ate',
+    ]),
+    campos: DEFINICOES.grande.campos,
+    bolinhas: false,
+  };
+
   function definicao(nivel) {
     return DEFINICOES[nivel] || DEFINICOES.medio;
   }
@@ -85,8 +110,8 @@
      movimento e um quarto de volta para cada lado. */
   var PRE_PREENCHIDO = {
     pequeno: {
-      mover_frente: encaixe('SEG', '0.5'),
-      mover_tras:   encaixe('SEG', '0.5'),
+      mover_frente: encaixe('SEG', 'numero', '0.5'),
+      mover_tras:   encaixe('SEG', 'numero', '0.5'),
     },
   };
 
@@ -105,8 +130,10 @@
            só. Preencher GRAUS deixaria o menu no padrão e as duas entradas
            apareceriam idênticas na tela — dois blocos iguais que viram para
            lados opostos. */
-        movimento += bloco('girar', '<field name="DIR">90</field>' + encaixe('GRAUS', 90));
-        movimento += bloco('girar', '<field name="DIR">-90</field>' + encaixe('GRAUS', -90));
+        movimento += bloco('girar',
+          '<field name="DIR">90</field>' + encaixe('GRAUS', 'numero', 90));
+        movimento += bloco('girar',
+          '<field name="DIR">-90</field>' + encaixe('GRAUS', 'numero', -90));
       } else {
         movimento += bloco('girar');
       }
@@ -125,6 +152,11 @@
     if (tem('repetir')) laco += bloco('repetir');
     if (tem('repetir_sempre')) laco += bloco('repetir_sempre');
     if (tem('repetir_ate_perto')) laco += bloco('repetir_ate_perto');
+    /* O "se" e o "se…senão" gerais moram aqui, e não em Sentir: quem sente é o
+       👁 ciano; estes decidem o caminho, que é o que a família amarela faz. */
+    if (tem('se')) laco += bloco('se');
+    if (tem('se_entao_senao')) laco += bloco('se_entao_senao');
+    if (tem('repetir_ate')) laco += bloco('repetir_ate');
     if (laco) {
       xml += '<category name="Repetir" colour="' + COR_LACO + '">' +
              laco + '</category>';
@@ -133,9 +165,26 @@
     var sentir = '';
     if (tem('se_obstaculo')) sentir += bloco('se_obstaculo');
     if (tem('se_senao')) sentir += bloco('se_senao');
+    /* O distância mora aqui, com os olhos: a família que lê o mundo. */
+    if (tem('distancia')) sentir += bloco('distancia');
+
     if (sentir) {
       xml += '<category name="Sentir" colour="' + COR_SENSOR + '">' +
              sentir + '</category>';
+    }
+
+    var contas = '';
+    if (tem('conta_mais')) {
+      contas += bloco('conta_mais') + bloco('conta_menos') +
+                bloco('conta_vezes') + bloco('conta_dividir') +
+                bloco('aleatorio') +
+                bloco('conta_menor') + bloco('conta_maior') +
+                bloco('conta_igual') +
+                bloco('conta_e') + bloco('conta_ou') + bloco('conta_nao');
+    }
+    if (contas) {
+      xml += '<category name="Contas" colour="' + COR_CONTA + '">' +
+             contas + '</category>';
     }
     xml += '</xml>';
     return xml;

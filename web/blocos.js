@@ -16,6 +16,10 @@
   var COR_LACO      = '#f0c000';
   var COR_SENSOR    = '#20b0f0';
   var COR_INICIO    = '#37c26b';
+  /* Navy: a última cor da marca que ainda não era bloco. Contas são a família
+     nova, e precisavam de uma cor que não fosse nem movimento, nem laço, nem
+     sensor. */
+  var COR_CONTA     = '#002080';
 
   /* Num lugar só: os dois blocos de movimento oferecem as mesmas opções, e
      duplicá-las é como elas divergiriam. */
@@ -201,6 +205,75 @@
         tooltip: 'Faz uns blocos se tiver algo perto na frente, e outros se não tiver.',
       },
       {
+        type: 'conta_nao',
+        message0: 'não %1',
+        args0: [{ type: 'input_value', name: 'A', check: 'Boolean' }],
+        inputsInline: true,
+        output: 'Boolean',
+        colour: COR_CONTA,
+        tooltip: 'Vira o contrário: o que era sim vira não.',
+      },
+      {
+        type: 'aleatorio',
+        message0: '🎲 aleatório de %1 a %2',
+        args0: [
+          { type: 'input_value', name: 'A', check: 'Number' },
+          { type: 'input_value', name: 'B', check: 'Number' },
+        ],
+        inputsInline: true,
+        output: 'Number',
+        colour: COR_CONTA,
+        tooltip: 'Sorteia um número entre os dois, incluindo os dois.',
+      },
+      {
+        /* Ciano, não navy: quem lê o mundo é a família do sensor. É este bloco
+           que transforma o "se obstáculo" num caso particular. */
+        type: 'distancia',
+        message0: '👁 distância cm',
+        output: 'Number',
+        colour: COR_SENSOR,
+        tooltip: 'Quantos centímetros até a coisa mais próxima na frente.',
+      },
+      {
+        /* Amarelo: este decide o caminho, e decidir é da família do laço. O
+           "se obstáculo" continua ciano porque ele sente. Os dois convivem no
+           Gigante de propósito — o pronto e o geral do qual ele é exemplo. */
+        type: 'se',
+        message0: 'se %1 então',
+        args0: [{ type: 'input_value', name: 'COND', check: 'Boolean' }],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_LACO,
+        tooltip: 'Faz os blocos de dentro só se a resposta for sim.',
+      },
+      {
+        type: 'se_entao_senao',
+        message0: 'se %1 então',
+        args0: [{ type: 'input_value', name: 'COND', check: 'Boolean' }],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        message2: 'senão',
+        message3: '%1',
+        args3: [{ type: 'input_statement', name: 'SENAO' }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_LACO,
+        tooltip: 'Faz uns blocos se for sim, e outros se for não.',
+      },
+      {
+        type: 'repetir_ate',
+        message0: '🔁 repetir até %1',
+        args0: [{ type: 'input_value', name: 'COND', check: 'Boolean' }],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_LACO,
+        tooltip: 'Repete os blocos de dentro até a resposta virar sim.',
+      },
+      {
         type: 'repetir_ate_perto',
         /* Amarelo com olho: a forma e a cor dizem laço, que é o conceito; o
            ícone diz sensor. Ciano ensinaria a coisa errada — o que ele faz é
@@ -220,6 +293,31 @@
         tooltip: 'Repete os blocos de dentro até o robô chegar perto de alguma coisa.',
       },
     ]);
+
+    /* Nove contas com a mesma forma: dois encaixes e um símbolo no meio. Um
+       laço em vez de nove objetos iguais — nove cópias é como elas divergem. */
+    var pares = [
+      ['conta_mais', '+', 'Number'], ['conta_menos', '−', 'Number'],
+      ['conta_vezes', '×', 'Number'], ['conta_dividir', '÷', 'Number'],
+      ['conta_menor', '<', 'Boolean'], ['conta_maior', '>', 'Boolean'],
+      ['conta_igual', '=', 'Boolean'],
+      ['conta_e', 'e', 'Boolean'], ['conta_ou', 'ou', 'Boolean'],
+    ];
+    var defs = [];
+    for (var k = 0; k < pares.length; k++) {
+      defs.push({
+        type: pares[k][0],
+        message0: '%1 ' + pares[k][1] + ' %2',
+        args0: [
+          { type: 'input_value', name: 'A' },
+          { type: 'input_value', name: 'B' },
+        ],
+        inputsInline: true,
+        output: pares[k][2],
+        colour: COR_CONTA,
+      });
+    }
+    Blockly.defineBlocksWithJsonArray(defs);
   }
 
   var CAIXA_XML =
@@ -248,6 +346,10 @@
       return Number(dentro.getFieldValue('NUM'));
     }
     return blocoParaNo(dentro);
+  }
+
+  function conta(nome, b) {
+    return { op: nome, a: valorDe(b, 'A'), b: valorDe(b, 'B'), blockId: b.id };
   }
 
   function blocoParaNo(b) {
@@ -300,6 +402,30 @@
           corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')),
           blockId: id,
         };
+      case 'conta_mais':    return conta('mais', b);
+      case 'conta_menos':   return conta('menos', b);
+      case 'conta_vezes':   return conta('vezes', b);
+      case 'conta_dividir': return conta('dividir', b);
+      case 'conta_menor':   return conta('menor', b);
+      case 'conta_maior':   return conta('maior', b);
+      case 'conta_igual':   return conta('igual', b);
+      case 'conta_e':       return conta('e', b);
+      case 'conta_ou':      return conta('ou', b);
+      case 'aleatorio':     return conta('aleatorio', b);
+      case 'conta_nao':
+        return { op: 'nao', a: valorDe(b, 'A'), blockId: id };
+      case 'distancia':
+        return { op: 'distancia', blockId: id };
+      case 'se':
+        return { op: 'se', cond: valorDe(b, 'COND'),
+                 corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')), blockId: id };
+      case 'se_entao_senao':
+        return { op: 'se_entao_senao', cond: valorDe(b, 'COND'),
+                 entao: pilhaParaAst(b.getInputTargetBlock('CORPO')),
+                 senao: pilhaParaAst(b.getInputTargetBlock('SENAO')), blockId: id };
+      case 'repetir_ate':
+        return { op: 'repetir_ate', cond: valorDe(b, 'COND'),
+                 corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')), blockId: id };
       default:
         throw new Error('Bloco sem tradução: ' + b.type);
     }

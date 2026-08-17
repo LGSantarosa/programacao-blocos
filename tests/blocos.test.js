@@ -284,3 +284,88 @@ test('encaixe vazio vale zero, e não quebra', () => {
   } } } }]);
   assert.strictEqual(Blocos.workspaceParaAst(ws)[0].graus, 0);
 });
+
+/* ---------- as contas do Gigante ---------- */
+
+test('uma conta dentro de um encaixe vira nó de valor na AST', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'mover_frente',
+    inputs: { SEG: { block: {
+      type: 'conta_mais',
+      inputs: { A: num(1), B: num(2) },
+    } } },
+    fields: { VEL: '200' },
+  } } } }]);
+  const no = Blocos.workspaceParaAst(ws)[0];
+  assert.strictEqual(no.segundos.op, 'mais');
+  assert.strictEqual(no.segundos.a, 1);
+  assert.strictEqual(no.segundos.b, 2);
+});
+
+/* O distância é número, e o "se" pede verdadeiro/falso: não dá para dizer
+   "se (distância)". Precisa da comparação no meio, e o Blockly recusa o
+   encaixe errado antes de a criança apertar PLAY. */
+test('o distância é um nó de valor sem argumento', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'se',
+    inputs: { COND: { block: { type: 'conta_menor',
+      inputs: { A: { block: { type: 'distancia' } }, B: num(20) } } } },
+  } } } }]);
+  const cond = Blocos.workspaceParaAst(ws)[0].cond;
+  assert.strictEqual(cond.op, 'menor');
+  assert.strictEqual(cond.a.op, 'distancia');
+  assert.strictEqual(cond.a.b, undefined, 'o distância não carrega argumento');
+});
+
+test('se…senão do Gigante separa os dois ramos', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'se_entao_senao',
+    inputs: {
+      COND: { block: { type: 'conta_menor',
+                       inputs: { A: { block: { type: 'distancia' } }, B: num(20) } } },
+      CORPO: { block: { type: 'parar' } },
+      SENAO: { block: { type: 'girar', inputs: { GRAUS: num(90) } } },
+    },
+  } } } }]);
+  const no = Blocos.workspaceParaAst(ws)[0];
+  assert.strictEqual(no.op, 'se_entao_senao');
+  assert.strictEqual(no.cond.op, 'menor');
+  assert.strictEqual(no.cond.a.op, 'distancia');
+  assert.strictEqual(no.cond.b, 20);
+  assert.strictEqual(no.entao[0].op, 'parar');
+  assert.strictEqual(no.senao[0].op, 'girar');
+});
+
+test('repetir até do Gigante leva a condição e o corpo', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'repetir_ate',
+    inputs: {
+      COND: { block: { type: 'conta_maior', inputs: { A: num(3), B: num(1) } } },
+      CORPO: { block: { type: 'parar' } },
+    },
+  } } } }]);
+  const no = Blocos.workspaceParaAst(ws)[0];
+  assert.strictEqual(no.op, 'repetir_ate');
+  assert.strictEqual(no.cond.op, 'maior');
+  assert.strictEqual(no.corpo[0].op, 'parar');
+});
+
+test('o não carrega um argumento só', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'se',
+    inputs: { COND: { block: { type: 'conta_nao',
+      inputs: { A: { block: { type: 'conta_menor',
+        inputs: { A: { block: { type: 'distancia' } }, B: num(20) } } } } } } },
+  } } } }]);
+  const cond = Blocos.workspaceParaAst(ws)[0].cond;
+  assert.strictEqual(cond.op, 'nao');
+  assert.strictEqual(cond.a.op, 'menor');
+  assert.strictEqual(cond.b, undefined);
+});
+
+test('encaixe de condição vazio vale zero, e não quebra', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'se',
+  } } } }]);
+  assert.strictEqual(Blocos.workspaceParaAst(ws)[0].cond, 0);
+});

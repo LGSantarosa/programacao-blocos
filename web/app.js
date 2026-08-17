@@ -20,6 +20,11 @@
   var tituloConfirma = document.getElementById('confirma-titulo');
   var btConfirmaNao = document.getElementById('confirma-nao');
   var btConfirmaSim = document.getElementById('confirma-sim');
+  var btCodigo = document.getElementById('codigo');
+  var caixaCodigo = document.getElementById('painel-codigo');
+  var preCodigo = document.getElementById('codigo-texto');
+  var btCodigoBaixar = document.getElementById('codigo-baixar');
+  var btCodigoFechar = document.getElementById('codigo-fechar');
   var nivelPendente = null;
 
   var mapaPc = [];
@@ -40,6 +45,7 @@
 
   var nivel = Niveis.atual();
   marcarNivel();
+  atualizarBotaoCodigo();
 
   /* A fonte dos blocos vai pelo tema, não pelo CSS: o Blockly mede o texto
      para dimensionar o bloco, e trocar a família por fora estoura a borda. */
@@ -417,6 +423,13 @@
     }
   }
 
+  /* Só o Grande. É o degrau seguinte ao teto dos blocos — nos outros níveis
+     seria mais uma escolha na tela de quem ainda está aprendendo a ler, e o
+     código mostraria números que aqueles níveis escondem de propósito. */
+  function atualizarBotaoCodigo() {
+    btCodigo.hidden = nivel !== 'grande';
+  }
+
   /* A aba de blocos é um workspace à parte, e o updateToolbox reconstrói a
      caixa sem fechá-la: sem isto ela continua oferecendo as peças do nível que
      se acabou de sair, e dá para arrastar um se…senão para dentro do Pequeno. */
@@ -435,6 +448,7 @@
     if (rodando && robo && robo.parar) robo.parar();
     nivel = Niveis.definir(novo);
     marcarNivel();
+    atualizarBotaoCodigo();
     workspace.updateToolbox(Niveis.caixaXml(nivel));
     fecharPaleta();
     Blocos.limpar(workspace);
@@ -480,8 +494,9 @@
   });
   /* keyCode além de key: o Safari do iOS 9 não tem event.key confiável. */
   document.addEventListener('keydown', function (e) {
-    if (caixaConfirma.hidden) return;
-    if (e.key === 'Escape' || e.keyCode === 27) fecharConfirma();
+    if (!(e.key === 'Escape' || e.keyCode === 27)) return;
+    if (!caixaConfirma.hidden) fecharConfirma();
+    else if (!caixaCodigo.hidden) fecharCodigo();
   });
 
   /* forEach, e não for: com var o laço não cria escopo, e todos os botões
@@ -489,6 +504,51 @@
   botoesNivel.forEach(function (b) {
     b.addEventListener('click', function () { trocarNivel(b.dataset.nivel); });
   });
+
+  /* ---------- o código Arduino ---------- */
+
+  /* O download precisa de Blob e do atributo download, e o Safari do iOS 9 não
+     tem nenhum dos dois. Botão que não faz nada ensina a criança a desconfiar
+     da tela: no tablet velho ele não nasce, e sobra o texto para selecionar. */
+  var podeBaixar = typeof Blob !== 'undefined' &&
+    'download' in document.createElement('a');
+  if (!podeBaixar && btCodigoBaixar.parentNode) {
+    btCodigoBaixar.parentNode.removeChild(btCodigoBaixar);
+  }
+
+  function fecharCodigo() { caixaCodigo.hidden = true; }
+
+  /* Não depende do robô, diferente do PLAY: gerar código é operação de papel, e
+     ela pode olhar com a placa desligada. */
+  btCodigo.addEventListener('click', function () {
+    try {
+      preCodigo.textContent = Arduino.gerar(Blocos.workspaceParaAst(workspace));
+    } catch (e) {
+      preCodigo.textContent = e.message;
+    }
+    caixaCodigo.hidden = false;
+    btCodigoFechar.focus();
+  });
+
+  btCodigoFechar.addEventListener('click', fecharCodigo);
+  caixaCodigo.addEventListener('click', function (e) {
+    if (e.target === caixaCodigo) fecharCodigo();
+  });
+
+  if (podeBaixar) {
+    btCodigoBaixar.addEventListener('click', function () {
+      var blob = new Blob([preCodigo.textContent], { type: 'text/plain' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'robo.ino';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      /* Revogar na hora cancelaria o download que acabou de começar. */
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    });
+  }
 
   conectar();
 })();

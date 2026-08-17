@@ -28,7 +28,7 @@ Do `microBlocksSpecs` do compilador do MicroBlocks — a fonte da paleta, não a
 documentação. São ~100 blocos embutidos mais bibliotecas, em nove categorias.
 Descontando o que não existe num robô de dois motores e um sensor de distância
 (i2c, spi, serial, display do micro:bit, NeoPixel, BLE, acelerômetro), sobram uns
-60. Deste ciclo saem 14.
+60. Deste ciclo saem 15.
 
 O critério de corte, para os ciclos seguintes: **entra quando ela precisar, e só
 o que fala de robô.**
@@ -233,10 +233,32 @@ ESP32 hoje**, em silêncio. Nunca apareceu porque nada rodou em hardware e os
 programas são curtos. Subir `MAX_INSTR` para 1024 torna o encontro muito mais
 provável.
 
-Recomendação: consertar neste ciclo, acumulando os fragmentos num buffer até
-`index + len == info->len`. São ~20 linhas em `main.cpp`, e o `bridge` não muda
-porque ele nunca fragmentou. Fica registrado aqui como decisão separada, para
-poder ser adiada com os olhos abertos.
+**Entra neste ciclo.** E entra de um jeito que dá para testar sem placa: a
+remontagem vira uma função C pura em `firmware/src/quadros.h`, sem uma linha de
+Arduino, e o `tests/Makefile` a compila num `quadros_test.c` junto com os outros
+testes em C. O `main.cpp` passa a ser só a fiação — recebe o pedaço, entrega ao
+montador, e age quando ele disser que a mensagem acabou.
+
+```c
+typedef struct {
+    uint8_t  buf[3 + MAX_INSTR * INSTR_BYTES];
+    uint32_t recebido;
+} Montador;
+
+/* Devolve o tamanho da mensagem completa, ou 0 se ainda falta pedaço. */
+uint32_t montador_pedaco(Montador *m, const uint8_t *dados, uint32_t tam,
+                         uint32_t indice, uint32_t total, int final);
+```
+
+O buffer é estático e do tamanho máximo que o protocolo permite — 7171 bytes com
+`MAX_INSTR` em 1024, contra 320 KB de RAM. Mensagem maior que isso é descartada
+inteira, e o montador volta ao zero em vez de guardar meia mensagem para
+corromper a próxima.
+
+O `bridge` não muda: ele nunca fragmentou. E fica registrada uma limitação que já
+existe hoje e continua existindo — dois editores abertos ao mesmo tempo
+embaralham o buffer, porque nem o código de hoje nem este separam mensagem por
+cliente. Com um robô e uma criança, não acontece.
 
 ## Testes
 
@@ -249,6 +271,7 @@ poder ser adiada com os olhos abertos.
 | `tests/niveis.test.js` | `input.setVisible` por nível; bolinhas dentro do shadow; `girar` com conta esconde o menu |
 | `tests/gabaritos.test.js` | as cinco fases nos **quatro** níveis |
 | `tests/navegador.test.js` | montar uma conta no Gigante, rodar, e ver o robô andar |
+| `tests/quadros_test.c` | mensagem inteira, mensagem em dois pedaços, em três quadros, e uma grande demais que é descartada sem estragar a seguinte |
 
 **O teste dourado continua sendo o contrato.** Ele compara byte a byte o bytecode
 do compilador JavaScript com o do teste em C, e todo opcode novo entra nele — é o
@@ -269,7 +292,10 @@ que garante que a pilha do navegador e a da placa são a mesma pilha.
 | `web/arduino.js` | expressões em C++ |
 | `web/index.html` | a categoria Contas e o quarto botão de nível |
 | `web/app.js` | o botão do Gigante |
-| `firmware/src/main.cpp` | fragmentação do `T_LOAD` — **decisão separada** |
+| `firmware/src/quadros.h` | **novo** — o montador de mensagens fragmentadas, em C puro |
+| `firmware/src/main.cpp` | usa o montador em vez de descartar quadro fragmentado |
+| `tests/quadros_test.c` | **novo** — o montador, sem placa |
+| `tests/Makefile` | alvo do `quadros_test` |
 | `README.md` | o quarto nível, os blocos novos, a tabela de bytecode |
 
 ## Fora de escopo

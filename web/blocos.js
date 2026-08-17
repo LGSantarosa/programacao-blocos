@@ -295,13 +295,24 @@
     ]);
 
     /* Nove contas com a mesma forma: dois encaixes e um símbolo no meio. Um
-       laço em vez de nove objetos iguais — nove cópias é como elas divergem. */
+       laço em vez de nove objetos iguais — nove cópias é como elas divergem.
+
+       Cada uma diz o que aceita e o que devolve, e isso não é burocracia: sem
+       o tipo no encaixe, "andar frente (3 < 4) s" e "5 e 3" viram peças que
+       encaixam e não querem dizer nada. O Blockly recusa antes de a criança
+       apertar PLAY, que é o melhor momento para recusar.
+
+                         entra      sai */
     var pares = [
-      ['conta_mais', '+', 'Number'], ['conta_menos', '−', 'Number'],
-      ['conta_vezes', '×', 'Number'], ['conta_dividir', '÷', 'Number'],
-      ['conta_menor', '<', 'Boolean'], ['conta_maior', '>', 'Boolean'],
-      ['conta_igual', '=', 'Boolean'],
-      ['conta_e', 'e', 'Boolean'], ['conta_ou', 'ou', 'Boolean'],
+      ['conta_mais',    '+',  'Number',  'Number'],
+      ['conta_menos',   '−',  'Number',  'Number'],
+      ['conta_vezes',   '×',  'Number',  'Number'],
+      ['conta_dividir', '÷',  'Number',  'Number'],
+      ['conta_menor',   '<',  'Number',  'Boolean'],
+      ['conta_maior',   '>',  'Number',  'Boolean'],
+      ['conta_igual',   '=',  'Number',  'Boolean'],
+      ['conta_e',       'e',  'Boolean', 'Boolean'],
+      ['conta_ou',      'ou', 'Boolean', 'Boolean'],
     ];
     var defs = [];
     for (var k = 0; k < pares.length; k++) {
@@ -309,11 +320,11 @@
         type: pares[k][0],
         message0: '%1 ' + pares[k][1] + ' %2',
         args0: [
-          { type: 'input_value', name: 'A' },
-          { type: 'input_value', name: 'B' },
+          { type: 'input_value', name: 'A', check: pares[k][2] },
+          { type: 'input_value', name: 'B', check: pares[k][2] },
         ],
         inputsInline: true,
-        output: pares[k][2],
+        output: pares[k][3],
         colour: COR_CONTA,
       });
     }

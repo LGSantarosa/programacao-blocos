@@ -369,3 +369,83 @@ test('encaixe de condição vazio vale zero, e não quebra', () => {
   } } } }]);
   assert.strictEqual(Blocos.workspaceParaAst(ws)[0].cond, 0);
 });
+
+/* ---------- o que encaixa em quê ---------- */
+
+/* A tabela inteira, num teste só. Ela é a resposta para "esse bloco entra
+   aqui?" — e é o guarda contra o encaixe permissivo demais, que é pior que o
+   restritivo: uma peça que entra onde não faz sentido só falha depois, com o
+   robô andando errado e sem ninguém saber por quê. */
+const VALORES_NUMERO = ['numero', 'conta_mais', 'conta_menos', 'conta_vezes',
+                        'conta_dividir', 'aleatorio', 'distancia'];
+const VALORES_SIMNAO = ['conta_menor', 'conta_maior', 'conta_igual',
+                        'conta_e', 'conta_ou', 'conta_nao'];
+
+const BURACOS_NUMERO = [['mover_frente', 'SEG'], ['mover_tras', 'SEG'],
+                        ['girar', 'GRAUS'], ['esperar', 'SEG'],
+                        ['repetir', 'N'], ['se_obstaculo', 'CM'],
+                        ['se_senao', 'CM'], ['repetir_ate_perto', 'CM'],
+                        ['conta_mais', 'A'], ['conta_mais', 'B'],
+                        ['conta_menos', 'A'], ['conta_vezes', 'B'],
+                        ['conta_dividir', 'A'], ['aleatorio', 'A'],
+                        ['aleatorio', 'B'], ['conta_menor', 'A'],
+                        ['conta_maior', 'B'], ['conta_igual', 'A']];
+const BURACOS_SIMNAO = [['se', 'COND'], ['se_entao_senao', 'COND'],
+                        ['repetir_ate', 'COND'], ['conta_e', 'A'],
+                        ['conta_e', 'B'], ['conta_ou', 'A'],
+                        ['conta_nao', 'A']];
+
+function encaixa(tipoPai, nomeEncaixe, tipoFilho) {
+  const ws = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try {
+    const pai = ws.newBlock(tipoPai);
+    const filho = ws.newBlock(tipoFilho);
+    try { pai.getInput(nomeEncaixe).connection.connect(filho.outputConnection); }
+    catch (e) { return false; }
+    return !!filho.getParent();
+  } finally {
+    Blockly.Events.enable();
+    ws.dispose();
+  }
+}
+
+test('todo valor numérico entra em todo encaixe de número', () => {
+  for (const v of VALORES_NUMERO) {
+    for (const [pai, nome] of BURACOS_NUMERO) {
+      assert.ok(encaixa(pai, nome, v),
+        `${v} deveria entrar em ${pai}.${nome}`);
+    }
+  }
+});
+
+test('todo valor de sim/não entra em todo encaixe de sim/não', () => {
+  for (const v of VALORES_SIMNAO) {
+    for (const [pai, nome] of BURACOS_SIMNAO) {
+      assert.ok(encaixa(pai, nome, v),
+        `${v} deveria entrar em ${pai}.${nome}`);
+    }
+  }
+});
+
+/* "andar frente (3 < 4) s" não quer dizer nada. O Blockly recusa antes de a
+   criança apertar PLAY, que é o melhor momento para recusar. */
+test('sim/não não entra em encaixe de número', () => {
+  for (const v of VALORES_SIMNAO) {
+    for (const [pai, nome] of BURACOS_NUMERO) {
+      assert.ok(!encaixa(pai, nome, v),
+        `${v} não deveria entrar em ${pai}.${nome}`);
+    }
+  }
+});
+
+/* "se (5)" tampouco. Um número não responde sim nem não — ela precisa da
+   comparação no meio, e é essa exigência que ensina a diferença. */
+test('número não entra em encaixe de sim/não', () => {
+  for (const v of VALORES_NUMERO) {
+    for (const [pai, nome] of BURACOS_SIMNAO) {
+      assert.ok(!encaixa(pai, nome, v),
+        `${v} não deveria entrar em ${pai}.${nome}`);
+    }
+  }
+});

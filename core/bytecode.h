@@ -11,7 +11,9 @@ enum {
     OP_SET_REG   = 4,
     OP_DEC_JNZ   = 5,
     OP_JMP       = 6,
-    OP_JMP_IF_GE = 7,   /* sai quando ninguém mais o emitir */
+    /* 7 foi o OP_JMP_IF_GE, o sensor embutido num salto. Saiu quando o sensor
+       virou valor: hoje é SENSOR ; PUSH ; BIN < ; JMP_FALSE. O número fica
+       vago de propósito — reusá-lo faria bytecode antigo rodar errado. */
     OP_PUSH      = 8,
     OP_SENSOR    = 9,
     OP_BIN       = 10,
@@ -32,7 +34,7 @@ enum { UN_NAO = 0 };
 
 #define PILHA_MAX 16
 
-#define MAX_INSTR        256
+#define MAX_INSTR        1024
 #define INSTR_BYTES      7
 #define N_REGS           4
 #define SENSOR_DISTANCIA 0

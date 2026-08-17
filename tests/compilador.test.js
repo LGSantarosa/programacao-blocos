@@ -2,10 +2,23 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { compilar, OP } = require('../web/compilador.js');
+const { compilar, OP, BIN, UN, MAX_INSTR } = require('../web/compilador.js');
 
 function hex(bytes) {
   return Buffer.from(bytes).toString('hex');
+}
+
+/* Lê o programa como lista de (op, a, b, c). Comparar deslocamento de byte em
+   cada teste esconderia o que mudou — e com a pilha os deslocamentos andam a
+   cada instrução nova. */
+function instrucoes(bytes) {
+  const dv = new DataView(bytes.buffer);
+  const fora = [];
+  for (let k = 0; k * 7 < bytes.length; k++) {
+    fora.push([bytes[k * 7], dv.getInt16(k * 7 + 1, true),
+               dv.getInt16(k * 7 + 3, true), dv.getInt16(k * 7 + 5, true)]);
+  }
+  return fora;
 }
 
 test('programa vazio vira só HALT', () => {
@@ -15,47 +28,59 @@ test('programa vazio vira só HALT', () => {
   assert.deepStrictEqual(pcMap, [null]);
 });
 
-test('frente vira MOTOR, WAIT, MOTOR', () => {
+test('frente empilha velocidade, velocidade, e chama MOTOR', () => {
   const { bytes } = compilar([{ op: 'frente', segundos: 1, blockId: 'b1' }]);
-  assert.strictEqual(bytes.length, 4 * 7);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes[0], OP.MOTOR);
-  assert.strictEqual(dv.getInt16(1, true), 200);
-  assert.strictEqual(dv.getInt16(3, true), 200);
-  assert.strictEqual(bytes[7], OP.WAIT);
-  assert.strictEqual(dv.getInt16(8, true), 1000);
-  assert.strictEqual(bytes[14], OP.MOTOR);
-  assert.strictEqual(dv.getInt16(15, true), 0);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.PUSH, 200, 0, 0],
+    [OP.PUSH, 200, 0, 0],
+    [OP.MOTOR, 0, 0, 0],
+    [OP.PUSH, 1000, 0, 0],
+    [OP.WAIT, 0, 0, 0],
+    [OP.PUSH, 0, 0, 0],
+    [OP.PUSH, 0, 0, 0],
+    [OP.MOTOR, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
 });
 
-test('trás usa velocidade negativa', () => {
+test('trás empilha velocidade negativa', () => {
   const { bytes } = compilar([{ op: 'tras', segundos: 2, blockId: 'b1' }]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(dv.getInt16(1, true), -200);
-  assert.strictEqual(dv.getInt16(8, true), 2000);
+  const i = instrucoes(bytes);
+  assert.deepStrictEqual(i[0], [OP.PUSH, -200, 0, 0]);
+  assert.deepStrictEqual(i[1], [OP.PUSH, -200, 0, 0]);
+  assert.deepStrictEqual(i[3], [OP.PUSH, 2000, 0, 0]);
 });
 
-test('girar vira um único TURN', () => {
+test('girar empilha os graus antes do TURN', () => {
   const { bytes } = compilar([{ op: 'girar', graus: -90, blockId: 'b1' }]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes[0], OP.TURN);
-  assert.strictEqual(dv.getInt16(1, true), -90);
+  assert.deepStrictEqual(instrucoes(bytes).slice(0, 2), [
+    [OP.PUSH, -90, 0, 0],
+    [OP.TURN, 0, 0, 0],
+  ]);
 });
 
-test('repetir fecha o laço voltando para o início do corpo', () => {
+test('esperar empilha o prazo em milissegundos', () => {
+  const { bytes } = compilar([{ op: 'esperar', segundos: 1.5, blockId: 'e' }]);
+  assert.deepStrictEqual(instrucoes(bytes).slice(0, 2), [
+    [OP.PUSH, 1500, 0, 0],
+    [OP.WAIT, 0, 0, 0],
+  ]);
+});
+
+test('repetir empilha as vezes antes do SET_REG', () => {
   const { bytes } = compilar([
     { op: 'repetir', vezes: 3, blockId: 'r', corpo: [
       { op: 'girar', graus: 90, blockId: 'g' },
     ] },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes[0], OP.SET_REG);
-  assert.strictEqual(dv.getInt16(1, true), 0);      // r0
-  assert.strictEqual(dv.getInt16(3, true), 3);
-  assert.strictEqual(bytes[7], OP.TURN);
-  assert.strictEqual(bytes[14], OP.DEC_JNZ);
-  assert.strictEqual(dv.getInt16(15, true), 0);     // r0
-  assert.strictEqual(dv.getInt16(17, true), 1);     // volta para pc 1
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.PUSH, 3, 0, 0],
+    [OP.SET_REG, 0, 0, 0],
+    [OP.PUSH, 90, 0, 0],
+    [OP.TURN, 0, 0, 0],
+    [OP.DEC_JNZ, 0, 2, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
 });
 
 test('repetir 0 vezes vira 1 e não trava a placa', () => {
@@ -64,8 +89,7 @@ test('repetir 0 vezes vira 1 e não trava a placa', () => {
       { op: 'girar', graus: 90, blockId: 'g' },
     ] },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(dv.getInt16(3, true), 1);
+  assert.deepStrictEqual(instrucoes(bytes)[0], [OP.PUSH, 1, 0, 0]);
 });
 
 test('laços aninhados usam registradores diferentes', () => {
@@ -76,9 +100,9 @@ test('laços aninhados usam registradores diferentes', () => {
       ] },
     ] },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(dv.getInt16(1, true), 0);      // externo usa r0
-  assert.strictEqual(dv.getInt16(8, true), 1);      // interno usa r1
+  const i = instrucoes(bytes);
+  assert.deepStrictEqual(i[1], [OP.SET_REG, 0, 0, 0]);   // externo usa r0
+  assert.deepStrictEqual(i[3], [OP.SET_REG, 1, 0, 0]);   // interno usa r1
 });
 
 test('laços fundos demais dão erro em português', () => {
@@ -89,19 +113,25 @@ test('laços fundos demais dão erro em português', () => {
   assert.throws(() => compilar([no]), /aninhados/);
 });
 
-test('se_obstaculo salta para depois do corpo', () => {
+/* Os três blocos de sensor do Grande deixam de ter opcode próprio e passam a
+   compilar pelo caminho de todo mundo. Não mudam na tela nem no comportamento —
+   e é essa unificação que faz o "distância cm" do Gigante ser o mesmo
+   mecanismo, não um segundo. */
+test('se obstáculo vira SENSOR, PUSH, BIN menor, JMP_FALSE', () => {
   const { bytes } = compilar([
     { op: 'se_obstaculo', cm: 20, blockId: 's', corpo: [
       { op: 'girar', graus: 90, blockId: 'g' },
     ] },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes[0], OP.JMP_IF_GE);
-  assert.strictEqual(dv.getInt16(1, true), 0);      // sensor de distância
-  assert.strictEqual(dv.getInt16(3, true), 20);
-  assert.strictEqual(dv.getInt16(5, true), 2);      // pc 2 = depois do TURN
-  assert.strictEqual(bytes[7], OP.TURN);
-  assert.strictEqual(bytes[14], OP.HALT);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.SENSOR, 0, 0, 0],
+    [OP.PUSH, 20, 0, 0],
+    [OP.BIN, BIN.MENOR, 0, 0],
+    [OP.JMP_FALSE, 6, 0, 0],     /* longe → pula o corpo */
+    [OP.PUSH, 90, 0, 0],
+    [OP.TURN, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
 });
 
 test('pcMap aponta cada instrução para o bloco que a gerou', () => {
@@ -110,7 +140,7 @@ test('pcMap aponta cada instrução para o bloco que a gerou', () => {
       { op: 'girar', graus: 90, blockId: 'g' },
     ] },
   ]);
-  assert.deepStrictEqual(pcMap, ['r', 'g', 'r', null]);
+  assert.deepStrictEqual(pcMap, ['r', 'r', 'g', 'g', 'r', null]);
 });
 
 test('programa dourado bate byte a byte com o teste da VM', () => {
@@ -120,45 +150,86 @@ test('programa dourado bate byte a byte com o teste da VM', () => {
       { op: 'girar', graus: 90, blockId: 'g' },
     ] },
   ]);
-  assert.strictEqual(bytes.length, 49);
+  assert.strictEqual(bytes.length, 98);
   assert.strictEqual(
     hex(bytes),
-    '04000004000000' +   // SET_REG r0, 4
-    '01c800c8000000' +   // MOTOR 200, 200
-    '02e80300000000' +   // WAIT 1000
-    '01000000000000' +   // MOTOR 0, 0
-    '035a0000000000' +   // TURN 90
-    '05000001000000' +   // DEC_JNZ r0, 1
-    '00000000000000'     // HALT
+    '08040000000000' +   // pc  0: PUSH 4
+    '04000000000000' +   // pc  1: SET_REG r0
+    '08c80000000000' +   // pc  2: PUSH 200
+    '08c80000000000' +   // pc  3: PUSH 200
+    '01000000000000' +   // pc  4: MOTOR
+    '08e80300000000' +   // pc  5: PUSH 1000
+    '02000000000000' +   // pc  6: WAIT
+    '08000000000000' +   // pc  7: PUSH 0
+    '08000000000000' +   // pc  8: PUSH 0
+    '01000000000000' +   // pc  9: MOTOR
+    '085a0000000000' +   // pc 10: PUSH 90
+    '03000000000000' +   // pc 11: TURN
+    '05000002000000' +   // pc 12: DEC_JNZ r0, 2
+    '00000000000000'     // pc 13: HALT
   );
+});
+
+test('o teto de instruções é 1024', () => {
+  assert.strictEqual(MAX_INSTR, 1024);
+  const muitos = [];
+  for (let k = 0; k < 400; k++) muitos.push({ op: 'girar', graus: 90, blockId: 'g' });
+  assert.doesNotThrow(() => compilar(muitos));
 });
 
 test('programa grande demais dá erro em português', () => {
   const corpo = [];
-  for (let i = 0; i < 100; i++) corpo.push({ op: 'frente', segundos: 1, blockId: 'f' + i });
+  for (let i = 0; i < 200; i++) corpo.push({ op: 'frente', segundos: 1, blockId: 'f' + i });
   assert.throws(() => compilar(corpo), /grande demais/);
 });
 
-test('velocidade escolhida vira o MOTOR com aquele valor', () => {
+/* A pilha da VM tem fundo. Descobrir isso com o robô andando seria descobrir
+   tarde: uma conta funda demais é recusada aqui, com mensagem que a criança
+   consegue ler. */
+test('conta funda demais é recusada ao compilar, em português', () => {
+  /* Aninhada à direita: é ela que empilha. O lado esquerdo é calculado e
+     consumido antes do direito começar, então aninhar à esquerda custa dois
+     lugares e nunca estoura. */
+  let fundo = 1;
+  for (let k = 0; k < 20; k++) fundo = { op: 'mais', a: 1, b: fundo };
+  assert.throws(() => compilar([{ op: 'girar', graus: fundo, blockId: 'g' }]),
+    /conta.*complicada/i);
+});
+
+test('uma conta de profundidade normal passa', () => {
+  let ok = 1;
+  for (let k = 0; k < 6; k++) ok = { op: 'mais', a: 1, b: ok };
+  assert.doesNotThrow(() => compilar([{ op: 'girar', graus: ok, blockId: 'g' }]));
+});
+
+/* Aninhar à esquerda é grátis, e vale ter isso escrito: uma criança que
+   encadeia dez somas numa fila não pode esbarrar num limite. */
+test('conta comprida para a esquerda não estoura a pilha', () => {
+  let comprida = 1;
+  for (let k = 0; k < 40; k++) comprida = { op: 'mais', a: comprida, b: 1 };
+  assert.doesNotThrow(() =>
+    compilar([{ op: 'girar', graus: comprida, blockId: 'g' }]));
+});
+
+test('velocidade escolhida vira o PUSH com aquele valor', () => {
   const { bytes } = compilar([
     { op: 'frente', segundos: 1, velocidade: 255, blockId: 'b1' },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(dv.getInt16(1, true), 255);
-  assert.strictEqual(dv.getInt16(3, true), 255);
+  const i = instrucoes(bytes);
+  assert.deepStrictEqual(i[0], [OP.PUSH, 255, 0, 0]);
+  assert.deepStrictEqual(i[1], [OP.PUSH, 255, 0, 0]);
 });
 
 test('velocidade também vale para trás, com sinal negativo', () => {
   const { bytes } = compilar([
     { op: 'tras', segundos: 1, velocidade: 120, blockId: 'b1' },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(dv.getInt16(1, true), -120);
+  assert.deepStrictEqual(instrucoes(bytes)[0], [OP.PUSH, -120, 0, 0]);
 });
 
 test('sem velocidade continua usando 200, como a v1', () => {
   const { bytes } = compilar([{ op: 'frente', segundos: 1, blockId: 'b1' }]);
-  assert.strictEqual(new DataView(bytes.buffer).getInt16(1, true), 200);
+  assert.deepStrictEqual(instrucoes(bytes)[0], [OP.PUSH, 200, 0, 0]);
 });
 
 test('velocidade zero ou negativa cai para a calibração da v1', () => {
@@ -166,7 +237,7 @@ test('velocidade zero ou negativa cai para a calibração da v1', () => {
     const { bytes } = compilar([
       { op: 'frente', segundos: 1, velocidade: v, blockId: 'b1' },
     ]);
-    assert.strictEqual(new DataView(bytes.buffer).getInt16(1, true), 200,
+    assert.deepStrictEqual(instrucoes(bytes)[0], [OP.PUSH, 200, 0, 0],
       `velocidade ${v} deveria cair para 200`);
   }
 });
@@ -175,21 +246,22 @@ test('velocidade absurda é trazida para a faixa do motor', () => {
   const { bytes } = compilar([
     { op: 'frente', segundos: 1, velocidade: 9999, blockId: 'b1' },
   ]);
-  assert.strictEqual(new DataView(bytes.buffer).getInt16(1, true), 255);
+  assert.deepStrictEqual(instrucoes(bytes)[0], [OP.PUSH, 255, 0, 0]);
 });
 
 test('o passo fixo do Pequeno gera o mesmo bytecode que andar frente 0.5 s', () => {
   const pequeno = compilar([{ op: 'frente', segundos: 0.5, blockId: 'p' }]);
   const medio   = compilar([{ op: 'frente', segundos: 0.5, blockId: 'm' }]);
   assert.deepStrictEqual([...pequeno.bytes], [...medio.bytes]);
-  assert.strictEqual(new DataView(pequeno.bytes.buffer).getInt16(8, true), 500);
+  assert.deepStrictEqual(instrucoes(pequeno.bytes)[3], [OP.PUSH, 500, 0, 0]);
 });
 
 test('ângulo livre vira TURN com o ângulo pedido, não 90 fixo', () => {
   const { bytes } = compilar([{ op: 'girar', graus: 45, blockId: 'g' }]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes[0], OP.TURN);
-  assert.strictEqual(dv.getInt16(1, true), 45);
+  assert.deepStrictEqual(instrucoes(bytes).slice(0, 2), [
+    [OP.PUSH, 45, 0, 0],
+    [OP.TURN, 0, 0, 0],
+  ]);
 });
 
 test('parar vira um HALT antes do HALT final', () => {
@@ -205,21 +277,19 @@ test('repetir para sempre fecha com um JMP para trás', () => {
       { op: 'girar', graus: 90, blockId: 'g' },
     ] },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes.length, 3 * 7);
-  assert.strictEqual(bytes[0], OP.TURN);
-  assert.strictEqual(bytes[7], OP.JMP);
-  assert.strictEqual(dv.getInt16(8, true), 0);      /* volta para o pc 0 */
-  assert.strictEqual(bytes[14], OP.HALT);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.PUSH, 90, 0, 0],
+    [OP.TURN, 0, 0, 0],
+    [OP.JMP, 0, 0, 0],           /* volta para o pc 0 */
+    [OP.HALT, 0, 0, 0],
+  ]);
 });
 
 test('repetir para sempre com corpo vazio salta para si mesmo', () => {
   /* Não trava: a VM executa uma instrução por tick, então é um laço ocioso que
      o botão PARAR encerra. Proibir custaria mais do que vale. */
   const { bytes } = compilar([{ op: 'repetir_sempre', blockId: 's', corpo: [] }]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes[0], OP.JMP);
-  assert.strictEqual(dv.getInt16(1, true), 0);
+  assert.deepStrictEqual(instrucoes(bytes)[0], [OP.JMP, 0, 0, 0]);
 });
 
 test('se…senão pula o então quando não há obstáculo', () => {
@@ -228,28 +298,37 @@ test('se…senão pula o então quando não há obstáculo', () => {
       entao: [{ op: 'girar', graus: 90, blockId: 'a' }],
       senao: [{ op: 'girar', graus: -90, blockId: 'b' }] },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes.length, 5 * 7);
-  assert.strictEqual(bytes[0], OP.JMP_IF_GE);
-  assert.strictEqual(dv.getInt16(1, true), 0);      /* sensor de distância */
-  assert.strictEqual(dv.getInt16(3, true), 20);
-  assert.strictEqual(dv.getInt16(5, true), 3);      /* longe → vai ao senão */
-  assert.strictEqual(bytes[7], OP.TURN);            /* então */
-  assert.strictEqual(bytes[14], OP.JMP);
-  assert.strictEqual(dv.getInt16(15, true), 4);     /* então pula o senão */
-  assert.strictEqual(bytes[21], OP.TURN);           /* senão */
-  assert.strictEqual(bytes[28], OP.HALT);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.SENSOR, 0, 0, 0],
+    [OP.PUSH, 20, 0, 0],
+    [OP.BIN, BIN.MENOR, 0, 0],
+    [OP.JMP_FALSE, 7, 0, 0],     /* longe → vai ao senão */
+    [OP.PUSH, 90, 0, 0],         /* então */
+    [OP.TURN, 0, 0, 0],
+    [OP.JMP, 9, 0, 0],           /* então pula o senão */
+    [OP.PUSH, -90, 0, 0],        /* senão */
+    [OP.TURN, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
 });
 
-test('se…senão com o ramo senão vazio ainda salta para o fim', () => {
+/* Com o ramo senão vazio não há para onde pular: o JMP_FALSE já cai no fim.
+   Antes saía um JMP a mais, que saltava uma instrução adiante e nunca fez
+   diferença nenhuma — o caminho da pilha aproveitou para não emiti-lo. */
+test('se…senão com o ramo senão vazio não emite salto à toa', () => {
   const { bytes } = compilar([
     { op: 'se_senao', cm: 30, blockId: 'x',
       entao: [{ op: 'girar', graus: 90, blockId: 'a' }], senao: [] },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes.length, 4 * 7);
-  assert.strictEqual(dv.getInt16(5, true), 3);      /* senão começa no fim */
-  assert.strictEqual(dv.getInt16(15, true), 3);     /* e o pulo também */
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.SENSOR, 0, 0, 0],
+    [OP.PUSH, 30, 0, 0],
+    [OP.BIN, BIN.MENOR, 0, 0],
+    [OP.JMP_FALSE, 6, 0, 0],
+    [OP.PUSH, 90, 0, 0],
+    [OP.TURN, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
 });
 
 test('repetir até perto testa antes de rodar o corpo', () => {
@@ -258,17 +337,17 @@ test('repetir até perto testa antes de rodar o corpo', () => {
       { op: 'girar', graus: 90, blockId: 'g' },
     ] },
   ]);
-  const dv = new DataView(bytes.buffer);
-  assert.strictEqual(bytes.length, 5 * 7);
-  assert.strictEqual(bytes[0], OP.JMP_IF_GE);
-  assert.strictEqual(dv.getInt16(3, true), 20);
-  assert.strictEqual(dv.getInt16(5, true), 2);      /* longe → entra no corpo */
-  assert.strictEqual(bytes[7], OP.JMP);
-  assert.strictEqual(dv.getInt16(8, true), 4);      /* perto → sai */
-  assert.strictEqual(bytes[14], OP.TURN);           /* corpo */
-  assert.strictEqual(bytes[21], OP.JMP);
-  assert.strictEqual(dv.getInt16(22, true), 0);     /* volta para o teste */
-  assert.strictEqual(bytes[28], OP.HALT);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.SENSOR, 0, 0, 0],
+    [OP.PUSH, 20, 0, 0],
+    [OP.BIN, BIN.MENOR, 0, 0],
+    [OP.UN, UN.NAO, 0, 0],       /* roda enquanto NÃO chegou perto */
+    [OP.JMP_FALSE, 8, 0, 0],     /* perto → sai */
+    [OP.PUSH, 90, 0, 0],         /* corpo */
+    [OP.TURN, 0, 0, 0],
+    [OP.JMP, 0, 0, 0],           /* volta para o teste */
+    [OP.HALT, 0, 0, 0],
+  ]);
 });
 
 test('os laços novos não gastam registrador', () => {

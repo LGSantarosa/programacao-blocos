@@ -183,12 +183,6 @@ void vm_tick(VM *vm) {
         vm->pc++;
         break;
     }
-    case OP_JMP_IF_GE: {
-        uint16_t leitura = (i->a == SENSOR_DISTANCIA) ? hal_distancia_cm() : 0;
-        if ((int32_t)leitura >= (int32_t)i->b) vm->pc = (uint16_t)i->c;
-        else                                   vm->pc++;
-        break;
-    }
     default:
         vm_stop(vm);
         break;

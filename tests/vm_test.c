@@ -210,8 +210,11 @@ static void teste_turn_esquerda_inverte_os_motores(void) {
 static void teste_sensor_perto_entra_no_corpo(void) {
     printf("teste_sensor_perto_entra_no_corpo\n");
     VM vm;
-    uint8_t prog[5 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_JMP_IF_GE, SENSOR_DISTANCIA, 20, 4);  /* >= 20 cm: pula */
+    uint8_t prog[8 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SENSOR, SENSOR_DISTANCIA, 0, 0);
+    p = emit(p, OP_PUSH, 20, 0, 0);
+    p = emit(p, OP_BIN, BIN_MENOR, 0, 0);
+    p = emit(p, OP_JMP_FALSE, 7, 0, 0);   /* longe: pula o corpo */
     p = emit(p, OP_PUSH, 5, 0, 0);
     p = emit(p, OP_PUSH, 5, 0, 0);
     p = emit(p, OP_MOTOR, 0, 0, 0);
@@ -226,8 +229,11 @@ static void teste_sensor_perto_entra_no_corpo(void) {
 static void teste_sensor_longe_pula_o_corpo(void) {
     printf("teste_sensor_longe_pula_o_corpo\n");
     VM vm;
-    uint8_t prog[5 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_JMP_IF_GE, SENSOR_DISTANCIA, 20, 4);
+    uint8_t prog[8 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SENSOR, SENSOR_DISTANCIA, 0, 0);
+    p = emit(p, OP_PUSH, 20, 0, 0);
+    p = emit(p, OP_BIN, BIN_MENOR, 0, 0);
+    p = emit(p, OP_JMP_FALSE, 7, 0, 0);
     p = emit(p, OP_PUSH, 5, 0, 0);
     p = emit(p, OP_PUSH, 5, 0, 0);
     p = emit(p, OP_MOTOR, 0, 0, 0);
@@ -325,7 +331,7 @@ static void teste_load_rejeita_programa_invalido(void) {
     CHECK(vm.n_instr == 1);                           /* programa anterior intacto */
 
     static uint8_t grande[(MAX_INSTR + 1) * INSTR_BYTES];
-    CHECK(vm_load(&vm, grande, sizeof(grande)) == 0); /* passou de 256 instruções */
+    CHECK(vm_load(&vm, grande, sizeof(grande)) == 0); /* passou do teto */
     CHECK(vm.n_instr == 1);
 }
 
@@ -586,32 +592,33 @@ static void teste_dourado(void) {
 static void teste_jmp_para_tras_fecha_laco(void) {
     printf("teste_jmp_para_tras_fecha_laco\n");
     VM vm;
-    uint8_t prog[7 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_JMP_IF_GE, SENSOR_DISTANCIA, 20, 2);  /* longe → corpo   */
-    p = emit(p, OP_JMP, 6, 0, 0);                        /* perto → sai     */
+    uint8_t prog[10 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SENSOR, SENSOR_DISTANCIA, 0, 0);      /* pc 0            */
+    p = emit(p, OP_PUSH, 20, 0, 0);
+    p = emit(p, OP_BIN, BIN_MENOR, 0, 0);
+    p = emit(p, OP_UN, UN_NAO, 0, 0);                    /* roda enquanto NÃO chegou */
+    p = emit(p, OP_JMP_FALSE, 9, 0, 0);                  /* perto → sai     */
     p = emit(p, OP_PUSH, 5, 0, 0);                       /* corpo           */
     p = emit(p, OP_PUSH, 5, 0, 0);
     p = emit(p, OP_MOTOR, 0, 0, 0);
     p = emit(p, OP_JMP, 0, 0, 0);                        /* volta: p/ trás  */
-    p = emit(p, OP_HALT, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);                       /* pc 9            */
     preparar(&vm, prog, sizeof(prog));
 
     /* Longe: entra no corpo e o salto para trás recomeça o laço. */
     fake_dist_set(100);
-    vm_tick(&vm);
-    CHECK(vm.pc == 2);
+    vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
+    CHECK(vm.pc == 5);          /* a condição deu "ainda não": entrou no corpo */
     vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);   /* corpo: PUSH, PUSH, MOTOR */
-    CHECK(vm.pc == 5);
+    CHECK(vm.pc == 8);
     vm_tick(&vm);
     CHECK(vm.pc == 0);          /* aqui está o salto para trás */
     CHECK(vm.rodando == 1);
 
     /* Perto: cai para o salto de saída e o programa acaba. */
     fake_dist_set(10);
-    vm_tick(&vm);
-    CHECK(vm.pc == 1);
-    vm_tick(&vm);
-    CHECK(vm.pc == 6);
+    vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
+    CHECK(vm.pc == 9);          /* chegou perto: saltou para o HALT */
     vm_tick(&vm);
     CHECK(vm.rodando == 0);
 }

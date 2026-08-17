@@ -137,9 +137,23 @@
   setTimeout(ajustarTamanho, 300);
 
   aplicarNivel();
-  /* Bloco novo arrastado da caixa também precisa nascer no nível certo. */
+  /* Bloco novo arrastado da caixa também precisa nascer no nível certo — mas
+     não no meio do gesto.
+
+     O BLOCK_CREATE de uma peça vinda da caixa chega enquanto o dedo ainda está
+     arrastando. Reaplicar o nível ali redesenha os blocos e mexe no banco de
+     conexões do Blockly, e o encaixe que a criança estava mirando some debaixo
+     do dedo: a conta não encaixa e o desenho embaralha. Enquanto nenhum bloco
+     tinha encaixe de valor isso não aparecia, porque arrastar só fazia conexão
+     de empilhamento. Agora aparece, então o nível espera o arrasto acabar. */
   workspace.addChangeListener(function (e) {
-    if (e.type === Blockly.Events.BLOCK_CREATE) Niveis.aplicar(workspace, nivel);
+    if (e.type === Blockly.Events.BLOCK_DRAG && !e.isStart) {
+      Niveis.aplicar(workspace, nivel);
+      return;
+    }
+    if (e.type !== Blockly.Events.BLOCK_CREATE) return;
+    if (workspace.isDragging && workspace.isDragging()) return;
+    Niveis.aplicar(workspace, nivel);
   });
 
   var paleta = workspace.getFlyout && workspace.getFlyout();

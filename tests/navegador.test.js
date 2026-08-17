@@ -78,6 +78,25 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
       return r.result.value;
     };
 
+    /* Arrastar de verdade, com o mouse. É o único jeito de exercitar o que a
+       criança faz — e foi arrastando que apareceu o defeito de reaplicar o
+       nível no meio do gesto. */
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+
+    const arrastar = async (de, para) => {
+      await mouse('mousePressed', de.x, de.y);
+      for (let k = 1; k <= 12; k++) {
+        await mouse('mouseMoved', de.x + (para.x - de.x) * k / 12,
+                                  de.y + (para.y - de.y) * k / 12);
+        await espera(30);
+      }
+      await mouse('mouseReleased', para.x, para.y);
+      await espera(500);
+    };
+
     await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB}/` });
 
     /* Esperar por condição, não por relógio. Tempo fixo ora sobra, ora falta,
@@ -270,6 +289,65 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
     assert.strictEqual(
       await aval(`document.getElementById('painel-codigo').hidden`),
       true, 'o painel de código não fechou');
+
+    /* No Gigante, a criança arrasta uma conta para dentro do encaixe do tempo.
+       Este é o teste que faltava quando a conta não encaixava: reaplicar o
+       nível durante o arrasto tirava o encaixe debaixo do dedo dela. */
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=gigante]').click();
+      return 1;
+    })()`);
+    await espera(400);
+
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      Blocos.limpar(ws);
+      const b = ws.newBlock('mover_frente');
+      const sh = ws.newBlock('numero'); sh.setShadow(true);
+      b.getInput('SEG').connection.connect(sh.outputConnection);
+      b.initSvg(); sh.initSvg(); b.render();
+      b.moveBy(260, 260);
+      return 1;
+    })()`);
+    await espera(400);
+
+    await aval(`(() => {
+      const tb = Blockly.getMainWorkspace().getToolbox();
+      const c = tb.getToolboxItems().find(i => i.getName && i.getName() === 'Contas');
+      tb.setSelectedItem(c);
+      return 1;
+    })()`);
+    await espera(700);
+
+    const daCaixa = JSON.parse(await aval(`(() => {
+      const f = Blockly.getMainWorkspace().getFlyout();
+      const b = f.getWorkspace().getTopBlocks(false).find(x => x.type === 'conta_mais');
+      const r = b.getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ x: Math.round(r.left + 14),
+                              y: Math.round(r.top + r.height / 2) });
+    })()`));
+
+    const noEncaixe = JSON.parse(await aval(`(() => {
+      const mf = Blockly.getMainWorkspace().getBlocksByType('mover_frente', false)[0];
+      const r = mf.getInputTargetBlock('SEG').getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ x: Math.round(r.left + r.width / 2),
+                              y: Math.round(r.top + r.height / 2) });
+    })()`));
+
+    await arrastar(daCaixa, noEncaixe);
+
+    assert.strictEqual(
+      await aval(`(() => {
+        const mf = Blockly.getMainWorkspace().getBlocksByType('mover_frente', false)[0];
+        const dentro = mf && mf.getInputTargetBlock('SEG');
+        return dentro ? dentro.type : 'nada';
+      })()`),
+      'conta_mais', 'a conta arrastada não entrou no encaixe do tempo');
+
+    assert.strictEqual(
+      await aval(`Blockly.getMainWorkspace()
+        .getBlocksByType('conta_mais', false).filter(b => !b.getParent()).length`),
+      0, 'sobrou uma conta solta no espaço de trabalho');
 
     /* O Gigante: uma conta de verdade dentro de um bloco de movimento. É o
        degrau que este ciclo abriu, e o teste só vale se o robô rodar com ela. */

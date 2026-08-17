@@ -80,6 +80,91 @@ consegue abrir `ws://` para a ESP32, então hospedar fora quebraria a conexão.
 > gravado numa placa de verdade. Espere acertar detalhes no primeiro contato —
 > pinagem, sentido dos motores, leitura do HC-SR04.
 
+### Primeira vez, passo a passo
+
+Os quatro comandos acima são o resumo. Abaixo é a versão para quem nunca gravou
+uma placa, na ordem em que vale fazer — e ela começa com a placa **sozinha, sem
+nada ligado nela**. Não é excesso de cuidado: gravar a placa nua valida o
+software inteiro sem que nenhum fio errado possa queimar nada, e quando os
+motores entrarem você já saberá que o problema não está no código.
+
+**1. O cabo.** A causa número um de "não funciona" é cabo USB só de carga, sem os
+fios de dados. Se ao plugar não aparecer nada, troque o cabo antes de investigar
+qualquer outra coisa.
+
+**2. Achar a porta.** Plugue e rode:
+
+```bash
+ls /dev/ttyUSB* /dev/ttyACM*
+```
+
+Tem que aparecer `/dev/ttyUSB0` ou parecido. Não apareceu? `dmesg | tail -20`
+logo depois de plugar conta o que houve:
+
+- Nenhuma linha nova: é o cabo ou a porta USB.
+- Aparece `ch341-uart converter now attached` e o dispositivo **some em seguida**:
+  é o `brltty`, o leitor de braile que o Ubuntu instala por padrão e que sequestra
+  adaptadores CH340. `sudo apt remove brltty`, desplugar e plugar de novo.
+- `Permission denied` na hora de gravar: falta estar no grupo `dialout`
+  (`sudo usermod -aG dialout $USER`). O grupo só vale em sessão nova — deslogue e
+  relogue, ou use `newgrp dialout`.
+
+Os drivers dos dois chips USB comuns em placas ESP32, CP2102 e CH340, já vêm no
+kernel do Linux. Não há nada para instalar.
+
+**3. São duas gravações, não uma.** A flash da placa tem duas áreas, e cada uma
+tem seu comando:
+
+| área | o que vai lá | comando |
+|---|---|---|
+| programa | o firmware C++ — a VM, o Wi-Fi, o servidor | `pio run --target upload` |
+| arquivos (LittleFS) | a interface: `index.html`, os `.js`, o Blockly | `pio run --target uploadfs` |
+
+Gravar só o firmware faz a placa subir, criar o Wi-Fi e servir **página em
+branco** — os arquivos não estão lá. É a confusão mais comum de primeira vez.
+
+E `firmware/data/` não vive no git: é gerado do `web/` pelo `preparar_data.sh`,
+que também comprime tudo com gzip. Por isso ele vem antes de qualquer gravação.
+
+**4. Gravar.** O PlatformIO acha a porta sozinho. O `uploadfs` leva uns 10
+segundos, o `upload` uns 20.
+
+Se travar em `Connecting........_____`, a placa não entrou em modo de gravação
+sozinha: segure o botão **BOOT** (às vezes marcado `IO0`), dê um toque no **EN**
+(ou `RST`) sem soltar o BOOT, e solte quando a barra começar a andar. Placas com
+CP2102 costumam dispensar isso; as com CH340, nem sempre.
+
+**5. Ouvir a placa.**
+
+```bash
+pio device monitor          # 115200, já configurado no platformio.ini
+```
+
+Aperte **EN/RST** para ver o boot desde o começo. Tem que aparecer:
+
+```
+rede Robo-01  ->  http://192.168.4.1
+```
+
+`LittleFS falhou` significa que faltou o `uploadfs`. Sai do monitor com `Ctrl+C`.
+
+**6. Abrir a interface.** No tablet: Wi-Fi → rede **`Robo-01`**, senha
+`robo1234` → abrir **`http://192.168.4.1`**. Escreva o `http://` na frente, senão
+o Safari trata como busca. O iOS avisa que a rede não tem internet e às vezes
+volta sozinho para o 4G — desligar os dados móveis enquanto brinca resolve.
+
+Com a placa ainda nua, aperte PLAY: os blocos **acendem um a um** na tela, na
+ordem da execução. Isso prova o caminho inteiro — o navegador compila, manda pelo
+WebSocket, a VM roda na placa e devolve o ponteiro. Os motores não giram porque
+ainda não existem. Chegou aqui, o software está validado.
+
+**7. Só então a fiação.** A pinagem e os três cuidados que a antecedem estão em
+[Hardware](#hardware).
+
+O primeiro teste de verdade é um `andar frente 1 s` sozinho. Se um dos lados
+girar ao contrário, inverta os dois fios daquele motor no driver — não mexa no
+código para isso.
+
 ---
 
 ## Como funciona
@@ -276,6 +361,21 @@ ESP32 DevKit, driver TB6612FNG, dois motores DC com redução, roda boba,
 | 33, 14, 12 | PWMB, BIN1, BIN2 |
 | 13         | STBY           |
 | 5, 18      | TRIG, ECHO     |
+
+A fonte de verdade dessa tabela é `firmware/src/hal_esp32.cpp`.
+
+Três cuidados antes de encostar um fio:
+
+- **O ECHO do HC-SR04 devolve 5 V**, e a entrada da ESP32 aguenta 3,3 V. Precisa
+  de divisor de tensão: 1 kΩ do ECHO para o GPIO18, 2 kΩ do GPIO18 para o GND.
+  Sem ele a entrada vai degradando.
+- **Os motores não podem sair do USB.** O `VM` do TB6612 vai nas 18650, o `VCC`
+  (lógica) no 3V3 da placa, e todos os GND juntos. Motor puxando corrente pelo
+  USB derruba a ESP32 no meio da execução.
+- **Se a placa parar de bootar depois de ligar o driver**, o suspeito é o `BIN2`
+  no GPIO12: esse pino é lido no reset para escolher a voltagem da flash, e em
+  nível alto naquele instante a placa não sobe. A saída é mover o `BIN2` para
+  outro GPIO livre — o 15 serve — e trocar a constante no `hal_esp32.cpp`.
 
 ---
 

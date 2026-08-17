@@ -245,6 +245,30 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
         .getAttribute('aria-pressed')`),
       'true', 'a troca sem diálogo não aconteceu');
 
+    /* O .ino é o degrau seguinte ao teto: só quem chegou no Grande vê. */
+    assert.strictEqual(await aval(`document.getElementById('codigo').hidden`),
+      false, 'no Grande o botão de ver código deveria aparecer');
+
+    await aval(`(() => { document.getElementById('codigo').click(); return 1; })()`);
+    await espera(300);
+
+    assert.strictEqual(
+      await aval(`document.getElementById('painel-codigo').hidden`),
+      false, 'o painel de código não abriu');
+    assert.ok(
+      (await aval(`document.getElementById('codigo-texto').textContent`))
+        .includes('void setup()'),
+      'o painel abriu sem o código dentro');
+
+    await aval(`(() => {
+      document.getElementById('codigo-fechar').click();
+      return 1;
+    })()`);
+    await espera(200);
+    assert.strictEqual(
+      await aval(`document.getElementById('painel-codigo').hidden`),
+      true, 'o painel de código não fechou');
+
     /* Volta para o Médio e remonta, porque o resto do teste roda um programa. */
     await aval(`(() => {
       document.querySelector('#niveis button[data-nivel=medio]').click();
@@ -265,6 +289,9 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
       await aval(`Blockly.getMainWorkspace()
         .getBlocksByType('mover_frente', false)[0].getField('SEG').isVisible()`),
       true, 'no Médio o número deveria aparecer');
+
+    assert.strictEqual(await aval(`document.getElementById('codigo').hidden`),
+      true, 'fora do Grande o botão de ver código deveria sumir');
 
     /* Roda e confere a sequência de blocos acesos. */
     await aval(`(() => {

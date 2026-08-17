@@ -133,6 +133,46 @@
 
   /* O "Não" é o botão pesado, e nasce com o foco: o que escapar por teclado
      escapa para o lado seguro. */
+  /* ---------- painel do código ---------- */
+
+  /* Navy como o 🔊 e o "Não" do diálogo: é botão de adulto curioso, não o
+     PLAY. As chaves no rótulo dizem "código" antes de a palavra ser lida. */
+  #codigo { background: #002080; box-shadow: 0 5px 0 #00185f;
+            font-size: 16px; padding: 12px 16px; }
+  #codigo:active:not(:disabled) { box-shadow: 0 1px 0 rgba(0,0,0,.25); }
+  #codigo[hidden] { display: none; }
+
+  #painel-codigo {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 200;
+    background: rgba(0, 32, 128, .55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  /* Obrigatório, mesmo motivo do #confirma: o display:flex acima vence o
+     [hidden] do navegador, e sem esta linha o painel nasce visível. */
+  #painel-codigo[hidden] { display: none; }
+
+  #codigo-caixa {
+    background: #fff; border-radius: 22px; padding: 22px 24px;
+    max-width: 680px; width: 100%; box-sizing: border-box;
+    box-shadow: 0 10px 0 rgba(0, 32, 128, .25);
+  }
+  #codigo-titulo { margin: 0 0 12px; font-size: 20px; font-weight: 800;
+                   color: #002080; font-family: monospace; }
+  /* A rolagem é do <pre>, não da página: o código é largo e comprido, e a
+     página inteira rolando levaria os botões para fora da tela. */
+  #codigo-texto {
+    margin: 0 0 18px; padding: 14px; background: #f2f5fb;
+    border-radius: 12px; max-height: 55vh; overflow: auto;
+    font-family: monospace; font-size: 13px; line-height: 1.45;
+    color: #002080; text-align: left; white-space: pre;
+  }
+  #codigo-botoes { display: flex; justify-content: center; }
+  #codigo-botoes button { margin: 0 8px; }
+  #codigo-baixar { background: #f0c000; color: #002080;
+                   box-shadow: 0 5px 0 #c49d00; }
+  #codigo-fechar { background: #002080; box-shadow: 0 5px 0 #00185f; }
+
   #confirma-nao { background: #002080; box-shadow: 0 5px 0 #00185f; }
   #confirma-sim { background: #f0c000; color: #002080;
                   box-shadow: 0 5px 0 #c49c00; }
@@ -269,6 +309,7 @@
       <button type="button" data-nivel="medio"   aria-pressed="true">Médio</button>
       <button type="button" data-nivel="grande"  aria-pressed="false">Grande</button>
     </div>
+    <button id="codigo" type="button" hidden>{ } ver código</button>
     <button id="mudo" title="ligar e desligar o som">🔊</button>
     <button id="play">▶ PLAY</button>
     <button id="parar" disabled>■ PARAR</button>
@@ -301,6 +342,18 @@
     </div>
   </div>
 
+  <div id="painel-codigo" hidden>
+    <div id="codigo-caixa" role="dialog" aria-modal="true"
+         aria-labelledby="codigo-titulo">
+      <h2 id="codigo-titulo">robo.ino</h2>
+      <pre id="codigo-texto"></pre>
+      <div id="codigo-botoes">
+        <button id="codigo-baixar" type="button">baixar</button>
+        <button id="codigo-fechar" type="button">fechar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
   /* Escrito em ES5 de propósito, e antes de tudo: se um navegador velho não
      entender os arquivos abaixo, este handler ainda roda e conta o que houve.
@@ -319,6 +372,7 @@
   <script src="vendor/blockly_compressed.js"></script>
   <script src="vendor/pt-br.js"></script>
   <script src="compilador.js"></script>
+  <script src="arduino.js"></script>
   <script src="campos.js"></script>
   <script src="som.js"></script>
   <script src="niveis.js"></script>

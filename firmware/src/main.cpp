@@ -9,6 +9,7 @@ extern "C" {
 #include "hal.h"
 #include "vm.h"
 }
+#include "quadros.h"
 
 void hal_esp32_setup();
 
@@ -26,6 +27,12 @@ static AsyncWebSocket ws("/");
 static Ticker vigia;
 
 static VM vm;
+
+/* Uma mensagem grande chega partida, e antes disso ela era descartada. Ver
+   firmware/src/quadros.h. Um montador só, e não um por cliente: dois editores
+   abertos ao mesmo tempo embaralhariam o buffer — o que já valia para o código
+   anterior, e com um robô e uma criança não acontece. */
+static Montador montador;
 /* A instrução em efeito agora, que não é a mesma que vm.pc: depois de
    executar um TURN, vm.pc já aponta para a seguinte enquanto o robô ainda
    está girando. É esta que o navegador traduz em bloco aceso. Igual ao
@@ -60,21 +67,27 @@ static void aoEvento(AsyncWebSocket *, AsyncWebSocketClient *cliente,
                      AwsEventType tipo, void *arg, uint8_t *dados, size_t tam) {
     (void)cliente;
     if (tipo == WS_EVT_CONNECT) {
+        /* Conexão nova começa do zero: meia mensagem de uma sessão anterior
+           corromperia a primeira desta. */
+        montador_init(&montador);
         enviar_estado(vm.rodando);
         return;
     }
     if (tipo != WS_EVT_DATA) return;
 
     AwsFrameInfo *info = (AwsFrameInfo *)arg;
-    if (!info->final || info->index != 0 || info->len != tam) return;  /* sem fragmentação */
-    if (tam == 0) return;
+    uint32_t n_msg = montador_pedaco(&montador, dados, (uint32_t)tam,
+                                     (uint32_t)info->index, (uint32_t)info->len,
+                                     info->final ? 1 : 0);
+    if (n_msg == 0) return;   /* ainda falta pedaco, ou veio grande demais */
 
-    switch (dados[0]) {
+    const uint8_t *msg = montador.buf;
+    switch (msg[0]) {
     case T_LOAD: {
-        if (tam < 3) return;
-        uint16_t n = (uint16_t)(dados[1] | (dados[2] << 8));
-        if (tam != (size_t)(3 + n * INSTR_BYTES)) return;
-        vm_load(&vm, dados + 3, (uint16_t)(n * INSTR_BYTES));
+        if (n_msg < 3) return;
+        uint16_t n = (uint16_t)(msg[1] | (msg[2] << 8));
+        if (n_msg != (uint32_t)(3 + n * INSTR_BYTES)) return;
+        vm_load(&vm, msg + 3, (uint16_t)(n * INSTR_BYTES));
         pc_enviado = 0xFFFF;
         break;
     }
@@ -95,6 +108,7 @@ void setup() {
     Serial.begin(115200);
     hal_esp32_setup();
     vm_init(&vm);
+    montador_init(&montador);
 
     if (!LittleFS.begin(true)) {
         Serial.println("LittleFS falhou");

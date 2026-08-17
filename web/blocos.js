@@ -16,6 +16,10 @@
   var COR_LACO      = '#f0c000';
   var COR_SENSOR    = '#20b0f0';
   var COR_INICIO    = '#37c26b';
+  /* Navy: a última cor da marca que ainda não era bloco. Contas são a família
+     nova, e precisavam de uma cor que não fosse nem movimento, nem laço, nem
+     sensor. */
+  var COR_CONTA     = '#002080';
 
   /* Num lugar só: os dois blocos de movimento oferecem as mesmas opções, e
      duplicá-las é como elas divergiriam. */
@@ -35,7 +39,13 @@
     Blockly.Extensions.register('girar_dir_escreve_graus', function () {
       var bloco = this;
       bloco.getField('DIR').setValidator(function (novo) {
-        bloco.setFieldValue(Number(novo), 'GRAUS');
+        /* O menu escreve no shadow que mora no encaixe. Se a criança soltou
+           uma conta ali, não há o que escrever — e nem faria sentido: o menu
+           já não representa aquele valor, e o Niveis.aplicar esconde o menu. */
+        var dentro = bloco.getInputTargetBlock('GRAUS');
+        if (dentro && dentro.type === 'numero') {
+          dentro.setFieldValue(Number(novo), 'NUM');
+        }
         return novo;
       });
     });
@@ -60,10 +70,11 @@
         message0: '⬆ %1 %2 %3 %4',
         args0: [
           { type: 'field_label', name: 'T1', text: 'andar frente' },
-          { type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 },
+          { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },
           { type: 'field_dropdown', name: 'VEL', options: VELOCIDADES },
         ],
+        inputsInline: true,
         previousStatement: null,
         nextStatement: null,
         colour: COR_MOVIMENTO,
@@ -74,10 +85,11 @@
         message0: '⬇ %1 %2 %3 %4',
         args0: [
           { type: 'field_label', name: 'T1', text: 'andar trás' },
-          { type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 },
+          { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },
           { type: 'field_dropdown', name: 'VEL', options: VELOCIDADES },
         ],
+        inputsInline: true,
         previousStatement: null,
         nextStatement: null,
         colour: COR_MOVIMENTO,
@@ -93,9 +105,10 @@
           { type: 'field_dropdown', name: 'DIR', options: [
             ['↻', '90'], ['↺', '-90'],
           ] },
-          { type: 'field_number', name: 'GRAUS', value: 90, min: -180, max: 180, precision: 5 },
+          { type: 'input_value', name: 'GRAUS', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 'graus' },
         ],
+        inputsInline: true,
         extensions: ['girar_dir_escreve_graus'],
         previousStatement: null,
         nextStatement: null,
@@ -107,9 +120,10 @@
         message0: '⏸ %1 %2 %3',
         args0: [
           { type: 'field_label', name: 'T1', text: 'esperar' },
-          { type: 'field_number', name: 'SEG', value: 1, min: 0.1, max: 10, precision: 0.1 },
+          { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },
         ],
+        inputsInline: true,
         previousStatement: null,
         nextStatement: null,
         colour: COR_MOVIMENTO,
@@ -120,9 +134,10 @@
         message0: '🔁 %1 %2 %3',
         args0: [
           { type: 'field_label', name: 'T1', text: 'repetir' },
-          { type: 'field_bolinhas', name: 'N', value: 4 },
+          { type: 'input_value', name: 'N', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 'vezes' },
         ],
+        inputsInline: true,
         message1: '%1',
         args1: [{ type: 'input_statement', name: 'CORPO' }],
         previousStatement: null,
@@ -135,9 +150,10 @@
         message0: '👁 %1 %2 %3',
         args0: [
           { type: 'field_label', name: 'T1', text: 'se obstáculo a menos de' },
-          { type: 'field_number', name: 'CM', value: 20, min: 2, max: 400, precision: 1 },
+          { type: 'input_value', name: 'CM', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 'cm' },
         ],
+        inputsInline: true,
         message1: '%1',
         args1: [{ type: 'input_statement', name: 'CORPO' }],
         previousStatement: null,
@@ -172,9 +188,10 @@
         message0: '👁 %1 %2 %3',
         args0: [
           { type: 'field_label', name: 'T1', text: 'se obstáculo a menos de' },
-          { type: 'field_number', name: 'CM', value: 20, min: 2, max: 400, precision: 1 },
+          { type: 'input_value', name: 'CM', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 'cm' },
         ],
+        inputsInline: true,
         message1: '%1',
         args1: [{ type: 'input_statement', name: 'CORPO' }],
         /* Texto cru: é o que separa os dois ramos, e um bloco herdado do
@@ -188,6 +205,75 @@
         tooltip: 'Faz uns blocos se tiver algo perto na frente, e outros se não tiver.',
       },
       {
+        type: 'conta_nao',
+        message0: 'não %1',
+        args0: [{ type: 'input_value', name: 'A', check: 'Boolean' }],
+        inputsInline: true,
+        output: 'Boolean',
+        colour: COR_CONTA,
+        tooltip: 'Vira o contrário: o que era sim vira não.',
+      },
+      {
+        type: 'aleatorio',
+        message0: '🎲 aleatório de %1 a %2',
+        args0: [
+          { type: 'input_value', name: 'A', check: 'Number' },
+          { type: 'input_value', name: 'B', check: 'Number' },
+        ],
+        inputsInline: true,
+        output: 'Number',
+        colour: COR_CONTA,
+        tooltip: 'Sorteia um número entre os dois, incluindo os dois.',
+      },
+      {
+        /* Ciano, não navy: quem lê o mundo é a família do sensor. É este bloco
+           que transforma o "se obstáculo" num caso particular. */
+        type: 'distancia',
+        message0: '👁 distância cm',
+        output: 'Number',
+        colour: COR_SENSOR,
+        tooltip: 'Quantos centímetros até a coisa mais próxima na frente.',
+      },
+      {
+        /* Amarelo: este decide o caminho, e decidir é da família do laço. O
+           "se obstáculo" continua ciano porque ele sente. Os dois convivem no
+           Gigante de propósito — o pronto e o geral do qual ele é exemplo. */
+        type: 'se',
+        message0: 'se %1 então',
+        args0: [{ type: 'input_value', name: 'COND', check: 'Boolean' }],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_LACO,
+        tooltip: 'Faz os blocos de dentro só se a resposta for sim.',
+      },
+      {
+        type: 'se_entao_senao',
+        message0: 'se %1 então',
+        args0: [{ type: 'input_value', name: 'COND', check: 'Boolean' }],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        message2: 'senão',
+        message3: '%1',
+        args3: [{ type: 'input_statement', name: 'SENAO' }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_LACO,
+        tooltip: 'Faz uns blocos se for sim, e outros se for não.',
+      },
+      {
+        type: 'repetir_ate',
+        message0: '🔁 repetir até %1',
+        args0: [{ type: 'input_value', name: 'COND', check: 'Boolean' }],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_LACO,
+        tooltip: 'Repete os blocos de dentro até a resposta virar sim.',
+      },
+      {
         type: 'repetir_ate_perto',
         /* Amarelo com olho: a forma e a cor dizem laço, que é o conceito; o
            ícone diz sensor. Ciano ensinaria a coisa errada — o que ele faz é
@@ -195,9 +281,10 @@
         message0: '🔁👁 %1 %2 %3',
         args0: [
           { type: 'field_label', name: 'T1', text: 'repetir até chegar a menos de' },
-          { type: 'field_number', name: 'CM', value: 20, min: 2, max: 400, precision: 1 },
+          { type: 'input_value', name: 'CM', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 'cm' },
         ],
+        inputsInline: true,
         message1: '%1',
         args1: [{ type: 'input_statement', name: 'CORPO' }],
         previousStatement: null,
@@ -206,6 +293,42 @@
         tooltip: 'Repete os blocos de dentro até o robô chegar perto de alguma coisa.',
       },
     ]);
+
+    /* Nove contas com a mesma forma: dois encaixes e um símbolo no meio. Um
+       laço em vez de nove objetos iguais — nove cópias é como elas divergem.
+
+       Cada uma diz o que aceita e o que devolve, e isso não é burocracia: sem
+       o tipo no encaixe, "andar frente (3 < 4) s" e "5 e 3" viram peças que
+       encaixam e não querem dizer nada. O Blockly recusa antes de a criança
+       apertar PLAY, que é o melhor momento para recusar.
+
+                         entra      sai */
+    var pares = [
+      ['conta_mais',    '+',  'Number',  'Number'],
+      ['conta_menos',   '−',  'Number',  'Number'],
+      ['conta_vezes',   '×',  'Number',  'Number'],
+      ['conta_dividir', '÷',  'Number',  'Number'],
+      ['conta_menor',   '<',  'Number',  'Boolean'],
+      ['conta_maior',   '>',  'Number',  'Boolean'],
+      ['conta_igual',   '=',  'Number',  'Boolean'],
+      ['conta_e',       'e',  'Boolean', 'Boolean'],
+      ['conta_ou',      'ou', 'Boolean', 'Boolean'],
+    ];
+    var defs = [];
+    for (var k = 0; k < pares.length; k++) {
+      defs.push({
+        type: pares[k][0],
+        message0: '%1 ' + pares[k][1] + ' %2',
+        args0: [
+          { type: 'input_value', name: 'A', check: pares[k][2] },
+          { type: 'input_value', name: 'B', check: pares[k][2] },
+        ],
+        inputsInline: true,
+        output: pares[k][3],
+        colour: COR_CONTA,
+      });
+    }
+    Blockly.defineBlocksWithJsonArray(defs);
   }
 
   var CAIXA_XML =
@@ -224,30 +347,46 @@
     '  </category>' +
     '</xml>';
 
+  /* O que está dentro de um encaixe: o número do shadow, ou a conta que a
+     criança soltou em cima dele. Encaixe vazio vale zero — acontece quando ela
+     arranca o shadow, e um programa que explode por isso seria pior. */
+  function valorDe(bloco, nome) {
+    var dentro = bloco.getInputTargetBlock(nome);
+    if (!dentro) return 0;
+    if (dentro.type === 'numero' || dentro.type === 'numero_bolinhas') {
+      return Number(dentro.getFieldValue('NUM'));
+    }
+    return blocoParaNo(dentro);
+  }
+
+  function conta(nome, b) {
+    return { op: nome, a: valorDe(b, 'A'), b: valorDe(b, 'B'), blockId: b.id };
+  }
+
   function blocoParaNo(b) {
     var id = b.id;
     switch (b.type) {
       case 'mover_frente':
-        return { op: 'frente', segundos: Number(b.getFieldValue('SEG')),
+        return { op: 'frente', segundos: valorDe(b, 'SEG'),
                  velocidade: Number(b.getFieldValue('VEL')), blockId: id };
       case 'mover_tras':
-        return { op: 'tras', segundos: Number(b.getFieldValue('SEG')),
+        return { op: 'tras', segundos: valorDe(b, 'SEG'),
                  velocidade: Number(b.getFieldValue('VEL')), blockId: id };
       case 'girar':
-        return { op: 'girar', graus: Number(b.getFieldValue('GRAUS')), blockId: id };
+        return { op: 'girar', graus: valorDe(b, 'GRAUS'), blockId: id };
       case 'esperar':
-        return { op: 'esperar', segundos: Number(b.getFieldValue('SEG')), blockId: id };
+        return { op: 'esperar', segundos: valorDe(b, 'SEG'), blockId: id };
       case 'repetir':
         return {
           op: 'repetir',
-          vezes: Number(b.getFieldValue('N')),
+          vezes: valorDe(b, 'N'),
           corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')),
           blockId: id,
         };
       case 'se_obstaculo':
         return {
           op: 'se_obstaculo',
-          cm: Number(b.getFieldValue('CM')),
+          cm: valorDe(b, 'CM'),
           corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')),
           blockId: id,
         };
@@ -262,7 +401,7 @@
       case 'se_senao':
         return {
           op: 'se_senao',
-          cm: Number(b.getFieldValue('CM')),
+          cm: valorDe(b, 'CM'),
           entao: pilhaParaAst(b.getInputTargetBlock('CORPO')),
           senao: pilhaParaAst(b.getInputTargetBlock('SENAO')),
           blockId: id,
@@ -270,10 +409,34 @@
       case 'repetir_ate_perto':
         return {
           op: 'repetir_ate_perto',
-          cm: Number(b.getFieldValue('CM')),
+          cm: valorDe(b, 'CM'),
           corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')),
           blockId: id,
         };
+      case 'conta_mais':    return conta('mais', b);
+      case 'conta_menos':   return conta('menos', b);
+      case 'conta_vezes':   return conta('vezes', b);
+      case 'conta_dividir': return conta('dividir', b);
+      case 'conta_menor':   return conta('menor', b);
+      case 'conta_maior':   return conta('maior', b);
+      case 'conta_igual':   return conta('igual', b);
+      case 'conta_e':       return conta('e', b);
+      case 'conta_ou':      return conta('ou', b);
+      case 'aleatorio':     return conta('aleatorio', b);
+      case 'conta_nao':
+        return { op: 'nao', a: valorDe(b, 'A'), blockId: id };
+      case 'distancia':
+        return { op: 'distancia', blockId: id };
+      case 'se':
+        return { op: 'se', cond: valorDe(b, 'COND'),
+                 corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')), blockId: id };
+      case 'se_entao_senao':
+        return { op: 'se_entao_senao', cond: valorDe(b, 'COND'),
+                 entao: pilhaParaAst(b.getInputTargetBlock('CORPO')),
+                 senao: pilhaParaAst(b.getInputTargetBlock('SENAO')), blockId: id };
+      case 'repetir_ate':
+        return { op: 'repetir_ate', cond: valorDe(b, 'COND'),
+                 corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')), blockId: id };
       default:
         throw new Error('Bloco sem tradução: ' + b.type);
     }
@@ -325,6 +488,7 @@
   }
 
   var api = { definir: definir, workspaceParaAst: workspaceParaAst,
+              valorDe: valorDe,
               criarRaiz: criarRaiz, temTrabalho: temTrabalho, limpar: limpar,
               CAIXA_XML: CAIXA_XML };
   if (typeof module === 'object' && module.exports) module.exports = api;

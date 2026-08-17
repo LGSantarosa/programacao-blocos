@@ -7,6 +7,9 @@
   /* A faixa é a da v1: o nível Grande precisa repetir muitas vezes. O que muda
      por nível é só o desenho. */
   var MIN = 1, MAX = 100;
+
+  /* Precisa bater com COR_MOVIMENTO em web/blocos.js. */
+  var COR_NUMERO = '#0050f0';
   /* Cinco casas fixas: as vazias mostram à criança que dá para pedir mais, e a
      largura constante evita o bloco pular de tamanho a cada clique. */
   var CASAS = 5;
@@ -62,6 +65,34 @@
     };
 
     Blockly.fieldRegistry.register('field_bolinhas', FieldBolinhas);
+
+    /* Dois blocos de número que existem só para morar dentro de um encaixe.
+       Enquanto ninguém solta uma conta em cima, eles desenham e se comportam
+       como o campo que eram antes — é isso que deixa os três níveis de baixo
+       ficarem exatamente como estavam.
+
+       A cor é a do movimento para o shadow sumir dentro da peça: um retângulo
+       de outra cor no meio do bloco pareceria uma peça encaixada, e não um
+       número. */
+    Blockly.defineBlocksWithJsonArray([
+      {
+        type: 'numero',
+        message0: '%1',
+        args0: [{ type: 'field_number', name: 'NUM', value: 1 }],
+        output: 'Number',
+        colour: COR_NUMERO,
+      },
+      {
+        /* O repetir desenha bolinhas para quem não lê algarismo, e o desenho é
+           do campo — então o shadow dele é outro tipo de bloco. */
+        type: 'numero_bolinhas',
+        message0: '%1',
+        args0: [{ type: 'field_bolinhas', name: 'NUM', value: 4 }],
+        output: 'Number',
+        colour: COR_NUMERO,
+      },
+    ]);
+
     raiz.__bolinhasRegistrado = true;
     return true;
   }

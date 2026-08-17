@@ -34,9 +34,17 @@
     return fora;
   }
 
+  /* Um encaixe com o shadow dentro. O gabarito monta o mesmo desenho que a
+     criança monta arrastando — se ele montasse campo e ela montasse encaixe, o
+     gabarito viraria uma peça que ela não consegue reproduzir. */
+  function enc(tipo, valor) {
+    return { shadow: { type: tipo, fields: { NUM: valor } } };
+  }
+
   function blocoAndar(segundos) {
     return { type: 'mover_frente',
-             fields: { SEG: segundos, VEL: VEL_PADRAO } };
+             inputs: { SEG: enc('numero', segundos) },
+             fields: { VEL: VEL_PADRAO } };
   }
 
   /* No Pequeno o caminho vira pilha de passos curtos, que é o vocabulário
@@ -55,8 +63,9 @@
     for (i = 0; i < lista.length; i++) {
       n = lista[i];
       fora.push(n > 1
-        ? { type: 'repetir', fields: { N: n },
-            inputs: { CORPO: { block: blocoAndar(passoS) } } }
+        ? { type: 'repetir',
+            inputs: { N: enc('numero_bolinhas', n),
+                      CORPO: { block: blocoAndar(passoS) } } }
         : blocoAndar(passoS));
     }
     return fora;
@@ -67,7 +76,8 @@
      aparecer com a seta da direita. */
   function blocoGirar(graus) {
     return { type: 'girar',
-             fields: { DIR: String(graus), GRAUS: graus } };
+             fields: { DIR: String(graus) },
+             inputs: { GRAUS: enc('numero', graus) } };
   }
 
   /* O mesmo caminho nas três línguas. O Pequeno não tem sensor, então anda
@@ -80,14 +90,23 @@
     if (nivel === 'pequeno') {
       return blocosDeAndar(passo.andar, nivel, passoS);
     }
-    if (nivel === 'grande') {
-      return [{ type: 'repetir_ate_perto', fields: { CM: passo.ate_perto },
-                inputs: { CORPO: { block: blocoAndar(passoS) } } }];
+    if (comoGrande(nivel)) {
+      return [{ type: 'repetir_ate_perto',
+                inputs: { CM: enc('numero', passo.ate_perto),
+                          CORPO: { block: blocoAndar(passoS) } } }];
     }
-    var se = { type: 'se_obstaculo', fields: { CM: passo.ate_perto },
-               inputs: { CORPO: { block: { type: 'parar' } } },
+    var se = { type: 'se_obstaculo',
+               inputs: { CM: enc('numero', passo.ate_perto),
+                         CORPO: { block: { type: 'parar' } } },
                next: { block: blocoAndar(passoS) } };
     return [{ type: 'repetir_sempre', inputs: { CORPO: { block: se } } }];
+  }
+
+  /* O Gigante fala a língua do Grande: as fases de hoje não pedem conta
+     nenhuma, e um gabarito com conta ensinaria a resolver com mais do que
+     precisa. */
+  function comoGrande(nivel) {
+    return nivel === 'grande' || nivel === 'gigante';
   }
 
   function blocosDoPasso(passo, nivel, passoS) {

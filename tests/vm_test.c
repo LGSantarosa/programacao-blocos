@@ -74,9 +74,14 @@ static void teste_programa_vazio(void) {
 static void teste_sequencia_linear(void) {
     printf("teste_sequencia_linear\n");
     VM vm;
-    uint8_t prog[4 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_MOTOR, 200, 200, 0);
-    p = emit(p, OP_WAIT, 1000, 0, 0);
+    uint8_t prog[9 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    p = emit(p, OP_PUSH, 1000, 0, 0);
+    p = emit(p, OP_WAIT, 0, 0, 0);
+    p = emit(p, OP_PUSH, 0, 0, 0);
+    p = emit(p, OP_PUSH, 0, 0, 0);
     p = emit(p, OP_MOTOR, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
@@ -88,13 +93,15 @@ static void teste_sequencia_linear(void) {
 static void teste_wait_nao_avanca_antes_do_prazo(void) {
     printf("teste_wait_nao_avanca_antes_do_prazo\n");
     VM vm;
-    uint8_t prog[2 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_WAIT, 1000, 0, 0);
+    uint8_t prog[3 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 1000, 0, 0);
+    p = emit(p, OP_WAIT, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
 
-    vm_tick(&vm);                 /* executa o WAIT */
-    CHECK(vm.pc == 1);
+    vm_tick(&vm);                 /* empilha o prazo */
+    vm_tick(&vm);                 /* executa o WAIT  */
+    CHECK(vm.pc == 2);
     CHECK(vm_esperando(&vm, hal_millis()));
 
     fake_clock_advance(999);
@@ -109,10 +116,13 @@ static void teste_wait_nao_avanca_antes_do_prazo(void) {
 static void teste_repetir_tres_vezes(void) {
     printf("teste_repetir_tres_vezes\n");
     VM vm;
-    uint8_t prog[4 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_SET_REG, 0, 3, 0);   /* r0 = 3          */
-    p = emit(p, OP_MOTOR, 1, 1, 0);     /* corpo (pc = 1)  */
-    p = emit(p, OP_DEC_JNZ, 0, 1, 0);   /* volta para pc 1 */
+    uint8_t prog[7 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 3, 0, 0);      /* pc 0            */
+    p = emit(p, OP_SET_REG, 0, 0, 0);   /* pc 1: r0 = 3    */
+    p = emit(p, OP_PUSH, 1, 0, 0);      /* pc 2: corpo     */
+    p = emit(p, OP_PUSH, 1, 0, 0);      /* pc 3            */
+    p = emit(p, OP_MOTOR, 0, 0, 0);     /* pc 4            */
+    p = emit(p, OP_DEC_JNZ, 0, 2, 0);   /* volta para pc 2 */
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
     rodar_ate_parar(&vm);
@@ -126,13 +136,17 @@ static void teste_laco_aninhado(void) {
     printf("teste_laco_aninhado\n");
     VM vm;
     /* repetir 3 { repetir 2 { motor } } -> 6 execuções do corpo */
-    uint8_t prog[6 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_SET_REG, 0, 3, 0);   /* pc 0: r0 = 3            */
-    p = emit(p, OP_SET_REG, 1, 2, 0);   /* pc 1: r1 = 2            */
-    p = emit(p, OP_MOTOR, 7, 7, 0);     /* pc 2: corpo interno     */
-    p = emit(p, OP_DEC_JNZ, 1, 2, 0);   /* pc 3: volta para pc 2   */
-    p = emit(p, OP_DEC_JNZ, 0, 1, 0);   /* pc 4: volta para pc 1   */
-    p = emit(p, OP_HALT, 0, 0, 0);      /* pc 5                    */
+    uint8_t prog[10 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 3, 0, 0);      /* pc 0                    */
+    p = emit(p, OP_SET_REG, 0, 0, 0);   /* pc 1: r0 = 3            */
+    p = emit(p, OP_PUSH, 2, 0, 0);      /* pc 2: externo volta aqui */
+    p = emit(p, OP_SET_REG, 1, 0, 0);   /* pc 3: r1 = 2            */
+    p = emit(p, OP_PUSH, 7, 0, 0);      /* pc 4: corpo interno     */
+    p = emit(p, OP_PUSH, 7, 0, 0);      /* pc 5                    */
+    p = emit(p, OP_MOTOR, 0, 0, 0);     /* pc 6                    */
+    p = emit(p, OP_DEC_JNZ, 1, 4, 0);   /* pc 7: volta para pc 4   */
+    p = emit(p, OP_DEC_JNZ, 0, 2, 0);   /* pc 8: volta para pc 2   */
+    p = emit(p, OP_HALT, 0, 0, 0);      /* pc 9                    */
     preparar(&vm, prog, sizeof(prog));
     rodar_ate_parar(&vm);
     CHECK(fake_trace_count() == 7);     /* 6 corpos + MOTOR 0,0 do HALT */
@@ -143,9 +157,11 @@ static void teste_laco_aninhado(void) {
 static void teste_jmp_incondicional(void) {
     printf("teste_jmp_incondicional\n");
     VM vm;
-    uint8_t prog[3 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_JMP, 2, 0, 0);      /* pula por cima do MOTOR */
-    p = emit(p, OP_MOTOR, 9, 9, 0);
+    uint8_t prog[5 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_JMP, 4, 0, 0);      /* pula por cima do MOTOR */
+    p = emit(p, OP_PUSH, 9, 0, 0);
+    p = emit(p, OP_PUSH, 9, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
     rodar_ate_parar(&vm);
@@ -156,12 +172,14 @@ static void teste_jmp_incondicional(void) {
 static void teste_turn_desliga_motores_no_fim(void) {
     printf("teste_turn_desliga_motores_no_fim\n");
     VM vm;
-    uint8_t prog[2 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_TURN, 90, 0, 0);
+    uint8_t prog[3 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 90, 0, 0);
+    p = emit(p, OP_TURN, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
 
-    vm_tick(&vm);                       /* executa o TURN */
+    vm_tick(&vm);                       /* empilha os graus */
+    vm_tick(&vm);                       /* executa o TURN   */
     CHECK(fake_trace_count() == 1);
     CHECK(strcmp(fake_trace_get(0), "MOTOR 180,-180") == 0);
 
@@ -179,10 +197,12 @@ static void teste_turn_desliga_motores_no_fim(void) {
 static void teste_turn_esquerda_inverte_os_motores(void) {
     printf("teste_turn_esquerda_inverte_os_motores\n");
     VM vm;
-    uint8_t prog[2 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_TURN, -90, 0, 0);
+    uint8_t prog[3 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, -90, 0, 0);
+    p = emit(p, OP_TURN, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
+    vm_tick(&vm);
     vm_tick(&vm);
     CHECK(strcmp(fake_trace_get(0), "MOTOR -180,180") == 0);
 }
@@ -190,9 +210,14 @@ static void teste_turn_esquerda_inverte_os_motores(void) {
 static void teste_sensor_perto_entra_no_corpo(void) {
     printf("teste_sensor_perto_entra_no_corpo\n");
     VM vm;
-    uint8_t prog[3 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_JMP_IF_GE, SENSOR_DISTANCIA, 20, 2);  /* >= 20 cm: pula */
-    p = emit(p, OP_MOTOR, 5, 5, 0);
+    uint8_t prog[8 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SENSOR, SENSOR_DISTANCIA, 0, 0);
+    p = emit(p, OP_PUSH, 20, 0, 0);
+    p = emit(p, OP_BIN, BIN_MENOR, 0, 0);
+    p = emit(p, OP_JMP_FALSE, 7, 0, 0);   /* longe: pula o corpo */
+    p = emit(p, OP_PUSH, 5, 0, 0);
+    p = emit(p, OP_PUSH, 5, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
     fake_dist_set(10);                   /* obstáculo perto */
@@ -204,9 +229,14 @@ static void teste_sensor_perto_entra_no_corpo(void) {
 static void teste_sensor_longe_pula_o_corpo(void) {
     printf("teste_sensor_longe_pula_o_corpo\n");
     VM vm;
-    uint8_t prog[3 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_JMP_IF_GE, SENSOR_DISTANCIA, 20, 2);
-    p = emit(p, OP_MOTOR, 5, 5, 0);
+    uint8_t prog[8 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SENSOR, SENSOR_DISTANCIA, 0, 0);
+    p = emit(p, OP_PUSH, 20, 0, 0);
+    p = emit(p, OP_BIN, BIN_MENOR, 0, 0);
+    p = emit(p, OP_JMP_FALSE, 7, 0, 0);
+    p = emit(p, OP_PUSH, 5, 0, 0);
+    p = emit(p, OP_PUSH, 5, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
     fake_dist_set(150);                  /* caminho livre */
@@ -218,13 +248,15 @@ static void teste_sensor_longe_pula_o_corpo(void) {
 static void teste_stop_no_meio_zera_motores(void) {
     printf("teste_stop_no_meio_zera_motores\n");
     VM vm;
-    uint8_t prog[3 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_MOTOR, 200, 200, 0);
-    p = emit(p, OP_WAIT, 5000, 0, 0);
+    uint8_t prog[6 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    p = emit(p, OP_PUSH, 5000, 0, 0);
+    p = emit(p, OP_WAIT, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
-    vm_tick(&vm);
-    vm_tick(&vm);
+    for (int k = 0; k < 5; k++) vm_tick(&vm);
     CHECK(vm.rodando);
     vm_stop(&vm);
     CHECK(!vm.rodando);
@@ -235,13 +267,15 @@ static void teste_stop_no_meio_zera_motores(void) {
 static void teste_watchdog_corta_motores(void) {
     printf("teste_watchdog_corta_motores\n");
     VM vm;
-    uint8_t prog[3 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_MOTOR, 200, 200, 0);
-    p = emit(p, OP_WAIT, 30000, 0, 0);
+    uint8_t prog[6 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    p = emit(p, OP_PUSH, 30000, 0, 0);
+    p = emit(p, OP_WAIT, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
-    vm_tick(&vm);
-    vm_tick(&vm);
+    for (int k = 0; k < 5; k++) vm_tick(&vm);
 
     /* Ninguém chama vm_tick por muito tempo: o vigia independente age. */
     fake_clock_advance(WATCHDOG_MS - 10);
@@ -262,12 +296,15 @@ static void teste_watchdog_corta_motores(void) {
 static void teste_watchdog_tolera_relogio_atrasado(void) {
     printf("teste_watchdog_tolera_relogio_atrasado\n");
     VM vm;
-    uint8_t prog[3 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_MOTOR, 200, 200, 0);
-    p = emit(p, OP_WAIT, 30000, 0, 0);
+    uint8_t prog[6 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    p = emit(p, OP_PUSH, 30000, 0, 0);
+    p = emit(p, OP_WAIT, 0, 0, 0);
     p = emit(p, OP_HALT, 0, 0, 0);
     preparar(&vm, prog, sizeof(prog));
-    vm_tick(&vm);                       /* ultimo_tick = 1000 */
+    for (int k = 0; k < 5; k++) vm_tick(&vm);   /* ultimo_tick = 1000 */
 
     vm_watchdog_check(&vm, hal_millis() - 1);
     CHECK(vm.rodando);
@@ -294,7 +331,7 @@ static void teste_load_rejeita_programa_invalido(void) {
     CHECK(vm.n_instr == 1);                           /* programa anterior intacto */
 
     static uint8_t grande[(MAX_INSTR + 1) * INSTR_BYTES];
-    CHECK(vm_load(&vm, grande, sizeof(grande)) == 0); /* passou de 256 instruções */
+    CHECK(vm_load(&vm, grande, sizeof(grande)) == 0); /* passou do teto */
     CHECK(vm.n_instr == 1);
 }
 
@@ -323,19 +360,215 @@ static void teste_para_com_seguranca_em_programa_torto(void) {
     CHECK(!vm2.rodando);
 }
 
+/* ---------- a pilha de valores ---------- */
+
+/* Empilhar e somar. O MOTOR passa a ler da pilha, então este teste também
+   prova que a ordem de desempilhar é (esquerdo, direito) e não o contrário. */
+static void teste_pilha_soma(void) {
+    printf("teste_pilha_soma\n");
+    VM vm;
+    uint8_t prog[6 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 100, 0, 0);
+    p = emit(p, OP_PUSH, 20, 0, 0);
+    p = emit(p, OP_BIN, BIN_MAIS, 0, 0);   /* 120 */
+    p = emit(p, OP_PUSH, 7, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);        /* esq=120, dir=7 */
+    p = emit(p, OP_HALT, 0, 0, 0);
+
+    preparar(&vm, prog, sizeof(prog));
+    rodar_ate_parar(&vm);
+
+    const char *esperado[] = { "MOTOR 120,7", "MOTOR 0,0" };
+    checar_trace(esperado, 2);
+}
+
+/* Uma criança vai dividir por zero. O robô não pode morrer no meio da sala. */
+static void teste_dividir_por_zero_da_zero(void) {
+    printf("teste_dividir_por_zero_da_zero\n");
+    VM vm;
+    uint8_t prog[6 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 100, 0, 0);
+    p = emit(p, OP_PUSH, 0, 0, 0);
+    p = emit(p, OP_BIN, BIN_DIVIDIR, 0, 0);
+    p = emit(p, OP_PUSH, 0, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+
+    preparar(&vm, prog, sizeof(prog));
+    rodar_ate_parar(&vm);
+
+    const char *esperado[] = { "MOTOR 0,0", "MOTOR 0,0" };
+    checar_trace(esperado, 2);
+    CHECK(vm.rodando == 0);
+}
+
+/* Cada comparação e cada conta, num programa só: o resultado vira a velocidade
+   do motor esquerdo, então o trace conta o que deu. */
+static void teste_comparacoes_e_booleanos(void) {
+    printf("teste_comparacoes_e_booleanos\n");
+    struct { uint8_t sel; int16_t a, b; int esperado; } casos[] = {
+        { BIN_MENOR, 3, 4, 1 }, { BIN_MENOR, 4, 3, 0 },
+        { BIN_MAIOR, 4, 3, 1 }, { BIN_MAIOR, 3, 4, 0 },
+        { BIN_IGUAL, 5, 5, 1 }, { BIN_IGUAL, 5, 6, 0 },
+        { BIN_E, 1, 1, 1 },     { BIN_E, 1, 0, 0 },
+        { BIN_OU, 0, 1, 1 },    { BIN_OU, 0, 0, 0 },
+        { BIN_MENOS, 10, 4, 6 }, { BIN_VEZES, 6, 7, 42 },
+        { BIN_DIVIDIR, 9, 2, 4 },
+    };
+    for (unsigned i = 0; i < sizeof(casos) / sizeof(casos[0]); i++) {
+        VM vm;
+        uint8_t prog[6 * INSTR_BYTES], *p = prog;
+        p = emit(p, OP_PUSH, casos[i].a, 0, 0);
+        p = emit(p, OP_PUSH, casos[i].b, 0, 0);
+        p = emit(p, OP_BIN, casos[i].sel, 0, 0);
+        p = emit(p, OP_PUSH, 0, 0, 0);
+        p = emit(p, OP_MOTOR, 0, 0, 0);
+        p = emit(p, OP_HALT, 0, 0, 0);
+
+        preparar(&vm, prog, sizeof(prog));
+        rodar_ate_parar(&vm);
+
+        char querido[32];
+        snprintf(querido, sizeof(querido), "MOTOR %d,0", casos[i].esperado);
+        if (fake_trace_count() < 1 || strcmp(fake_trace_get(0), querido) != 0) {
+            printf("  FALHOU caso %u: esperado \"%s\", veio \"%s\"\n",
+                   i, querido, fake_trace_count() ? fake_trace_get(0) : "(nada)");
+            falhas++;
+        }
+    }
+}
+
+static void teste_nao_inverte(void) {
+    printf("teste_nao_inverte\n");
+    VM vm;
+    uint8_t prog[5 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 0, 0, 0);
+    p = emit(p, OP_UN, UN_NAO, 0, 0);      /* 1 */
+    p = emit(p, OP_PUSH, 0, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+
+    preparar(&vm, prog, sizeof(prog));
+    rodar_ate_parar(&vm);
+
+    const char *esperado[] = { "MOTOR 1,0", "MOTOR 0,0" };
+    checar_trace(esperado, 2);
+}
+
+/* O aleatório não pode sair da faixa pedida, e os extremos entram. */
+static void teste_aleatorio_respeita_a_faixa(void) {
+    printf("teste_aleatorio_respeita_a_faixa\n");
+    for (int k = 0; k < 60; k++) {
+        VM vm;
+        uint8_t prog[5 * INSTR_BYTES], *p = prog;
+        p = emit(p, OP_PUSH, 5, 0, 0);
+        p = emit(p, OP_PUSH, 7, 0, 0);
+        p = emit(p, OP_BIN, BIN_ALEATORIO, 0, 0);
+        p = emit(p, OP_PUSH, 0, 0, 0);
+        p = emit(p, OP_MOTOR, 0, 0, 0);
+        preparar(&vm, prog, sizeof(prog));
+        fake_clock_advance(k);
+        vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
+        int v = -1;
+        if (fake_trace_count() > 0) sscanf(fake_trace_get(0), "MOTOR %d,", &v);
+        CHECK(v >= 5 && v <= 7);
+    }
+}
+
+/* O sensor vira valor. É o bloco que carrega a lição do ciclo. */
+static void teste_sensor_como_valor(void) {
+    printf("teste_sensor_como_valor\n");
+    VM vm;
+    uint8_t prog[4 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SENSOR, SENSOR_DISTANCIA, 0, 0);
+    p = emit(p, OP_PUSH, 0, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+
+    preparar(&vm, prog, sizeof(prog));
+    fake_dist_set(37);
+    rodar_ate_parar(&vm);
+
+    const char *esperado[] = { "MOTOR 37,0", "MOTOR 0,0" };
+    checar_trace(esperado, 2);
+}
+
+static void teste_jmp_false_salta_quando_falso(void) {
+    printf("teste_jmp_false_salta_quando_falso\n");
+    VM vm;
+    uint8_t prog[6 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 0, 0, 0);          /* falso    */
+    p = emit(p, OP_JMP_FALSE, 4, 0, 0);     /* salta    */
+    p = emit(p, OP_PUSH, 9, 0, 0);          /* pulados  */
+    p = emit(p, OP_PUSH, 9, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+
+    preparar(&vm, prog, sizeof(prog));
+    vm_tick(&vm);
+    vm_tick(&vm);
+    CHECK(vm.pc == 4);
+    CHECK(vm.topo == 0);
+}
+
+/* Nada pode ficar pendurado na pilha entre instruções que devolvem o controle
+   ao loop(): é isso que mantém o watchdog e a não-bloqueância valendo. */
+static void teste_pilha_vazia_depois_de_cada_comando(void) {
+    printf("teste_pilha_vazia_depois_de_cada_comando\n");
+    VM vm;
+    uint8_t prog[8 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_PUSH, 200, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    p = emit(p, OP_PUSH, 50, 0, 0);
+    p = emit(p, OP_WAIT, 0, 0, 0);
+    p = emit(p, OP_PUSH, 90, 0, 0);
+    p = emit(p, OP_TURN, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+
+    preparar(&vm, prog, sizeof(prog));
+    for (int k = 0; k < 200 && vm.rodando; k++) {
+        vm_tick(&vm);
+        CHECK(vm.topo <= 2);
+        fake_clock_advance(10);
+    }
+    CHECK(vm.topo == 0);
+}
+
+/* Pilha vazia não pode ler lixo de memória: para o programa, como já se faz
+   com registrador fora da faixa. */
+static void teste_desempilhar_vazio_para_o_programa(void) {
+    printf("teste_desempilhar_vazio_para_o_programa\n");
+    VM vm;
+    uint8_t prog[2 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_BIN, BIN_MAIS, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+
+    preparar(&vm, prog, sizeof(prog));
+    vm_tick(&vm);
+    CHECK(!vm.rodando);
+}
+
 /* O contrato do sistema: repetir 4 { frente 1s; girar direita } */
 static void teste_dourado(void) {
     printf("teste_dourado\n");
     VM vm;
-    uint8_t prog[7 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_SET_REG, 0, 4, 0);
-    p = emit(p, OP_MOTOR, VEL_FRENTE, VEL_FRENTE, 0);
-    p = emit(p, OP_WAIT, 1000, 0, 0);
-    p = emit(p, OP_MOTOR, 0, 0, 0);
-    p = emit(p, OP_TURN, 90, 0, 0);
-    p = emit(p, OP_DEC_JNZ, 0, 1, 0);
-    p = emit(p, OP_HALT, 0, 0, 0);
-    CHECK(sizeof(prog) == 49);
+    uint8_t prog[14 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 4, 0, 0);                  /* pc  0            */
+    p = emit(p, OP_SET_REG, 0, 0, 0);               /* pc  1: r0 = 4    */
+    p = emit(p, OP_PUSH, VEL_FRENTE, 0, 0);         /* pc  2: corpo     */
+    p = emit(p, OP_PUSH, VEL_FRENTE, 0, 0);         /* pc  3            */
+    p = emit(p, OP_MOTOR, 0, 0, 0);                 /* pc  4            */
+    p = emit(p, OP_PUSH, 1000, 0, 0);               /* pc  5            */
+    p = emit(p, OP_WAIT, 0, 0, 0);                  /* pc  6            */
+    p = emit(p, OP_PUSH, 0, 0, 0);                  /* pc  7            */
+    p = emit(p, OP_PUSH, 0, 0, 0);                  /* pc  8            */
+    p = emit(p, OP_MOTOR, 0, 0, 0);                 /* pc  9            */
+    p = emit(p, OP_PUSH, 90, 0, 0);                 /* pc 10            */
+    p = emit(p, OP_TURN, 0, 0, 0);                  /* pc 11            */
+    p = emit(p, OP_DEC_JNZ, 0, 2, 0);               /* pc 12: volta a 2 */
+    p = emit(p, OP_HALT, 0, 0, 0);                  /* pc 13            */
+    CHECK(sizeof(prog) == 98);
 
     preparar(&vm, prog, sizeof(prog));
     rodar_ate_parar(&vm);
@@ -359,30 +592,33 @@ static void teste_dourado(void) {
 static void teste_jmp_para_tras_fecha_laco(void) {
     printf("teste_jmp_para_tras_fecha_laco\n");
     VM vm;
-    uint8_t prog[5 * INSTR_BYTES], *p = prog;
-    p = emit(p, OP_JMP_IF_GE, SENSOR_DISTANCIA, 20, 2);  /* longe → corpo   */
-    p = emit(p, OP_JMP, 4, 0, 0);                        /* perto → sai     */
-    p = emit(p, OP_MOTOR, 5, 5, 0);                      /* corpo           */
+    uint8_t prog[10 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_SENSOR, SENSOR_DISTANCIA, 0, 0);      /* pc 0            */
+    p = emit(p, OP_PUSH, 20, 0, 0);
+    p = emit(p, OP_BIN, BIN_MENOR, 0, 0);
+    p = emit(p, OP_UN, UN_NAO, 0, 0);                    /* roda enquanto NÃO chegou */
+    p = emit(p, OP_JMP_FALSE, 9, 0, 0);                  /* perto → sai     */
+    p = emit(p, OP_PUSH, 5, 0, 0);                       /* corpo           */
+    p = emit(p, OP_PUSH, 5, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
     p = emit(p, OP_JMP, 0, 0, 0);                        /* volta: p/ trás  */
-    p = emit(p, OP_HALT, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);                       /* pc 9            */
     preparar(&vm, prog, sizeof(prog));
 
     /* Longe: entra no corpo e o salto para trás recomeça o laço. */
     fake_dist_set(100);
-    vm_tick(&vm);
-    CHECK(vm.pc == 2);
-    vm_tick(&vm);
-    CHECK(vm.pc == 3);
+    vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
+    CHECK(vm.pc == 5);          /* a condição deu "ainda não": entrou no corpo */
+    vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);   /* corpo: PUSH, PUSH, MOTOR */
+    CHECK(vm.pc == 8);
     vm_tick(&vm);
     CHECK(vm.pc == 0);          /* aqui está o salto para trás */
     CHECK(vm.rodando == 1);
 
     /* Perto: cai para o salto de saída e o programa acaba. */
     fake_dist_set(10);
-    vm_tick(&vm);
-    CHECK(vm.pc == 1);
-    vm_tick(&vm);
-    CHECK(vm.pc == 4);
+    vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
+    CHECK(vm.pc == 9);          /* chegou perto: saltou para o HALT */
     vm_tick(&vm);
     CHECK(vm.rodando == 0);
 }
@@ -404,6 +640,15 @@ int main(void) {
     teste_watchdog_tolera_relogio_atrasado();
     teste_load_rejeita_programa_invalido();
     teste_para_com_seguranca_em_programa_torto();
+    teste_pilha_soma();
+    teste_dividir_por_zero_da_zero();
+    teste_comparacoes_e_booleanos();
+    teste_nao_inverte();
+    teste_aleatorio_respeita_a_faixa();
+    teste_sensor_como_valor();
+    teste_jmp_false_salta_quando_falso();
+    teste_pilha_vazia_depois_de_cada_comando();
+    teste_desempilhar_vazio_para_o_programa();
     teste_dourado();
     if (falhas == 0) { printf("\ntodos os testes passaram\n"); return 0; }
     printf("\n%d verificacao(oes) falharam\n", falhas);

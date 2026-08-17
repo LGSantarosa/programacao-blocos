@@ -27,6 +27,16 @@ function carregar(estados) {
   return ws;
 }
 
+/* Um encaixe com o shadow de número dentro: é o que a criança vê como se
+   fosse o campo de antes, até soltar uma conta em cima. */
+function num(v) {
+  return { shadow: { type: 'numero', fields: { NUM: v } } };
+}
+
+function bolinhas(v) {
+  return { shadow: { type: 'numero_bolinhas', fields: { NUM: v } } };
+}
+
 /* Monta um workspace headless com um programa e devolve a AST. */
 function astDe(estado) {
   return Blocos.workspaceParaAst(carregar([estado]));
@@ -35,33 +45,36 @@ function astDe(estado) {
 test('girar lê o campo GRAUS, não o menu', () => {
   const ast = astDe({
     type: 'quando_play',
-    inputs: { CORPO: { block: { type: 'girar', fields: { GRAUS: 45 } } } },
+    inputs: { CORPO: { block: { type: 'girar', inputs: { GRAUS: num(45) } } } },
   });
   assert.strictEqual(ast.length, 1);
   assert.strictEqual(ast[0].op, 'girar');
   assert.strictEqual(ast[0].graus, 45);
 });
 
-test('escolher esquerda no menu escreve -90 em GRAUS', () => {
-  const b = carregar([{ type: 'girar' }]).getBlocksByType('girar', false)[0];
+test('escolher esquerda no menu escreve -90 no encaixe', () => {
+  const b = carregar([{ type: 'girar', inputs: { GRAUS: num(90) } }])
+    .getBlocksByType('girar', false)[0];
   b.setFieldValue('-90', 'DIR');
-  assert.strictEqual(Number(b.getFieldValue('GRAUS')), -90);
+  assert.strictEqual(
+    Number(b.getInputTargetBlock('GRAUS').getFieldValue('NUM')), -90);
 });
 
 test('o bloco de movimento carrega a velocidade para a AST', () => {
   const ast = astDe({
     type: 'quando_play',
     inputs: { CORPO: { block: {
-      type: 'mover_frente', fields: { SEG: 2, VEL: '255' },
+      type: 'mover_frente', inputs: { SEG: num(2) }, fields: { VEL: '255' },
     } } },
   });
   assert.strictEqual(ast[0].segundos, 2);
   assert.strictEqual(ast[0].velocidade, 255);
 });
 
-test('repetir usa o campo de bolinhas', () => {
-  const campo = carregar([{ type: 'repetir' }])
-    .getBlocksByType('repetir', false)[0].getField('N');
+test('repetir usa o campo de bolinhas, agora dentro do shadow', () => {
+  const b = carregar([{ type: 'repetir', inputs: { N: bolinhas(4) } }])
+    .getBlocksByType('repetir', false)[0];
+  const campo = b.getInputTargetBlock('N').getField('NUM');
   assert.strictEqual(campo.constructor.name, 'FieldBolinhas');
 });
 
@@ -117,7 +130,7 @@ test('repetir para sempre carrega o corpo', () => {
     type: 'quando_play',
     inputs: { CORPO: { block: {
       type: 'repetir_sempre',
-      inputs: { CORPO: { block: { type: 'girar', fields: { GRAUS: 90 } } } },
+      inputs: { CORPO: { block: { type: 'girar', inputs: { GRAUS: num(90) } } } },
     } } },
   });
   assert.strictEqual(ast[0].op, 'repetir_sempre');
@@ -130,10 +143,10 @@ test('se…senão separa os dois ramos', () => {
     type: 'quando_play',
     inputs: { CORPO: { block: {
       type: 'se_senao',
-      fields: { CM: 25 },
       inputs: {
+        CM: num(25),
         CORPO: { block: { type: 'parar' } },
-        SENAO: { block: { type: 'girar', fields: { GRAUS: 90 } } },
+        SENAO: { block: { type: 'girar', inputs: { GRAUS: num(90) } } },
       },
     } } },
   });
@@ -157,8 +170,10 @@ test('repetir até perto leva a distância e o corpo', () => {
     type: 'quando_play',
     inputs: { CORPO: { block: {
       type: 'repetir_ate_perto',
-      fields: { CM: 15 },
-      inputs: { CORPO: { block: { type: 'mover_frente', fields: { SEG: 0.5 } } } },
+      inputs: {
+        CM: num(15),
+        CORPO: { block: { type: 'mover_frente', inputs: { SEG: num(0.5) } } },
+      },
     } } },
   });
   assert.strictEqual(ast[0].op, 'repetir_ate_perto');
@@ -171,7 +186,7 @@ test('o senão é texto cru, para não sumir no Pequeno', () => {
      os dois ramos ficariam indistinguíveis num bloco herdado do Grande. */
   const b = carregar([{ type: 'se_senao' }]).getBlocksByType('se_senao', false)[0];
   assert.strictEqual(b.getField('T3'), null, 'o senão não deve ser um campo');
-  assert.ok(b.getField('CM'), 'a distância continua sendo campo');
+  assert.ok(b.getInput('CM'), 'a distância continua existindo, agora como encaixe');
   assert.ok(b.getField('T1'), 'o "se obstáculo a menos de" continua campo');
 });
 
@@ -235,4 +250,202 @@ test('limpar deixa exatamente uma raiz, e ela continua fixa', () => {
   assert.strictEqual(raiz.isDeletable(), false);
   assert.strictEqual(raiz.isMovable(), false);
   assert.strictEqual(Blocos.temTrabalho(ws), false);
+});
+
+/* ---------- os campos numéricos viraram encaixes ---------- */
+
+test('um bloco com shadow intacto produz a mesma AST de antes', () => {
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: {
+      type: 'mover_frente',
+      inputs: { SEG: num(2.5) },
+      fields: { VEL: '200' },
+    } } },
+  }]);
+  assert.deepStrictEqual(
+    Blocos.workspaceParaAst(ws).map((n) => ({ op: n.op, segundos: n.segundos })),
+    [{ op: 'frente', segundos: 2.5 }]);
+});
+
+test('o repetir usa shadow de bolinhas, não de número', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'repetir',
+    inputs: { N: { shadow: { type: 'numero_bolinhas', fields: { NUM: 3 } } } },
+  } } } }]);
+  const bloco = ws.getBlocksByType('repetir', false)[0];
+  assert.strictEqual(bloco.getInputTargetBlock('N').type, 'numero_bolinhas');
+  assert.strictEqual(Blocos.workspaceParaAst(ws)[0].vezes, 3);
+});
+
+test('encaixe vazio vale zero, e não quebra', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'girar',
+  } } } }]);
+  assert.strictEqual(Blocos.workspaceParaAst(ws)[0].graus, 0);
+});
+
+/* ---------- as contas do Gigante ---------- */
+
+test('uma conta dentro de um encaixe vira nó de valor na AST', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'mover_frente',
+    inputs: { SEG: { block: {
+      type: 'conta_mais',
+      inputs: { A: num(1), B: num(2) },
+    } } },
+    fields: { VEL: '200' },
+  } } } }]);
+  const no = Blocos.workspaceParaAst(ws)[0];
+  assert.strictEqual(no.segundos.op, 'mais');
+  assert.strictEqual(no.segundos.a, 1);
+  assert.strictEqual(no.segundos.b, 2);
+});
+
+/* O distância é número, e o "se" pede verdadeiro/falso: não dá para dizer
+   "se (distância)". Precisa da comparação no meio, e o Blockly recusa o
+   encaixe errado antes de a criança apertar PLAY. */
+test('o distância é um nó de valor sem argumento', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'se',
+    inputs: { COND: { block: { type: 'conta_menor',
+      inputs: { A: { block: { type: 'distancia' } }, B: num(20) } } } },
+  } } } }]);
+  const cond = Blocos.workspaceParaAst(ws)[0].cond;
+  assert.strictEqual(cond.op, 'menor');
+  assert.strictEqual(cond.a.op, 'distancia');
+  assert.strictEqual(cond.a.b, undefined, 'o distância não carrega argumento');
+});
+
+test('se…senão do Gigante separa os dois ramos', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'se_entao_senao',
+    inputs: {
+      COND: { block: { type: 'conta_menor',
+                       inputs: { A: { block: { type: 'distancia' } }, B: num(20) } } },
+      CORPO: { block: { type: 'parar' } },
+      SENAO: { block: { type: 'girar', inputs: { GRAUS: num(90) } } },
+    },
+  } } } }]);
+  const no = Blocos.workspaceParaAst(ws)[0];
+  assert.strictEqual(no.op, 'se_entao_senao');
+  assert.strictEqual(no.cond.op, 'menor');
+  assert.strictEqual(no.cond.a.op, 'distancia');
+  assert.strictEqual(no.cond.b, 20);
+  assert.strictEqual(no.entao[0].op, 'parar');
+  assert.strictEqual(no.senao[0].op, 'girar');
+});
+
+test('repetir até do Gigante leva a condição e o corpo', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'repetir_ate',
+    inputs: {
+      COND: { block: { type: 'conta_maior', inputs: { A: num(3), B: num(1) } } },
+      CORPO: { block: { type: 'parar' } },
+    },
+  } } } }]);
+  const no = Blocos.workspaceParaAst(ws)[0];
+  assert.strictEqual(no.op, 'repetir_ate');
+  assert.strictEqual(no.cond.op, 'maior');
+  assert.strictEqual(no.corpo[0].op, 'parar');
+});
+
+test('o não carrega um argumento só', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'se',
+    inputs: { COND: { block: { type: 'conta_nao',
+      inputs: { A: { block: { type: 'conta_menor',
+        inputs: { A: { block: { type: 'distancia' } }, B: num(20) } } } } } } },
+  } } } }]);
+  const cond = Blocos.workspaceParaAst(ws)[0].cond;
+  assert.strictEqual(cond.op, 'nao');
+  assert.strictEqual(cond.a.op, 'menor');
+  assert.strictEqual(cond.b, undefined);
+});
+
+test('encaixe de condição vazio vale zero, e não quebra', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'se',
+  } } } }]);
+  assert.strictEqual(Blocos.workspaceParaAst(ws)[0].cond, 0);
+});
+
+/* ---------- o que encaixa em quê ---------- */
+
+/* A tabela inteira, num teste só. Ela é a resposta para "esse bloco entra
+   aqui?" — e é o guarda contra o encaixe permissivo demais, que é pior que o
+   restritivo: uma peça que entra onde não faz sentido só falha depois, com o
+   robô andando errado e sem ninguém saber por quê. */
+const VALORES_NUMERO = ['numero', 'conta_mais', 'conta_menos', 'conta_vezes',
+                        'conta_dividir', 'aleatorio', 'distancia'];
+const VALORES_SIMNAO = ['conta_menor', 'conta_maior', 'conta_igual',
+                        'conta_e', 'conta_ou', 'conta_nao'];
+
+const BURACOS_NUMERO = [['mover_frente', 'SEG'], ['mover_tras', 'SEG'],
+                        ['girar', 'GRAUS'], ['esperar', 'SEG'],
+                        ['repetir', 'N'], ['se_obstaculo', 'CM'],
+                        ['se_senao', 'CM'], ['repetir_ate_perto', 'CM'],
+                        ['conta_mais', 'A'], ['conta_mais', 'B'],
+                        ['conta_menos', 'A'], ['conta_vezes', 'B'],
+                        ['conta_dividir', 'A'], ['aleatorio', 'A'],
+                        ['aleatorio', 'B'], ['conta_menor', 'A'],
+                        ['conta_maior', 'B'], ['conta_igual', 'A']];
+const BURACOS_SIMNAO = [['se', 'COND'], ['se_entao_senao', 'COND'],
+                        ['repetir_ate', 'COND'], ['conta_e', 'A'],
+                        ['conta_e', 'B'], ['conta_ou', 'A'],
+                        ['conta_nao', 'A']];
+
+function encaixa(tipoPai, nomeEncaixe, tipoFilho) {
+  const ws = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try {
+    const pai = ws.newBlock(tipoPai);
+    const filho = ws.newBlock(tipoFilho);
+    try { pai.getInput(nomeEncaixe).connection.connect(filho.outputConnection); }
+    catch (e) { return false; }
+    return !!filho.getParent();
+  } finally {
+    Blockly.Events.enable();
+    ws.dispose();
+  }
+}
+
+test('todo valor numérico entra em todo encaixe de número', () => {
+  for (const v of VALORES_NUMERO) {
+    for (const [pai, nome] of BURACOS_NUMERO) {
+      assert.ok(encaixa(pai, nome, v),
+        `${v} deveria entrar em ${pai}.${nome}`);
+    }
+  }
+});
+
+test('todo valor de sim/não entra em todo encaixe de sim/não', () => {
+  for (const v of VALORES_SIMNAO) {
+    for (const [pai, nome] of BURACOS_SIMNAO) {
+      assert.ok(encaixa(pai, nome, v),
+        `${v} deveria entrar em ${pai}.${nome}`);
+    }
+  }
+});
+
+/* "andar frente (3 < 4) s" não quer dizer nada. O Blockly recusa antes de a
+   criança apertar PLAY, que é o melhor momento para recusar. */
+test('sim/não não entra em encaixe de número', () => {
+  for (const v of VALORES_SIMNAO) {
+    for (const [pai, nome] of BURACOS_NUMERO) {
+      assert.ok(!encaixa(pai, nome, v),
+        `${v} não deveria entrar em ${pai}.${nome}`);
+    }
+  }
+});
+
+/* "se (5)" tampouco. Um número não responde sim nem não — ela precisa da
+   comparação no meio, e é essa exigência que ensina a diferença. */
+test('número não entra em encaixe de sim/não', () => {
+  for (const v of VALORES_NUMERO) {
+    for (const [pai, nome] of BURACOS_SIMNAO) {
+      assert.ok(!encaixa(pai, nome, v),
+        `${v} não deveria entrar em ${pai}.${nome}`);
+    }
+  }
 });

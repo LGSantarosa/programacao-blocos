@@ -138,7 +138,7 @@ test('todo gabarito resolve a própria missão, nos três níveis',
     await cdp.pronto;
 
     const ruins = [];
-    for (const nivel of ['pequeno', 'medio', 'grande']) {
+    for (const nivel of ['pequeno', 'medio', 'grande', 'gigante']) {
       const r = await conferir(cdp, nivel);
       for (const x of r) ruins.push(x);
     }

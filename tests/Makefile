@@ -4,9 +4,10 @@ LDLIBS  = -lm
 
 .PHONY: test clean
 
-test: vm_test physics_test
+test: vm_test physics_test quadros_test
 	./vm_test
 	./physics_test
+	./quadros_test
 
 vm_test: vm_test.c fake_hal.c ../core/vm.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
@@ -14,5 +15,10 @@ vm_test: vm_test.c fake_hal.c ../core/vm.c
 physics_test: physics_test.c ../host/physics.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+# O montador é C puro e sem Arduino de propósito: é o que permite testá-lo aqui
+# na mesa, sem placa.
+quadros_test: quadros_test.c
+	$(CC) $(CFLAGS) -I../firmware/src -o $@ $^ $(LDLIBS)
+
 clean:
-	rm -f vm_test physics_test
+	rm -f vm_test physics_test quadros_test

@@ -104,8 +104,10 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
       Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [{
         type: 'quando_play', x: 40, y: 30,
         inputs: { CORPO: { block: {
-          type: 'mover_frente', fields: { SEG: 0.5 },
-          next: { block: { type: 'girar', fields: { GRAUS: 90 } } }
+          type: 'mover_frente',
+          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 0.5 } } } },
+          next: { block: { type: 'girar',
+            inputs: { GRAUS: { shadow: { type: 'numero', fields: { NUM: 90 } } } } } }
         } } }
       }] } }, ws);
       Niveis.aplicar(ws, 'pequeno');
@@ -114,7 +116,7 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
 
     assert.strictEqual(
       await aval(`Blockly.getMainWorkspace()
-        .getBlocksByType('mover_frente', false)[0].getField('SEG').isVisible()`),
+        .getBlocksByType('mover_frente', false)[0].getInput('SEG').isVisible()`),
       false, 'no Pequeno o número não deveria aparecer');
 
     /* A paleta é um workspace à parte. Se o nível não for aplicado nela, a
@@ -130,7 +132,7 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
       await aval(`(() => {
         const f = Blockly.getMainWorkspace().getFlyout();
         const b = f && f.getWorkspace().getBlocksByType('mover_frente', false)[0];
-        return b ? b.getField('SEG').isVisible() : 'sem bloco na paleta';
+        return b ? b.getInput('SEG').isVisible() : 'sem bloco na paleta';
       })()`),
       false, 'no Pequeno a paleta não deveria mostrar o número');
 
@@ -276,8 +278,10 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
       Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [{
         type: 'quando_play', x: 40, y: 30,
         inputs: { CORPO: { block: {
-          type: 'mover_frente', fields: { SEG: 0.5 },
-          next: { block: { type: 'girar', fields: { GRAUS: 90 } } }
+          type: 'mover_frente',
+          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 0.5 } } } },
+          next: { block: { type: 'girar',
+            inputs: { GRAUS: { shadow: { type: 'numero', fields: { NUM: 90 } } } } } }
         } } }
       }] } }, ws);
       Niveis.aplicar(ws, 'medio');
@@ -287,7 +291,7 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
 
     assert.strictEqual(
       await aval(`Blockly.getMainWorkspace()
-        .getBlocksByType('mover_frente', false)[0].getField('SEG').isVisible()`),
+        .getBlocksByType('mover_frente', false)[0].getInput('SEG').isVisible()`),
       true, 'no Médio o número deveria aparecer');
 
     assert.strictEqual(await aval(`document.getElementById('codigo').hidden`),

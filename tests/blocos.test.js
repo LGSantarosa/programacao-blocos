@@ -27,6 +27,16 @@ function carregar(estados) {
   return ws;
 }
 
+/* Um encaixe com o shadow de número dentro: é o que a criança vê como se
+   fosse o campo de antes, até soltar uma conta em cima. */
+function num(v) {
+  return { shadow: { type: 'numero', fields: { NUM: v } } };
+}
+
+function bolinhas(v) {
+  return { shadow: { type: 'numero_bolinhas', fields: { NUM: v } } };
+}
+
 /* Monta um workspace headless com um programa e devolve a AST. */
 function astDe(estado) {
   return Blocos.workspaceParaAst(carregar([estado]));
@@ -35,33 +45,36 @@ function astDe(estado) {
 test('girar lê o campo GRAUS, não o menu', () => {
   const ast = astDe({
     type: 'quando_play',
-    inputs: { CORPO: { block: { type: 'girar', fields: { GRAUS: 45 } } } },
+    inputs: { CORPO: { block: { type: 'girar', inputs: { GRAUS: num(45) } } } },
   });
   assert.strictEqual(ast.length, 1);
   assert.strictEqual(ast[0].op, 'girar');
   assert.strictEqual(ast[0].graus, 45);
 });
 
-test('escolher esquerda no menu escreve -90 em GRAUS', () => {
-  const b = carregar([{ type: 'girar' }]).getBlocksByType('girar', false)[0];
+test('escolher esquerda no menu escreve -90 no encaixe', () => {
+  const b = carregar([{ type: 'girar', inputs: { GRAUS: num(90) } }])
+    .getBlocksByType('girar', false)[0];
   b.setFieldValue('-90', 'DIR');
-  assert.strictEqual(Number(b.getFieldValue('GRAUS')), -90);
+  assert.strictEqual(
+    Number(b.getInputTargetBlock('GRAUS').getFieldValue('NUM')), -90);
 });
 
 test('o bloco de movimento carrega a velocidade para a AST', () => {
   const ast = astDe({
     type: 'quando_play',
     inputs: { CORPO: { block: {
-      type: 'mover_frente', fields: { SEG: 2, VEL: '255' },
+      type: 'mover_frente', inputs: { SEG: num(2) }, fields: { VEL: '255' },
     } } },
   });
   assert.strictEqual(ast[0].segundos, 2);
   assert.strictEqual(ast[0].velocidade, 255);
 });
 
-test('repetir usa o campo de bolinhas', () => {
-  const campo = carregar([{ type: 'repetir' }])
-    .getBlocksByType('repetir', false)[0].getField('N');
+test('repetir usa o campo de bolinhas, agora dentro do shadow', () => {
+  const b = carregar([{ type: 'repetir', inputs: { N: bolinhas(4) } }])
+    .getBlocksByType('repetir', false)[0];
+  const campo = b.getInputTargetBlock('N').getField('NUM');
   assert.strictEqual(campo.constructor.name, 'FieldBolinhas');
 });
 
@@ -117,7 +130,7 @@ test('repetir para sempre carrega o corpo', () => {
     type: 'quando_play',
     inputs: { CORPO: { block: {
       type: 'repetir_sempre',
-      inputs: { CORPO: { block: { type: 'girar', fields: { GRAUS: 90 } } } },
+      inputs: { CORPO: { block: { type: 'girar', inputs: { GRAUS: num(90) } } } },
     } } },
   });
   assert.strictEqual(ast[0].op, 'repetir_sempre');
@@ -130,10 +143,10 @@ test('se…senão separa os dois ramos', () => {
     type: 'quando_play',
     inputs: { CORPO: { block: {
       type: 'se_senao',
-      fields: { CM: 25 },
       inputs: {
+        CM: num(25),
         CORPO: { block: { type: 'parar' } },
-        SENAO: { block: { type: 'girar', fields: { GRAUS: 90 } } },
+        SENAO: { block: { type: 'girar', inputs: { GRAUS: num(90) } } },
       },
     } } },
   });
@@ -157,8 +170,10 @@ test('repetir até perto leva a distância e o corpo', () => {
     type: 'quando_play',
     inputs: { CORPO: { block: {
       type: 'repetir_ate_perto',
-      fields: { CM: 15 },
-      inputs: { CORPO: { block: { type: 'mover_frente', fields: { SEG: 0.5 } } } },
+      inputs: {
+        CM: num(15),
+        CORPO: { block: { type: 'mover_frente', inputs: { SEG: num(0.5) } } },
+      },
     } } },
   });
   assert.strictEqual(ast[0].op, 'repetir_ate_perto');
@@ -171,7 +186,7 @@ test('o senão é texto cru, para não sumir no Pequeno', () => {
      os dois ramos ficariam indistinguíveis num bloco herdado do Grande. */
   const b = carregar([{ type: 'se_senao' }]).getBlocksByType('se_senao', false)[0];
   assert.strictEqual(b.getField('T3'), null, 'o senão não deve ser um campo');
-  assert.ok(b.getField('CM'), 'a distância continua sendo campo');
+  assert.ok(b.getInput('CM'), 'a distância continua existindo, agora como encaixe');
   assert.ok(b.getField('T1'), 'o "se obstáculo a menos de" continua campo');
 });
 
@@ -235,4 +250,37 @@ test('limpar deixa exatamente uma raiz, e ela continua fixa', () => {
   assert.strictEqual(raiz.isDeletable(), false);
   assert.strictEqual(raiz.isMovable(), false);
   assert.strictEqual(Blocos.temTrabalho(ws), false);
+});
+
+/* ---------- os campos numéricos viraram encaixes ---------- */
+
+test('um bloco com shadow intacto produz a mesma AST de antes', () => {
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: {
+      type: 'mover_frente',
+      inputs: { SEG: num(2.5) },
+      fields: { VEL: '200' },
+    } } },
+  }]);
+  assert.deepStrictEqual(
+    Blocos.workspaceParaAst(ws).map((n) => ({ op: n.op, segundos: n.segundos })),
+    [{ op: 'frente', segundos: 2.5 }]);
+});
+
+test('o repetir usa shadow de bolinhas, não de número', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'repetir',
+    inputs: { N: { shadow: { type: 'numero_bolinhas', fields: { NUM: 3 } } } },
+  } } } }]);
+  const bloco = ws.getBlocksByType('repetir', false)[0];
+  assert.strictEqual(bloco.getInputTargetBlock('N').type, 'numero_bolinhas');
+  assert.strictEqual(Blocos.workspaceParaAst(ws)[0].vezes, 3);
+});
+
+test('encaixe vazio vale zero, e não quebra', () => {
+  const ws = carregar([{ type: 'quando_play', inputs: { CORPO: { block: {
+    type: 'girar',
+  } } } }]);
+  assert.strictEqual(Blocos.workspaceParaAst(ws)[0].graus, 0);
 });

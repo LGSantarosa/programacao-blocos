@@ -10,6 +10,28 @@ const Campos = require('../web/campos.js');
 globalThis.Blocos = require('../web/blocos.js');
 const Niveis = require('../web/niveis.js');
 
+/* Esconder um encaixe mexe no rastreio de conexões, que só existe num
+   workspace desenhado — headless, o Blockly cria Connection em vez de
+   RenderedConnection e falta o par startTrackingAll/stopTrackingAll. As duas
+   funções cuidam de arrastar peça com o mouse, coisa que não existe aqui.
+   Ficam no teste, e não no web/niveis.js, porque o navegador tem as de
+   verdade. */
+for (const nome of ['startTrackingAll', 'stopTrackingAll']) {
+  if (!Blockly.Connection.prototype[nome]) {
+    Blockly.Connection.prototype[nome] = function () { return []; };
+  }
+}
+
+/* Pelo mesmo motivo: esconder o encaixe também esconde o SVG do bloco que
+   estiver dentro dele, e headless não há SVG. Um objeto com "style" basta —
+   o que os testes afirmam é o isVisible() do encaixe, não o CSS. */
+if (!Blockly.Block.prototype.getSvgRoot) {
+  Blockly.Block.prototype.getSvgRoot = function () {
+    if (!this.__svgFalso) this.__svgFalso = { style: {} };
+    return this.__svgFalso;
+  };
+}
+
 Campos.registrar();
 Blocos.definir();
 
@@ -38,6 +60,18 @@ test('Médio e Grande oferecem os seis blocos', () => {
   }
 });
 
+/* Os números moram em shadow blocks dentro dos encaixes. Estes dois ajudantes
+   escondem essa mecânica dos testes: o que eles afirmam é sobre o nível, não
+   sobre onde o Blockly guarda o valor. */
+function num(v) {
+  return { shadow: { type: 'numero', fields: { NUM: v } } };
+}
+
+function campoNum(bloco, nome) {
+  const dentro = bloco.getInputTargetBlock(nome);
+  return dentro ? dentro.getField('NUM') : null;
+}
+
 /* Sem navegador não há DOM, e o evento de criação de bloco do Blockly monta XML
    com document.createElementNS. Desligar os eventos durante a carga é o que
    deixa o workspace rodar headless aqui no Node. */
@@ -46,9 +80,10 @@ function bancada() {
   Blockly.Events.disable();
   try {
     Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [
-      { type: 'mover_frente', fields: { SEG: 0.5, VEL: '200' } },
-      { type: 'girar', fields: { GRAUS: 90 } },
-      { type: 'repetir', fields: { N: 12 } },
+      { type: 'mover_frente', inputs: { SEG: num(0.5) }, fields: { VEL: '200' } },
+      { type: 'girar', inputs: { GRAUS: num(90) } },
+      { type: 'repetir',
+        inputs: { N: { shadow: { type: 'numero_bolinhas', fields: { NUM: 12 } } } } },
     ] } }, ws);
   } finally {
     Blockly.Events.enable();
@@ -60,7 +95,7 @@ test('no Pequeno o tempo e a velocidade ficam escondidos', () => {
   const ws = bancada();
   Niveis.aplicar(ws, 'pequeno');
   const b = ws.getBlocksByType('mover_frente', false)[0];
-  assert.strictEqual(b.getField('SEG').isVisible(), false);
+  assert.strictEqual(b.getInput('SEG').isVisible(), false);
   assert.strictEqual(b.getField('VEL').isVisible(), false);
 });
 
@@ -78,7 +113,7 @@ test('no Médio o tempo aparece e a velocidade continua escondida', () => {
   const ws = bancada();
   Niveis.aplicar(ws, 'medio');
   const b = ws.getBlocksByType('mover_frente', false)[0];
-  assert.strictEqual(b.getField('SEG').isVisible(), true);
+  assert.strictEqual(b.getInput('SEG').isVisible(), true);
   assert.strictEqual(b.getField('VEL').isVisible(), false);
 });
 
@@ -88,7 +123,7 @@ test('no Grande aparece tudo, e o giro troca o menu pelo ângulo', () => {
   const m = ws.getBlocksByType('mover_frente', false)[0];
   assert.strictEqual(m.getField('VEL').isVisible(), true);
   const g = ws.getBlocksByType('girar', false)[0];
-  assert.strictEqual(g.getField('GRAUS').isVisible(), true);
+  assert.strictEqual(g.getInput('GRAUS').isVisible(), true);
   assert.strictEqual(g.getField('DIR').isVisible(), false);
 });
 
@@ -96,24 +131,24 @@ test('subir de nível preserva o valor que estava escondido', () => {
   const ws = bancada();
   Niveis.aplicar(ws, 'pequeno');
   const b = ws.getBlocksByType('mover_frente', false)[0];
-  assert.strictEqual(Number(b.getFieldValue('SEG')), 0.5);
+  assert.strictEqual(Number(campoNum(b, 'SEG').getValue()), 0.5);
   Niveis.aplicar(ws, 'medio');
-  assert.strictEqual(Number(b.getFieldValue('SEG')), 0.5);
+  assert.strictEqual(Number(campoNum(b, 'SEG').getValue()), 0.5);
 });
 
 test('descer de nível guarda o valor em vez de perder', () => {
   const ws = bancada();
   Niveis.aplicar(ws, 'medio');
   const b = ws.getBlocksByType('mover_frente', false)[0];
-  b.setFieldValue(3, 'SEG');
+  campoNum(b, 'SEG').setValue(3);
   Niveis.aplicar(ws, 'pequeno');
   Niveis.aplicar(ws, 'medio');
-  assert.strictEqual(Number(b.getFieldValue('SEG')), 3);
+  assert.strictEqual(Number(campoNum(b, 'SEG').getValue()), 3);
 });
 
 test('o repetir desenha bolinhas no Pequeno e algarismo nos outros', () => {
   const ws = bancada();
-  const n = ws.getBlocksByType('repetir', false)[0].getField('N');
+  const n = campoNum(ws.getBlocksByType('repetir', false)[0], 'N');
   Niveis.aplicar(ws, 'pequeno');
   assert.strictEqual(n.modoBolinhas, true);
   Niveis.aplicar(ws, 'medio');
@@ -124,8 +159,8 @@ test('a faixa do repetir continua sendo a da v1, para o nível Grande servir', (
   const ws = bancada();
   const b = ws.getBlocksByType('repetir', false)[0];
   Niveis.aplicar(ws, 'grande');
-  b.setFieldValue(60, 'N');
-  assert.strictEqual(Number(b.getFieldValue('N')), 60,
+  campoNum(b, 'N').setValue(60);
+  assert.strictEqual(Number(campoNum(b, 'N').getValue()), 60,
     'o nível Grande precisa repetir mais que cinco vezes');
 });
 
@@ -133,10 +168,10 @@ test('descer para o Pequeno não corta o valor grande', () => {
   const ws = bancada();
   const b = ws.getBlocksByType('repetir', false)[0];
   Niveis.aplicar(ws, 'grande');
-  b.setFieldValue(60, 'N');
+  campoNum(b, 'N').setValue(60);
   Niveis.aplicar(ws, 'pequeno');
-  assert.strictEqual(Number(b.getFieldValue('N')), 60);
-  assert.strictEqual(b.getField('N').getText(), '60',
+  assert.strictEqual(Number(campoNum(b, 'N').getValue()), 60);
+  assert.strictEqual(campoNum(b, 'N').getText(), '60',
     'bolinhas não representam 60, então mostra o número');
 });
 
@@ -152,7 +187,7 @@ test('o menu do girar acompanha o GRAUS quando cabe nele', () => {
   Blockly.Events.disable();
   try {
     Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [
-      { type: 'girar', fields: { GRAUS: -90 } },
+      { type: 'girar', inputs: { GRAUS: num(-90) } },
     ] } }, ws);
   } finally {
     Blockly.Events.enable();
@@ -168,7 +203,7 @@ test('ângulo que não cabe no menu aparece como número, mesmo no Pequeno', () 
   Blockly.Events.disable();
   try {
     Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [
-      { type: 'girar', fields: { GRAUS: 45 } },
+      { type: 'girar', inputs: { GRAUS: num(45) } },
     ] } }, ws);
   } finally {
     Blockly.Events.enable();
@@ -177,8 +212,9 @@ test('ângulo que não cabe no menu aparece como número, mesmo no Pequeno', () 
   Niveis.aplicar(ws, 'pequeno');
   assert.strictEqual(b.getField('DIR').isVisible(), false,
     'o menu de duas opções não representa 45 graus');
-  assert.strictEqual(b.getField('GRAUS').isVisible(), true);
-  assert.strictEqual(Number(b.getFieldValue('GRAUS')), 45, 'o valor não pode se perder');
+  assert.strictEqual(b.getInput('GRAUS').isVisible(), true);
+  assert.strictEqual(Number(campoNum(b, 'GRAUS').getValue()), 45,
+    'o valor não pode se perder');
 });
 
 test('nível desconhecido cai no Médio em vez de quebrar', () => {

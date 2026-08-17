@@ -255,6 +255,21 @@ const TUDO = [
                   corpo: [{ op: 'frente', segundos: 0.2 }] }],
         senao: [{ op: 'se_obstaculo', cm: 30, corpo: [{ op: 'parar' }] }] }] }] },
   { op: 'repetir_sempre', corpo: [{ op: 'girar', graus: 90 }] },
+  /* E o vocabulário do Gigante, para o compilador ver as contas também. */
+  { op: 'frente', segundos: { op: 'aleatorio', a: 1, b: 3 }, velocidade: 200 },
+  { op: 'girar', graus: { op: 'vezes', a: { op: 'distancia' }, b: 2 } },
+  { op: 'repetir', vezes: { op: 'mais', a: 2, b: 1 }, corpo: [
+    { op: 'esperar', segundos: { op: 'dividir', a: 4, b: 2 } } ] },
+  { op: 'se_entao_senao',
+    cond: { op: 'e',
+            a: { op: 'nao', a: { op: 'menor', a: { op: 'distancia' }, b: 20 } },
+            b: { op: 'ou', a: { op: 'maior', a: 3, b: 4 },
+                           b: { op: 'igual', a: 5, b: 5 } } },
+    entao: [{ op: 'repetir_ate',
+              cond: { op: 'menor', a: { op: 'distancia' }, b: 10 },
+              corpo: [{ op: 'frente', segundos: 0.2 }] }],
+    senao: [{ op: 'se', cond: { op: 'maior', a: { op: 'distancia' }, b: 100 },
+              corpo: [{ op: 'parar' }] }] },
 ];
 
 /* Sintaxe errada no texto gerado só apareceria com a criança na frente do
@@ -281,3 +296,94 @@ test('o sketch mais simples possível também compila',
     fs.rmSync(dir, { recursive: true, force: true });
     assert.strictEqual(r.status, 0, 'o sketch vazio não compilou:\n' + r.stderr);
   });
+
+/* ---------- as contas do Gigante viram expressão ---------- */
+
+test('uma conta vira expressão em C++', () => {
+  assert.strictEqual(
+    programa([{ op: 'girar', graus: { op: 'vezes', a: 45, b: 2 } }]),
+    '  girar(45 * 2);');
+});
+
+/* Parênteses em toda conta composta: depender da precedência do C++ é apostar
+   que a criança entende precedência antes de entender conta. */
+test('as contas põem parênteses para não depender de precedência', () => {
+  assert.strictEqual(
+    programa([{ op: 'girar',
+                graus: { op: 'mais', a: 1, b: { op: 'vezes', a: 2, b: 3 } } }]),
+    '  girar(1 + (2 * 3));');
+});
+
+test('o distância vira a chamada da função, e ela é emitida', () => {
+  const txt = gerar([{ op: 'se', cond: { op: 'menor', a: { op: 'distancia' }, b: 20 },
+                       corpo: [{ op: 'parar' }] }]);
+  assert.ok(txt.includes('if (distanciaCm() < 20) {'), txt);
+  assert.ok(txt.includes('int distanciaCm()'), 'faltou a função do sensor');
+});
+
+test('o aleatório sai como função nomeada, e ela é emitida', () => {
+  const txt = gerar([{ op: 'esperar', segundos: { op: 'aleatorio', a: 1, b: 3 } }]);
+  assert.ok(txt.includes('esperar(aleatorio(1, 3));'), txt);
+  assert.ok(txt.includes('int aleatorio(int menor, int maior)'), 'faltou aleatorio');
+  assert.ok(txt.includes('randomSeed'), 'sem semente, sorteia igual toda ligada');
+});
+
+test('um programa sem aleatório não carrega aleatorio()', () => {
+  const txt = gerar([{ op: 'frente', segundos: 1 }]);
+  assert.ok(!txt.includes('int aleatorio('), 'sobrou aleatorio');
+  assert.ok(!txt.includes('randomSeed'), 'sobrou a semente');
+});
+
+test('repetir até do Gigante vira while com a condição negada', () => {
+  assert.strictEqual(
+    programa([{ op: 'repetir_ate',
+                cond: { op: 'maior', a: { op: 'distancia' }, b: 50 },
+                corpo: [{ op: 'frente', segundos: 0.5 }] }]),
+    ['  while (!(distanciaCm() > 50)) {',
+     '    andarFrente(0.5, 200);',
+     '  }'].join('\n'));
+});
+
+test('se e se…senão do Gigante viram if e if/else', () => {
+  assert.strictEqual(
+    programa([{ op: 'se_entao_senao',
+                cond: { op: 'igual', a: 1, b: 1 },
+                entao: [{ op: 'parar' }],
+                senao: [{ op: 'girar', graus: 90 }] }]),
+    ['  if (1 == 1) {',
+     '    parar();',
+     '    return;',
+     '  } else {',
+     '    girar(90);',
+     '  }'].join('\n'));
+});
+
+test('e, ou e não saem legíveis', () => {
+  assert.strictEqual(
+    programa([{ op: 'se',
+                cond: { op: 'e',
+                        a: { op: 'nao', a: { op: 'menor', a: 1, b: 2 } },
+                        b: { op: 'ou', a: { op: 'maior', a: 3, b: 4 },
+                                       b: { op: 'igual', a: 5, b: 5 } } },
+                corpo: [{ op: 'parar' }] }]),
+    ['  if (!(1 < 2) && ((3 > 4) || (5 == 5))) {',
+     '    parar();',
+     '    return;',
+     '  }'].join('\n'));
+});
+
+/* Uma conta dentro do tempo continua sendo tempo: o .ino tem que multiplicar
+   por mil como o compilador faz. */
+test('segundos que são conta viram multiplicação por mil', () => {
+  assert.strictEqual(
+    programa([{ op: 'frente', segundos: { op: 'mais', a: 1, b: 2 },
+                velocidade: 200 }]),
+    '  andarFrente(1 + 2, 200);');
+});
+
+test('o sensor escondido dentro de uma conta também é encontrado', () => {
+  const txt = gerar([{ op: 'girar',
+    graus: { op: 'vezes', a: { op: 'distancia' }, b: 2 } }]);
+  assert.ok(txt.includes('int distanciaCm()'), 'faltou distanciaCm');
+  assert.ok(txt.includes('girar(distanciaCm() * 2);'), txt);
+});

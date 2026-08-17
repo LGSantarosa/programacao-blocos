@@ -45,6 +45,50 @@
     return n.toFixed(1);
   }
 
+  /* Um valor vira texto. Parênteses em toda subexpressão composta: depender da
+     precedência do C++ para o código sair certo é apostar que a criança entende
+     precedência antes de entender conta. */
+  var SIMBOLO = {
+    mais: '+', menos: '-', vezes: '*', dividir: '/',
+    menor: '<', maior: '>', igual: '==', e: '&&', ou: '||'
+  };
+
+  function valor(v) {
+    if (v === null || v === undefined) return '0';
+    if (typeof v === 'number') return String(v);
+    if (v.op === 'distancia') return 'distanciaCm()';
+    if (v.op === 'nao') return '!(' + valor(v.a) + ')';
+    if (v.op === 'aleatorio') {
+      return 'aleatorio(' + valor(v.a) + ', ' + valor(v.b) + ')';
+    }
+    var s = SIMBOLO[v.op];
+    if (!s) throw new Error('Conta desconhecida: ' + v.op);
+    return parte(v.a) + ' ' + s + ' ' + parte(v.b);
+  }
+
+  /* Número e chamada não precisam de parênteses; conta precisa. */
+  function parte(v) {
+    if (v === null || v === undefined || typeof v === 'number') return valor(v);
+    if (v.op === 'distancia' || v.op === 'nao' || v.op === 'aleatorio') {
+      return valor(v);
+    }
+    return '(' + valor(v) + ')';
+  }
+
+  function ehNumero(v) {
+    return v === null || v === undefined || typeof v === 'number';
+  }
+
+  /* Número continua saindo com uma casa, que é a precisão do campo. Conta sai
+     como expressão, e aí a casa decimal não faz sentido. */
+  function segOuConta(v) {
+    return ehNumero(v) ? seg(v) : valor(v);
+  }
+
+  function inteiroOuConta(v, padrao) {
+    return ehNumero(v) ? String(inteiro(v, padrao)) : valor(v);
+  }
+
   function inteiro(v, padrao) {
     var n = Math.round(Number(v));
     return isFinite(n) ? n : padrao;
@@ -66,11 +110,27 @@
 
   /* Quais funções de apoio este programa precisa. Um programa que não sente
      nada não carrega o HC-SR04: tudo que está no arquivo tem uso visível. */
+  /* O sensor e o aleatório podem estar escondidos dentro de uma conta, e a
+     varredura tem que alcançá-los — senão o arquivo chama uma função que ele
+     não define. */
+  function usoDeValor(v, uso) {
+    if (!v || typeof v === 'number') return;
+    if (v.op === 'distancia') uso.sensor = true;
+    if (v.op === 'aleatorio') uso.aleatorio = true;
+    usoDeValor(v.a, uso);
+    usoDeValor(v.b, uso);
+  }
+
   function usoDe(nos, uso) {
     var i, no;
     uso = uso || {};
     for (i = 0; i < nos.length; i++) {
       no = nos[i];
+      usoDeValor(no.segundos, uso);
+      usoDeValor(no.graus, uso);
+      usoDeValor(no.vezes, uso);
+      usoDeValor(no.cm, uso);
+      usoDeValor(no.cond, uso);
       if (no.op === 'frente') uso.frente = true;
       if (no.op === 'tras') uso.tras = true;
       if (no.op === 'girar') uso.girar = true;
@@ -78,6 +138,12 @@
       if (no.op === 'se_obstaculo' || no.op === 'se_senao' ||
           no.op === 'repetir_ate_perto') {
         uso.sensor = true;
+      }
+      if (no.op === 'se' || no.op === 'se_entao_senao' ||
+          no.op === 'repetir_ate') {
+        /* A condição já foi varrida acima; aqui não se assume sensor, porque
+           "se (voltas > 3)" não olha para o mundo. */
+        uso.temControle = true;
       }
       /* Os três ramos possíveis. O "senão" não se chama "corpo", e esquecê-lo
          geraria um arquivo sem a função que o próprio arquivo chama. */
@@ -95,18 +161,18 @@
       r = recuo(nivel);
       switch (no.op) {
         case 'frente':
-          linhas.push(r + 'andarFrente(' + seg(no.segundos) + ', ' +
+          linhas.push(r + 'andarFrente(' + segOuConta(no.segundos) + ', ' +
                       velocidadeDe(no) + ');');
           break;
         case 'tras':
-          linhas.push(r + 'andarTras(' + seg(no.segundos) + ', ' +
+          linhas.push(r + 'andarTras(' + segOuConta(no.segundos) + ', ' +
                       velocidadeDe(no) + ');');
           break;
         case 'girar':
-          linhas.push(r + 'girar(' + inteiro(no.graus, 0) + ');');
+          linhas.push(r + 'girar(' + inteiroOuConta(no.graus, 0) + ');');
           break;
         case 'esperar':
-          linhas.push(r + 'esperar(' + seg(no.segundos) + ');');
+          linhas.push(r + 'esperar(' + segOuConta(no.segundos) + ');');
           break;
         case 'parar':
           linhas.push(r + 'parar();');
@@ -118,7 +184,8 @@
              cada laço faria o segundo repetir de um programa começar em "j"
              sem motivo. */
           var v = nomeLaco(profundidade);
-          var vezes = Math.max(1, inteiro(no.vezes, 1));
+          var vezes = ehNumero(no.vezes)
+            ? Math.max(1, inteiro(no.vezes, 1)) : valor(no.vezes);
           linhas.push(r + 'for (int ' + v + ' = 0; ' + v + ' < ' + vezes +
                       '; ' + v + '++) {');
           gerarNos(no.corpo || [], nivel + 1, profundidade + 1, linhas);
@@ -133,17 +200,35 @@
         case 'repetir_ate_perto':
           /* Testa antes de rodar: o bloco diz "até chegar", não "pelo menos
              uma vez". Mesma escolha do compilador. */
-          linhas.push(r + 'while (distanciaCm() >= ' + inteiro(no.cm, 20) + ') {');
+          linhas.push(r + 'while (distanciaCm() >= ' + inteiroOuConta(no.cm, 20) + ') {');
           gerarNos(no.corpo || [], nivel + 1, profundidade, linhas);
           linhas.push(r + '}');
           break;
         case 'se_obstaculo':
-          linhas.push(r + 'if (distanciaCm() < ' + inteiro(no.cm, 20) + ') {');
+          linhas.push(r + 'if (distanciaCm() < ' + inteiroOuConta(no.cm, 20) + ') {');
+          gerarNos(no.corpo || [], nivel + 1, profundidade, linhas);
+          linhas.push(r + '}');
+          break;
+        case 'se':
+          linhas.push(r + 'if (' + valor(no.cond) + ') {');
+          gerarNos(no.corpo || [], nivel + 1, profundidade, linhas);
+          linhas.push(r + '}');
+          break;
+        case 'se_entao_senao':
+          linhas.push(r + 'if (' + valor(no.cond) + ') {');
+          gerarNos(no.entao || [], nivel + 1, profundidade, linhas);
+          linhas.push(r + '} else {');
+          gerarNos(no.senao || [], nivel + 1, profundidade, linhas);
+          linhas.push(r + '}');
+          break;
+        case 'repetir_ate':
+          /* "até" é "enquanto não": o laço roda enquanto a condição é falsa. */
+          linhas.push(r + 'while (!(' + valor(no.cond) + ')) {');
           gerarNos(no.corpo || [], nivel + 1, profundidade, linhas);
           linhas.push(r + '}');
           break;
         case 'se_senao':
-          linhas.push(r + 'if (distanciaCm() < ' + inteiro(no.cm, 20) + ') {');
+          linhas.push(r + 'if (distanciaCm() < ' + inteiroOuConta(no.cm, 20) + ') {');
           gerarNos(no.entao || [], nivel + 1, profundidade, linhas);
           linhas.push(r + '} else {');
           gerarNos(no.senao || [], nivel + 1, profundidade, linhas);
@@ -195,6 +280,11 @@
     if (uso.sensor) {
       fora.push('  pinMode(TRIG, OUTPUT); digitalWrite(TRIG, LOW);');
       fora.push('  pinMode(ECHO, INPUT);');
+    }
+    if (uso.aleatorio) {
+      /* Sem semente o Arduino sorteia a mesma sequência a cada ligada, e o
+         robô faria sempre a mesma dança "aleatória". */
+      fora.push('  randomSeed(micros());');
     }
     fora.push('}');
     fora.push('');
@@ -254,6 +344,15 @@
     ''
   ];
 
+  var ALEATORIO = [
+    '/* Sorteia entre os dois, incluindo os dois. */',
+    'int aleatorio(int menor, int maior) {',
+    '  if (menor > maior) { int t = menor; menor = maior; maior = t; }',
+    '  return random(menor, maior + 1);',
+    '}',
+    ''
+  ];
+
   var SENSOR = [
     'int distanciaCm() {',
     '  digitalWrite(TRIG, LOW);  delayMicroseconds(2);',
@@ -298,6 +397,7 @@
     if (uso.tras) linhas = linhas.concat(ANDAR_TRAS);
     if (uso.girar) linhas = linhas.concat(GIRAR);
     if (uso.esperar) linhas = linhas.concat(ESPERAR);
+    if (uso.aleatorio) linhas = linhas.concat(ALEATORIO);
     if (uso.sensor) linhas = linhas.concat(SENSOR);
     linhas.push('void programa() {');
     linhas = linhas.concat(corpo);

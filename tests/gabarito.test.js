@@ -58,8 +58,8 @@ test('no Pequeno nenhum repetir passa de cinco, em fase nenhuma', () => {
     const missao = Missoes.daVez(i);
     for (const b of blocosDe(missao.gabarito, 'pequeno')) {
       if (b.type !== 'repetir') continue;
-      assert.ok(b.fields.N <= Gabarito.MAX_BOLINHAS,
-        `fase ${i + 1} "${missao.texto}" monta repetir ${b.fields.N} no Pequeno`);
+      assert.ok(b.inputs.N.shadow.fields.NUM <= Gabarito.MAX_BOLINHAS,
+        `fase ${i + 1} "${missao.texto}" monta repetir ${b.inputs.N.shadow.fields.NUM} no Pequeno`);
     }
   }
 });
@@ -67,7 +67,7 @@ test('no Pequeno nenhum repetir passa de cinco, em fase nenhuma', () => {
 test('doze passos no Pequeno viram três repetir, e não um repetir 12', () => {
   const blocos = blocosDe([{ andar: 12 }], 'pequeno');
   const repetir = blocos.filter((b) => b.type === 'repetir');
-  assert.deepStrictEqual(repetir.map((b) => b.fields.N), [5, 5, 2]);
+  assert.deepStrictEqual(repetir.map((b) => b.inputs.N.shadow.fields.NUM), [5, 5, 2]);
   /* Um "andar" dentro de cada repetir, nenhum solto. */
   assert.strictEqual(blocos.filter((b) => b.type === 'mover_frente').length, 3);
 });
@@ -75,7 +75,7 @@ test('doze passos no Pequeno viram três repetir, e não um repetir 12', () => {
 test('seis passos no Pequeno viram repetir 5 mais um andar solto', () => {
   const blocos = blocosDe([{ andar: 6 }], 'pequeno');
   assert.deepStrictEqual(
-    blocos.filter((b) => b.type === 'repetir').map((b) => b.fields.N), [5]);
+    blocos.filter((b) => b.type === 'repetir').map((b) => b.inputs.N.shadow.fields.NUM), [5]);
   assert.strictEqual(blocos.filter((b) => b.type === 'mover_frente').length, 2);
 });
 
@@ -92,7 +92,7 @@ test('no Médio e no Grande a trilha vira um bloco com os segundos somados', () 
       `${nivel} não deve usar repetir`);
     const andar = blocos.filter((b) => b.type === 'mover_frente');
     assert.strictEqual(andar.length, 1);
-    assert.strictEqual(andar[0].fields.SEG, 6);   /* 12 × 0,5 s */
+    assert.strictEqual(andar[0].inputs.SEG.shadow.fields.NUM, 6);   /* 12 × 0,5 s */
   }
 });
 
@@ -100,7 +100,7 @@ test('girar vira um bloco só, com o menu e os graus concordando', () => {
   const blocos = blocosDe([{ girar: -90 }], 'grande');
   const g = blocos.find((b) => b.type === 'girar');
   assert.ok(g, 'faltou o bloco girar');
-  assert.strictEqual(g.fields.GRAUS, -90);
+  assert.strictEqual(g.inputs.GRAUS.shadow.fields.NUM, -90);
   assert.strictEqual(g.fields.DIR, '-90');
 });
 
@@ -121,7 +121,7 @@ test('trilha vazia ainda dá um quando_play, para a tela não ficar em branco', 
 test('no Pequeno o ate_perto vira passos cegos, porque não há sensor', () => {
   const blocos = blocosDe([{ ate_perto: 20, andar: 13 }], 'pequeno');
   assert.deepStrictEqual(
-    blocos.filter((b) => b.type === 'repetir').map((b) => b.fields.N), [5, 5, 3]);
+    blocos.filter((b) => b.type === 'repetir').map((b) => b.inputs.N.shadow.fields.NUM), [5, 5, 3]);
   for (const t of ['repetir_ate_perto', 'repetir_sempre', 'parar', 'se_obstaculo']) {
     assert.strictEqual(blocos.filter((b) => b.type === t).length, 0,
       `Pequeno não tem ${t}`);
@@ -134,19 +134,51 @@ test('no Médio o ate_perto usa para sempre, se obstáculo e parar', () => {
   assert.ok(sempre, 'faltou o repetir para sempre');
   const se = sempre.inputs.CORPO.block;
   assert.strictEqual(se.type, 'se_obstaculo');
-  assert.strictEqual(se.fields.CM, 20);
+  assert.strictEqual(se.inputs.CM.shadow.fields.NUM, 20);
   assert.strictEqual(se.inputs.CORPO.block.type, 'parar');
   /* O teste vem antes do andar: é o que iguala esta forma ao repetir até. */
   assert.strictEqual(se.next.block.type, 'mover_frente');
-  assert.strictEqual(se.next.block.fields.SEG, PASSO_S);
+  assert.strictEqual(se.next.block.inputs.SEG.shadow.fields.NUM, PASSO_S);
 });
 
 test('no Grande o ate_perto vira o bloco de laço com sensor', () => {
   const blocos = blocosDe([{ ate_perto: 20, andar: 13 }], 'grande');
   const laco = blocos.find((b) => b.type === 'repetir_ate_perto');
   assert.ok(laco, 'faltou o repetir até perto');
-  assert.strictEqual(laco.fields.CM, 20);
+  assert.strictEqual(laco.inputs.CM.shadow.fields.NUM, 20);
   assert.strictEqual(laco.inputs.CORPO.block.type, 'mover_frente');
-  assert.strictEqual(laco.inputs.CORPO.block.fields.SEG, PASSO_S);
+  assert.strictEqual(laco.inputs.CORPO.block.inputs.SEG.shadow.fields.NUM, PASSO_S);
   assert.strictEqual(blocos.filter((b) => b.type === 'repetir').length, 0);
+});
+
+/* ---------- o gabarito monta encaixes, não campos ---------- */
+
+test('o gabarito monta encaixe com shadow, do mesmo tipo que a criança monta', () => {
+  const projeto = Gabarito.montar([{ andar: 2 }], 'medio', 0.5);
+  const primeiro = projeto.blocks.blocks[0].inputs.CORPO.block;
+  assert.strictEqual(primeiro.type, 'mover_frente');
+  assert.strictEqual(primeiro.inputs.SEG.shadow.type, 'numero');
+  assert.strictEqual(primeiro.inputs.SEG.shadow.fields.NUM, 1);
+  assert.strictEqual(primeiro.fields.VEL, '200');
+});
+
+test('no Pequeno o repetir usa o shadow de bolinhas', () => {
+  const projeto = Gabarito.montar([{ andar: 3 }], 'pequeno', 0.5);
+  const primeiro = projeto.blocks.blocks[0].inputs.CORPO.block;
+  assert.strictEqual(primeiro.type, 'repetir');
+  assert.strictEqual(primeiro.inputs.N.shadow.type, 'numero_bolinhas');
+  assert.strictEqual(primeiro.inputs.N.shadow.fields.NUM, 3);
+});
+
+test('o girar preenche o menu e o encaixe', () => {
+  const projeto = Gabarito.montar([{ girar: -90 }], 'medio', 0.5);
+  const primeiro = projeto.blocks.blocks[0].inputs.CORPO.block;
+  assert.strictEqual(primeiro.fields.DIR, '-90');
+  assert.strictEqual(primeiro.inputs.GRAUS.shadow.fields.NUM, -90);
+});
+
+test('o Gigante recebe o mesmo gabarito do Grande', () => {
+  const passos = [{ ate_perto: 20, andar: 4 }, { girar: 90 }, { andar: 3 }];
+  assert.deepStrictEqual(Gabarito.montar(passos, 'gigante', 0.5),
+                         Gabarito.montar(passos, 'grande', 0.5));
 });

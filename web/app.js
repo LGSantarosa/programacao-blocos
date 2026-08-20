@@ -29,6 +29,9 @@
 
   var mapaPc = [];
   var blocoAceso = null;
+  var divBolha = document.getElementById('bolha');
+  var relatorEsperado = null;   /* o bloco cuja resposta estamos aguardando */
+  var tempoBolha = null;
   var robo = null;
   /* A execução em curso conta como tentativa da missão? Só quando o que rodou
      foi o programa da âncora. Ver definirRodando. */
@@ -404,6 +407,26 @@
   }
   requestAnimationFrame(quadro);
 
+  /* ---------- a bolha ---------- */
+
+  function esconderBolha() {
+    divBolha.hidden = true;
+    if (tempoBolha) { clearTimeout(tempoBolha); tempoBolha = null; }
+  }
+
+  /* Sobre a peça, e um pouco acima dela. A medida sai do SVG do próprio
+     bloco, que é quem sabe onde ele está depois de qualquer zoom ou
+     rolagem. */
+  function mostrarBolha(bloco, texto) {
+    var r = bloco.getSvgRoot().getBoundingClientRect();
+    divBolha.textContent = texto;
+    divBolha.hidden = false;
+    divBolha.style.left = Math.round(r.left) + 'px';
+    divBolha.style.top = Math.round(r.top - 38) + 'px';
+    if (tempoBolha) clearTimeout(tempoBolha);
+    tempoBolha = setTimeout(esconderBolha, 4000);
+  }
+
   /* ---------- estado ---------- */
 
   function definirRodando(estaRodando) {
@@ -455,6 +478,12 @@
         if (id && id !== blocoAceso) Som.tocar('comando');
         acender(id);
       },
+      aoValor: function (n) {
+        if (!relatorEsperado) return;
+        var bloco = workspace.getBlockById(relatorEsperado);
+        relatorEsperado = null;
+        if (bloco) mostrarBolha(bloco, String(n));
+      },
       aoEstado: function (estado) {
         definirRodando(estado === 1);
       },
@@ -480,6 +509,8 @@
      que a contagem de tentativas usa. */
   function rodar(ast, ehPrograma) {
     spErro.textContent = '';
+    esconderBolha();
+    relatorEsperado = null;
     Som.tocar('play');
     var compilado;
     try {
@@ -511,7 +542,26 @@
     var bloco = workspace.getBlockById(e.blockId);
     if (!bloco) return;
     var pilha = Blocos.pilhaDoBloco(bloco);
-    if (!pilha) return;          /* relator: quem trata é a bolha */
+    if (!pilha) {
+      /* Relator: não roda, relata. */
+      var no = Blocos.valorDoBloco(bloco);
+      if (no === null) return;
+      var perg;
+      try {
+        perg = Compilador.compilarValor(no);
+      } catch (err) {
+        spErro.textContent = err.message;
+        return;
+      }
+      esconderBolha();
+      relatorEsperado = bloco.id;
+      contarTentativa = false;
+      mapaPc = perg.pcMap;
+      robo.carregar(perg.bytes);
+      robo.rodar();
+      return;
+    }
+    esconderBolha();
     if (!pilha.ast.length) return;
     rodar(pilha.ast, pilha.ehPrograma);
   });

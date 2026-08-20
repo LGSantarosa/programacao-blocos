@@ -868,3 +868,92 @@ test('rodar uma pilha solta não gasta tentativa da missão',
 
     cdp.fechar();
   });
+
+test('tocar num relator mostra o valor numa bolha',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* A metade do encanto que custou o opcode novo. O número não é calculado
+       aqui: ele desce até a VM como qualquer outra coisa e volta de lá, para
+       não existirem duas aritméticas no projeto. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 6) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-bolha-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 6}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 6}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 6}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 6}/` });
+    await espera(3000);
+
+    /* O Gigante é o nível onde as contas existem. */
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=gigante]').click();
+      return 1;
+    })()`);
+    await espera(800);
+
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const b = Blockly.serialization.blocks.append(
+        { type: 'conta_mais',
+          inputs: { A: { shadow: { type: 'numero', fields: { NUM: 40 } } },
+                    B: { shadow: { type: 'numero', fields: { NUM: 2 } } } } }, ws);
+      b.moveBy(60, 340);
+      window.__b = b.id;
+      return 1;
+    })()`);
+    await espera(600);
+
+    /* O vão entre os dois encaixes: ali só existe o rótulo "+", que é
+       field_label e portanto não clicável — então o toque vira clique de
+       bloco. A borda esquerda não serve: naquele ponto está o recorte do
+       encaixe de saída, que fica fora do traçado da peça, e o clique cai no
+       workspace. */
+    const ponto = await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      const r = b.getSvgRoot().getBoundingClientRect();
+      const a = b.getInputTargetBlock('A').getSvgRoot().getBoundingClientRect();
+      const c = b.getInputTargetBlock('B').getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ x: (a.right + c.left) / 2, y: r.top + r.height / 2 });
+    })()`);
+    const p = JSON.parse(ponto);
+
+    await mouse('mousePressed', p.x, p.y);
+    await mouse('mouseReleased', p.x, p.y);
+    await espera(1200);
+
+    assert.strictEqual(await aval('document.getElementById("bolha").hidden'), false,
+      'a bolha não apareceu');
+    assert.strictEqual(await aval('document.getElementById("bolha").textContent'),
+      '42', 'a conta voltou errada do robô');
+
+    cdp.fechar();
+  });

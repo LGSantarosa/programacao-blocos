@@ -532,3 +532,30 @@ test('o numerinho do encaixe também é relator', () => {
   assert.strictEqual(shadow.isShadow(), true);
   assert.strictEqual(Blocos.pilhaDoBloco(shadow), null);
 });
+
+test('valorDoBloco traduz um relator, e recusa um comando', () => {
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: {
+      type: 'mover_frente',
+      inputs: { SEG: { block: {
+        type: 'conta_mais', inputs: { A: num(2), B: num(3) },
+      } } },
+      fields: { VEL: '200' },
+    } } },
+  }]);
+  const no = Blocos.valorDoBloco(achar(ws, 'conta_mais'));
+  assert.strictEqual(no.op, 'mais');
+  assert.strictEqual(no.a, 2);
+  assert.strictEqual(no.b, 3);
+  assert.strictEqual(Blocos.valorDoBloco(achar(ws, 'mover_frente')), null);
+});
+
+test('valorDoBloco lê o numerinho do encaixe', () => {
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: { type: 'esperar', inputs: { SEG: num(7) } } } },
+  }]);
+  const shadow = achar(ws, 'esperar').getInputTargetBlock('SEG');
+  assert.strictEqual(Blocos.valorDoBloco(shadow), 7);
+});

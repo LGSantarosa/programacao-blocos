@@ -34,6 +34,23 @@ Outra porta, se preferir: `PORTA=9000 node bridge/server.js`.
 1. O bloco `▶ quando apertar PLAY` já nasce fixo — é a âncora, não dá para apagar.
 2. Arraste blocos da caixa à esquerda para dentro dele.
 3. Aperte **▶ PLAY**. **■ PARAR** corta na hora.
+4. **Toque numa peça e ela roda na hora** — sem passar pelo PLAY. Uma pilha
+   solta no canto é um rascunho que funciona; tocar no programa dentro do
+   `▶ quando apertar PLAY` é o mesmo que apertar PLAY.
+5. **Toque num relator** — uma conta, o `👁 distância cm` — e o valor aparece
+   numa bolha. O número não é calculado pelo navegador: ele desce até a VM e
+   volta de lá, então é o mesmo número que o robô usaria. Na ESP32 isso lê o
+   HC-SR04 de verdade, o que faz do dedo a melhor ferramenta de bancada que o
+   projeto tem.
+
+Tocar no campo de um número não roda nada: abre o editor, como sempre. Quem
+separa as duas coisas é o próprio Blockly, e não um raio de arrasto nosso.
+
+> **Um clique interrompe o que estiver rodando.** A VM tem um `pc` e um
+> programa só, então tocar em qualquer peça — inclusive no `👁 distância cm`
+> para espiar a leitura no meio de uma execução — para o que estava rodando e
+> começa o que foi tocado. Não é defeito: é o teto desta versão da VM, e é
+> exatamente o que o próximo ciclo, tarefas e eventos, existe para levantar.
 
 O seletor **nível** no cabeçalho troca entre Pequeno, Médio e Grande. Trocar de
 nível nunca desmonta o programa: os campos somem e voltam com os valores
@@ -213,21 +230,34 @@ telemetria, apenas o desenho do robô fica parado na posição inicial.
 ### Bytecode
 
 Instrução de 7 bytes, little-endian: `op(uint8) a(int16) b(int16) c(int16)`.
-Máximo 256 instruções.
+Máximo 1024 instruções.
 
-| op | nome        | semântica                                    |
-|----|-------------|----------------------------------------------|
-| 0  | `HALT`      | `hal_motors(0,0)`; para a execução           |
-| 1  | `MOTOR`     | `hal_motors(a, b)`                           |
-| 2  | `WAIT`      | espera `a` ms sem bloquear                   |
-| 3  | `TURN`      | gira `a` graus (positivo = direita)          |
-| 4  | `SET_REG`   | `r[a] = b`                                   |
-| 5  | `DEC_JNZ`   | `if (--r[a] != 0) pc = b;` senão `pc++`      |
-| 6  | `JMP`       | `pc = a`                                     |
-| 7  | `JMP_IF_GE` | `if (sensor[a] >= b) pc = c;` senão `pc++`   |
+Os operandos que a instrução consome vêm da **pilha**, não do corpo dela — é o
+que deixa qualquer número ser uma conta. Ver "Como uma conta vira bytecode".
 
-Quatro registradores, o que permite laços aninhados até quatro níveis. A VM
-nunca bloqueia: `vm_tick()` executa no máximo uma instrução e volta.
+| op | nome         | semântica                                        |
+|----|--------------|--------------------------------------------------|
+| 0  | `HALT`       | `hal_motors(0,0)`; para a execução               |
+| 1  | `MOTOR`      | desempilha dir, esq; `hal_motors(esq, dir)`      |
+| 2  | `WAIT`       | desempilha ms; espera sem bloquear               |
+| 3  | `TURN`       | desempilha graus (positivo = direita)            |
+| 4  | `SET_REG`    | desempilha n; `r[a] = max(1, n)`                 |
+| 5  | `DEC_JNZ`    | `if (--r[a] != 0) pc = b;` senão `pc++`          |
+| 6  | `JMP`        | `pc = a`                                         |
+| 8  | `PUSH`       | empilha o literal `a`                            |
+| 9  | `SENSOR`     | empilha a leitura do sensor `a`                  |
+| 10 | `BIN`        | desempilha dois, empilha um; `a` escolhe a conta |
+| 11 | `UN`         | desempilha um, empilha um; `a` escolhe a conta   |
+| 12 | `JMP_FALSE`  | desempilha; se falso, `pc = a`                   |
+| 13 | `REPORT`     | desempilha e entrega a `hal_report`              |
+
+O **7 está vago de propósito**: era o `JMP_IF_GE`, o sensor embutido num salto,
+e reusar o número faria bytecode antigo rodar errado.
+
+Quatro registradores, o que permite laços aninhados até quatro níveis. A pilha
+tem 16 lugares, e o compilador recusa uma conta que não caiba nela antes de
+emitir byte nenhum. A VM nunca bloqueia: `vm_tick()` executa no máximo uma
+instrução e volta.
 
 ### Calibração
 
@@ -513,5 +543,4 @@ verificação pega isso.
 - **Tarefas e eventos** — `quando começar`, `quando <condição>`, avisos entre
   pedaços do programa. Precisa de mais de um `pc` na VM.
 - **Blocos que ela inventa** — funções do usuário.
-- **Execução viva** — clicar num bloco e ele rodar na hora, sem ciclo de envio.
-  É o que o MicroBlocks faz, e o que mais mudaria a sensação de usar.
+- **Listas e texto** — o menos urgente para um robô.

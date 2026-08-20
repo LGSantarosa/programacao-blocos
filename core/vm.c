@@ -183,6 +183,13 @@ void vm_tick(VM *vm) {
         vm->pc++;
         break;
     }
+    case OP_REPORT: {
+        int32_t v = desempilhar(vm);
+        if (!vm->rodando) break;
+        hal_report(v);
+        vm->pc++;
+        break;
+    }
     default:
         vm_stop(vm);
         break;

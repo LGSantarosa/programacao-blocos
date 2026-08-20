@@ -245,6 +245,19 @@
   #gabarito:active { box-shadow: 0 1px 0 #c79f00; }
   #gabarito[hidden] { display: none; }
 
+  /* Flutua sobre a peça tocada. position:fixed porque a medida vem do
+     getBoundingClientRect, que já é relativo à janela. */
+  #bolha {
+    position: fixed;
+    z-index: 60;
+    background: #002080;
+    color: #ffffff;
+    font: bold 20px system-ui, sans-serif;
+    padding: 6px 12px;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+  }
   #leitura {
     width: 100%;
     font-size: 16px; font-weight: 800; color: #002080;
@@ -407,6 +420,7 @@
     </aside>
   </main>
   <canvas id="confete"></canvas>
+  <div id="bolha" hidden></div>
 
   <div id="confirma" hidden>
     <div id="confirma-caixa" role="dialog" aria-modal="true"

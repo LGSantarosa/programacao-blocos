@@ -17,7 +17,7 @@ static const char *NOME_REDE = "Robo-01";
 static const char *SENHA     = "robo1234";   /* mínimo 8 caracteres */
 
 static const uint8_t T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03;
-static const uint8_t T_PC = 0x81, T_STATE = 0x82;
+static const uint8_t T_PC = 0x81, T_STATE = 0x82, T_VALOR = 0x84;
 
 static const int MAX_INSTR_LOOP = 256;
 static const uint32_t PC_MIN_MS = 30;
@@ -60,6 +60,19 @@ static void enviar_pc(uint16_t pc) {
 
 static void enviar_estado(uint8_t estado) {
     uint8_t q[2] = { T_STATE, estado };
+    ws.binaryAll(q, sizeof(q));
+}
+
+/* int32 e não int16: a pilha da VM é de 32 bits, e uma conta da criança chega
+   lá — 100 × 100 já não caberia. É o primeiro campo do protocolo com essa
+   largura, de propósito.
+
+   Mora aqui, e não no hal_esp32.cpp, porque relatar é ato de protocolo e não
+   de hardware: o ws é desta casa, ao lado de enviar_pc e enviar_estado. */
+extern "C" void hal_report(int32_t valor) {
+    uint32_t v = (uint32_t)valor;
+    uint8_t q[5] = { T_VALOR, (uint8_t)(v & 0xFF), (uint8_t)((v >> 8) & 0xFF),
+                     (uint8_t)((v >> 16) & 0xFF), (uint8_t)((v >> 24) & 0xFF) };
     ws.binaryAll(q, sizeof(q));
 }
 

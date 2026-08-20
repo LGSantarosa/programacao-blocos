@@ -10,6 +10,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { Ws, pegarJson, espera } = require('./cdp.js');
+const Missoes_TENTATIVAS = require('../web/missoes.js').TENTATIVAS_ATE_AJUDA;
 
 const RAIZ = path.join(__dirname, '..');
 const PORTA_WEB = 8099, PORTA_CDP = 9333;
@@ -674,6 +675,285 @@ test('a peça já sai da caixa vestida do nível, antes de ser solta',
       'no Pequeno a peça viaja na mão da criança mostrando o campo de segundos');
     assert.strictEqual(naMao.icone, true,
       'a seta some justamente enquanto a criança olha para a peça');
+
+    cdp.fechar();
+  });
+
+/* ---------- o toque que roda ---------- */
+
+test('tocar no corpo da peça roda; tocar no número só abre o editor',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* As duas metades do mesmo gesto, e a segunda é a que mais importa: a
+       criança toca no "1" para trocar o número dezenas de vezes por sessão, e
+       se isso ligasse os motores a execução viva seria um perigo em vez de um
+       presente.
+
+       Não precisamos de raio de arrasto próprio para isso. O handleUp do
+       Gesture do Blockly despacha em cadeia exclusiva — arrastar, depois
+       campo, depois bloco — então tocar num campo nunca emite CLICK. Este
+       teste é o que avisa se alguém um dia trocar o ouvinte por um próprio e
+       perder essa garantia. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 4) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-toque-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 4}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 4}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 4}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+    const clicar = async (x, y) => {
+      await mouse('mousePressed', x, y);
+      await mouse('mouseReleased', x, y);
+    };
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 4}/` });
+    await espera(3000);
+
+    /* Uma pilha solta no canto, longe da âncora: é o rascunho da criança. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const b = Blockly.serialization.blocks.append(
+        { type: 'mover_frente',
+          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 2 } } } },
+          fields: { VEL: '200' } }, ws);
+      b.moveBy(60, 320);
+      window.__b = b.id;
+      return 1;
+    })()`);
+    await espera(600);
+
+    /* O canto de cima à esquerda do bloco é corpo, nunca campo: os campos
+       ficam depois do ícone, mais para dentro. */
+    const alvo = await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      const r = b.getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ corpo: { x: r.left + 6, y: r.top + r.height / 2 } });
+    })()`);
+    const p = JSON.parse(alvo);
+
+    assert.strictEqual(await aval('document.getElementById("estado").textContent'),
+      'parado', 'não devia estar rodando antes de ninguém tocar em nada');
+
+    await clicar(p.corpo.x, p.corpo.y);
+    await espera(700);
+    assert.strictEqual(await aval('document.getElementById("estado").textContent'),
+      'rodando', 'tocar no corpo da peça tinha que rodar a pilha');
+
+    /* Para, e limpa o rastro, para a segunda metade começar do zero. */
+    await aval('document.getElementById("parar").click()');
+    await espera(700);
+    assert.strictEqual(await aval('document.getElementById("estado").textContent'),
+      'parado');
+
+    /* Agora o campo do número. O centro do encaixe é onde mora o "2". */
+    const campo = await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      const alvo = b.getInputTargetBlock('SEG');
+      const r = alvo.getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    })()`);
+    const c = JSON.parse(campo);
+    await clicar(c.x, c.y);
+    await espera(700);
+
+    assert.strictEqual(await aval('document.getElementById("estado").textContent'),
+      'parado',
+      'tocar no número ligou os motores — a criança troca esse número o tempo todo');
+
+    cdp.fechar();
+  });
+
+test('rodar uma pilha solta não gasta tentativa da missão',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* O botão "me mostra como faz" aparece sozinho depois de algumas
+       execuções sem chegar na estrela, e existe para quem travou. Uma criança
+       explorando com o dedo não travou: se cada toque contasse tentativa, a
+       oferta de ajuda apareceria no meio da brincadeira, dizendo a ela que
+       fracassou justamente quando estava se divertindo. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 5) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-tent-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 5}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 5}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 5}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 5}/` });
+    await espera(3000);
+
+    /* Uma pilha solta que dura pouco: assim dá para rodá-la várias vezes
+       dentro do tempo do teste. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const b = Blockly.serialization.blocks.append(
+        { type: 'esperar',
+          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 0 } } } } }, ws);
+      b.moveBy(60, 320);
+      window.__b = b.id;
+      return 1;
+    })()`);
+    await espera(600);
+
+    const ponto = await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      const r = b.getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ x: r.left + 6, y: r.top + r.height / 2 });
+    })()`);
+    const p = JSON.parse(ponto);
+
+    /* Bem mais toques do que TENTATIVAS_ATE_AJUDA. */
+    for (let i = 0; i < Missoes_TENTATIVAS + 3; i++) {
+      await mouse('mousePressed', p.x, p.y);
+      await mouse('mouseReleased', p.x, p.y);
+      await espera(400);
+    }
+
+    assert.strictEqual(await aval('document.getElementById("gabarito").hidden'), true,
+      'o gabarito se ofereceu sozinho para quem só estava explorando');
+
+    cdp.fechar();
+  });
+
+test('tocar num relator mostra o valor numa bolha',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* A metade do encanto que custou o opcode novo. O número não é calculado
+       aqui: ele desce até a VM como qualquer outra coisa e volta de lá, para
+       não existirem duas aritméticas no projeto. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 6) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-bolha-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 6}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 6}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 6}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 6}/` });
+    await espera(3000);
+
+    /* O Gigante é o nível onde as contas existem. */
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=gigante]').click();
+      return 1;
+    })()`);
+    await espera(800);
+
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const b = Blockly.serialization.blocks.append(
+        { type: 'conta_mais',
+          inputs: { A: { shadow: { type: 'numero', fields: { NUM: 40 } } },
+                    B: { shadow: { type: 'numero', fields: { NUM: 2 } } } } }, ws);
+      b.moveBy(60, 340);
+      window.__b = b.id;
+      return 1;
+    })()`);
+    await espera(600);
+
+    /* O vão entre os dois encaixes: ali só existe o rótulo "+", que é
+       field_label e portanto não clicável — então o toque vira clique de
+       bloco. A borda esquerda não serve: naquele ponto está o recorte do
+       encaixe de saída, que fica fora do traçado da peça, e o clique cai no
+       workspace. */
+    const ponto = await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      const r = b.getSvgRoot().getBoundingClientRect();
+      const a = b.getInputTargetBlock('A').getSvgRoot().getBoundingClientRect();
+      const c = b.getInputTargetBlock('B').getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ x: (a.right + c.left) / 2, y: r.top + r.height / 2 });
+    })()`);
+    const p = JSON.parse(ponto);
+
+    await mouse('mousePressed', p.x, p.y);
+    await mouse('mouseReleased', p.x, p.y);
+    await espera(1200);
+
+    assert.strictEqual(await aval('document.getElementById("bolha").hidden'), false,
+      'a bolha não apareceu');
+    assert.strictEqual(await aval('document.getElementById("bolha").textContent'),
+      '42', 'a conta voltou errada do robô');
 
     cdp.fechar();
   });

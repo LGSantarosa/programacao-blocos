@@ -18,7 +18,11 @@ enum {
     OP_SENSOR    = 9,
     OP_BIN       = 10,
     OP_UN        = 11,
-    OP_JMP_FALSE = 12
+    OP_JMP_FALSE = 12,
+    /* Desempilha o topo e o entrega ao HAL. É o caminho de volta que faltava:
+       sem ele a criança pode mandar uma conta para o robô, mas não pode
+       perguntar quanto ela deu. */
+    OP_REPORT    = 13
 };
 
 /* Um opcode com seletor em vez de um por conta: o campo "a" já existe e está

@@ -449,3 +449,113 @@ test('número não entra em encaixe de sim/não', () => {
     }
   }
 });
+
+/* ---------- a peça tocada ---------- */
+
+/* Devolve o bloco de um workspace pelo tipo. O clique chega como um id, e é
+   por id que o app.js vai buscar a peça — aqui o atalho serve. */
+function achar(ws, tipo) {
+  return ws.getAllBlocks(false).filter((b) => b.type === tipo)[0];
+}
+
+test('tocar numa peça dentro da âncora roda o programa', () => {
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: {
+      type: 'mover_frente', inputs: { SEG: num(2) },
+      fields: { VEL: '200' },
+    } } },
+  }]);
+  const r = Blocos.pilhaDoBloco(achar(ws, 'mover_frente'));
+  assert.strictEqual(r.ehPrograma, true);
+  assert.strictEqual(r.ast.length, 1);
+  assert.strictEqual(r.ast[0].op, 'frente');
+});
+
+test('tocar numa pilha solta roda só ela, e não conta como programa', () => {
+  const ws = carregar([
+    { type: 'quando_play' },
+    { type: 'girar', inputs: { GRAUS: num(90) } },
+  ]);
+  const r = Blocos.pilhaDoBloco(achar(ws, 'girar'));
+  assert.strictEqual(r.ehPrograma, false);
+  assert.strictEqual(r.ast.length, 1);
+  assert.strictEqual(r.ast[0].op, 'girar');
+});
+
+test('tocar no meio de uma pilha solta roda a pilha inteira, do topo', () => {
+  /* O que a criança vê é um grupo de peças, e é o grupo que ela espera ver
+     rodar — não o pedaço debaixo do dedo. */
+  const ws = carregar([
+    { type: 'quando_play' },
+    {
+      type: 'girar', inputs: { GRAUS: num(90) },
+      next: { block: { type: 'esperar', inputs: { SEG: num(1) } } },
+    },
+  ]);
+  const r = Blocos.pilhaDoBloco(achar(ws, 'esperar'));
+  assert.strictEqual(r.ast.length, 2);
+  assert.strictEqual(r.ast[0].op, 'girar');
+  assert.strictEqual(r.ast[1].op, 'esperar');
+});
+
+test('um relator não roda: quem toca nele quer o valor, não o movimento', () => {
+  /* A regra se lê na peça tocada, e não na raiz dela. Um relator encaixado
+     num soquete tem como raiz a pilha que o contém: lida pela raiz, tocar no
+     (2+3) faria o robô ANDAR em vez de mostrar 5 — bem no momento em que a
+     criança está tentando entender quanto aquele pedaço vale. */
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: {
+      type: 'mover_frente',
+      inputs: { SEG: { block: {
+        type: 'conta_mais', inputs: { A: num(2), B: num(3) },
+      } } },
+      fields: { VEL: '200' },
+    } } },
+  }]);
+  assert.strictEqual(Blocos.pilhaDoBloco(achar(ws, 'conta_mais')), null);
+});
+
+test('o numerinho do encaixe também é relator', () => {
+  /* O shadow é uma peça de verdade, com saída de valor. O evento de clique do
+     Blockly entrega o shadow, e não o pai — está no setStartBlock, que só
+     sobe para o pai no targetBlock_. Sem esta regra, tocar no corpo do
+     numerinho rodaria a pilha. */
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: {
+      type: 'esperar', inputs: { SEG: num(1) },
+    } } },
+  }]);
+  const shadow = achar(ws, 'esperar').getInputTargetBlock('SEG');
+  assert.strictEqual(shadow.isShadow(), true);
+  assert.strictEqual(Blocos.pilhaDoBloco(shadow), null);
+});
+
+test('valorDoBloco traduz um relator, e recusa um comando', () => {
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: {
+      type: 'mover_frente',
+      inputs: { SEG: { block: {
+        type: 'conta_mais', inputs: { A: num(2), B: num(3) },
+      } } },
+      fields: { VEL: '200' },
+    } } },
+  }]);
+  const no = Blocos.valorDoBloco(achar(ws, 'conta_mais'));
+  assert.strictEqual(no.op, 'mais');
+  assert.strictEqual(no.a, 2);
+  assert.strictEqual(no.b, 3);
+  assert.strictEqual(Blocos.valorDoBloco(achar(ws, 'mover_frente')), null);
+});
+
+test('valorDoBloco lê o numerinho do encaixe', () => {
+  const ws = carregar([{
+    type: 'quando_play',
+    inputs: { CORPO: { block: { type: 'esperar', inputs: { SEG: num(7) } } } },
+  }]);
+  const shadow = achar(ws, 'esperar').getInputTargetBlock('SEG');
+  assert.strictEqual(Blocos.valorDoBloco(shadow), 7);
+});

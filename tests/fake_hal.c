@@ -28,3 +28,8 @@ void hal_motors(int16_t esq, int16_t dir) {
 
 uint16_t hal_distancia_cm(void) { return distancia; }
 uint32_t hal_millis(void)       { return relogio; }
+
+void hal_report(int32_t valor) {
+    if (n_trace < MAX_TRACE)
+        snprintf(trace[n_trace++], sizeof(trace[0]), "REPORT %d", (int)valor);
+}

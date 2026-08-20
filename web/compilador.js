@@ -11,7 +11,7 @@
   var OP = {
     HALT: 0, MOTOR: 1, WAIT: 2, TURN: 3,
     SET_REG: 4, DEC_JNZ: 5, JMP: 6,
-    PUSH: 8, SENSOR: 9, BIN: 10, UN: 11, JMP_FALSE: 12,
+    PUSH: 8, SENSOR: 9, BIN: 10, UN: 11, JMP_FALSE: 12, REPORT: 13,
   };
 
   /* Um opcode com seletor em vez de um por conta: o campo "a" da instrução já
@@ -38,7 +38,13 @@
      confere se a conta cabe nela é este arquivo. */
   var PILHA_MAX = 16;
 
-  function compilar(ast) {
+  /* opcoes.reportar, quando vem, é um nó de valor: compila-se a subárvore
+     dele e relata-se o resultado, em vez de gerar o programa. É o mesmo
+     compilador de propósito — o navegador não calcula nada por conta
+     própria, senão passariam a existir duas aritméticas no projeto (o
+     int32 da VM e o double do JS) divergindo justamente onde é difícil
+     perceber. */
+  function compilar(ast, opcoes) {
     var instrucoes = [];
     var profundidade = 0;
 
@@ -261,7 +267,13 @@
       }
     }
 
-    gerar(ast);
+    if (opcoes && opcoes.reportar !== undefined) {
+      var idValor = (opcoes.reportar && opcoes.reportar.blockId) || null;
+      gerarValor(opcoes.reportar, idValor);
+      emitir(OP.REPORT, 0, 0, 0, idValor);
+    } else {
+      gerar(ast);
+    }
     emitir(OP.HALT, 0, 0, 0, null);
 
     if (instrucoes.length > MAX_INSTR) {
@@ -283,8 +295,14 @@
     return { bytes: bytes, pcMap: instrucoes.map(function (it) { return it.blockId; }) };
   }
 
-  var api = { compilar: compilar, OP: OP, BIN: BIN, UN: UN,
-              MAX_INSTR: MAX_INSTR };
+  /* Um programa que existe só para responder uma pergunta: calcula o
+     valor, relata, e para. */
+  function compilarValor(no) {
+    return compilar([], { reportar: no });
+  }
+
+  var api = { compilar: compilar, compilarValor: compilarValor,
+              OP: OP, BIN: BIN, UN: UN, MAX_INSTR: MAX_INSTR };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Compilador = api;
 })(typeof self !== 'undefined' ? self : globalThis);

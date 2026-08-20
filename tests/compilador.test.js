@@ -2,7 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { compilar, OP, BIN, UN, MAX_INSTR } = require('../web/compilador.js');
+const { compilar, compilarValor, OP, BIN, UN, MAX_INSTR } =
+  require('../web/compilador.js');
 
 function hex(bytes) {
   return Buffer.from(bytes).toString('hex');
@@ -450,4 +451,57 @@ test('conta desconhecida é erro, não silêncio', () => {
   assert.throws(
     () => compilar([{ op: 'girar', graus: { op: 'raiz', a: 9 }, blockId: 'g' }]),
     /Conta desconhecida/);
+});
+
+/* ---------- relatar um valor ---------- */
+
+/* Devolve os opcodes em ordem, para afirmar a forma do programa sem depender
+   dos bytes. */
+function opcodesDe(bytes) {
+  const ops = [];
+  for (let i = 0; i < bytes.length; i += 7) ops.push(bytes[i]);
+  return ops;
+}
+
+test('compilarValor emite a conta, depois REPORT, depois HALT', () => {
+  const { bytes } = compilarValor(
+    { op: 'mais', a: 40, b: 2, blockId: 'x' });
+  assert.deepStrictEqual(opcodesDe(bytes), [
+    OP.PUSH, OP.PUSH, OP.BIN,
+    OP.REPORT, OP.HALT,
+  ]);
+});
+
+test('compilarValor de um número solto é PUSH, REPORT, HALT', () => {
+  /* É o numerinho do encaixe: a criança toca no "3" e o robô responde 3. */
+  const { bytes } = compilarValor(3);
+  assert.deepStrictEqual(opcodesDe(bytes), [
+    OP.PUSH, OP.REPORT, OP.HALT,
+  ]);
+});
+
+test('compilarValor do sensor pergunta ao sensor, e não à telemetria', () => {
+  /* O bloco que carrega a lição toda: na ESP32 isto lê o HC-SR04 de verdade. */
+  const { bytes } = compilarValor({ op: 'distancia', blockId: 'd' });
+  assert.deepStrictEqual(opcodesDe(bytes), [
+    OP.SENSOR, OP.REPORT, OP.HALT,
+  ]);
+});
+
+test('uma conta funda demais para a pilha é recusada aqui também', () => {
+  /* A mesma guarda do programa normal vale para a bolha: melhor a criança ler
+     a frase do que ver o robô parar sem explicação. */
+  let no = 1;
+  for (let i = 0; i < 20; i++) no = { op: 'mais', a: 1, b: no };
+  assert.throws(() => compilarValor(no), /complicada demais/);
+});
+
+test('o REPORT não aparece no programa normal', () => {
+  /* O exportador de .ino lê a AST, não o bytecode, e nenhum bloco de comando
+     relata. Se um REPORT vazasse para cá, o robô pararia de rodar o programa
+     no meio para falar sozinho. */
+  const { bytes } = compilar([
+    { op: 'frente', segundos: 1, velocidade: 200, blockId: 'a' },
+  ]);
+  assert.ok(!opcodesDe(bytes).includes(OP.REPORT));
 });

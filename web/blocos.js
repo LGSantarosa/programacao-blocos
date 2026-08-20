@@ -516,6 +516,39 @@
     return pilhaParaAst(raizes[0].getInputTargetBlock('CORPO'));
   }
 
+  /* A peça que a criança tocou, traduzida em "o que rodar".
+
+     A regra se lê no bloco tocado, e não na raiz da pilha dele. Um relator
+     encaixado num soquete tem como raiz a pilha que o contém: lida pela raiz,
+     tocar no (2 + 3) dentro de "andar frente [(2+3)] s" faria o robô andar em
+     vez de dizer quanto aquilo vale — bem no caso em que a criança está
+     tentando entender o pedaço.
+
+     Devolve null para relator. Relator não roda, relata: quem trata é a
+     bolha. */
+  function pilhaDoBloco(bloco) {
+    if (!bloco || bloco.outputConnection) return null;
+    var raiz = bloco.getRootBlock();
+    if (raiz.type === 'quando_play') {
+      return { ast: pilhaParaAst(raiz.getInputTargetBlock('CORPO')),
+               ehPrograma: true };
+    }
+    return { ast: pilhaParaAst(raiz), ehPrograma: false };
+  }
+
+  /* O nó de valor de um relator, para a bolha compilar a pergunta.
+
+     O shadow de número não tem case no blocoParaNo — ele é o campo, não um
+     bloco traduzível — então sai daqui direto como número. É o que faz tocar
+     no "7" do encaixe responder 7. */
+  function valorDoBloco(bloco) {
+    if (!bloco || !bloco.outputConnection) return null;
+    if (bloco.type === 'numero' || bloco.type === 'numero_bolinhas') {
+      return Number(bloco.getFieldValue('NUM'));
+    }
+    return blocoParaNo(bloco);
+  }
+
   /* A raiz nasce fixa: a criança não precisa saber que ela existe, e não pode
      apagá-la sem querer — sem ela o PLAY não tem por onde começar. */
   function criarRaiz(workspace) {
@@ -545,6 +578,8 @@
   }
 
   var api = { definir: definir, workspaceParaAst: workspaceParaAst,
+              pilhaDoBloco: pilhaDoBloco,
+              valorDoBloco: valorDoBloco,
               valorDe: valorDe,
               criarRaiz: criarRaiz, temTrabalho: temTrabalho, limpar: limpar,
               CAIXA_XML: CAIXA_XML };

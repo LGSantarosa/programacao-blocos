@@ -4,7 +4,7 @@
   'use strict';
 
   var T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03, T_ARENA = 0x04;
-  var T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83;
+  var T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83, T_VALOR = 0x84;
 
   function conectar(url, manipuladores) {
     var ws = new WebSocket(url);
@@ -34,6 +34,9 @@
               colidiu: d.byteLength > 9 && d.getUint8(9) === 1,
             });
           }
+          break;
+        case T_VALOR:
+          if (manipuladores.aoValor) manipuladores.aoValor(d.getInt32(1, true));
           break;
         default:
           break;

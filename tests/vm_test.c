@@ -623,6 +623,38 @@ static void teste_jmp_para_tras_fecha_laco(void) {
     CHECK(vm.rodando == 0);
 }
 
+static void teste_report_devolve_o_topo_da_pilha(void) {
+    printf("teste_report_devolve_o_topo_da_pilha\n");
+    VM vm;
+    uint8_t prog[INSTR_BYTES * 5], *p = prog;
+    /* 40 + 2, relatado. E o que a crianca ve ao tocar numa conta. */
+    p = emit(p, OP_PUSH, 40, 0, 0);
+    p = emit(p, OP_PUSH, 2, 0, 0);
+    p = emit(p, OP_BIN, BIN_MAIS, 0, 0);
+    p = emit(p, OP_REPORT, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    rodar_ate_parar(&vm);
+    /* O MOTOR 0,0 e o HALT: parar e sempre cortar os motores. */
+    const char *esperado[] = { "REPORT 42", "MOTOR 0,0" };
+    checar_trace(esperado, 2);
+}
+
+static void teste_report_com_pilha_vazia_para_a_vm(void) {
+    printf("teste_report_com_pilha_vazia_para_a_vm\n");
+    VM vm;
+    uint8_t prog[INSTR_BYTES * 2], *p = prog;
+    p = emit(p, OP_REPORT, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    vm_tick(&vm);
+    CHECK(!vm.rodando);
+    /* Nada relatado: um valor que nao existe nao vira numero na tela da
+       crianca. So o corte de motores do vm_stop. */
+    const char *esperado[] = { "MOTOR 0,0" };
+    checar_trace(esperado, 1);
+}
+
 int main(void) {
     teste_programa_vazio();
     teste_sequencia_linear();
@@ -649,6 +681,8 @@ int main(void) {
     teste_jmp_false_salta_quando_falso();
     teste_pilha_vazia_depois_de_cada_comando();
     teste_desempilhar_vazio_para_o_programa();
+    teste_report_devolve_o_topo_da_pilha();
+    teste_report_com_pilha_vazia_para_a_vm();
     teste_dourado();
     if (falhas == 0) { printf("\ntodos os testes passaram\n"); return 0; }
     printf("\n%d verificacao(oes) falharam\n", falhas);

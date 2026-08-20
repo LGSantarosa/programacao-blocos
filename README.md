@@ -93,10 +93,15 @@ interface em **http://192.168.4.1**. Sem roteador, sem internet.
 A interface é servida pela própria placa de propósito: um site HTTPS não
 consegue abrir `ws://` para a ESP32, então hospedar fora quebraria a conexão.
 
-> **Ainda não rodou em hardware.** O firmware compila (`pio run` passa, RAM 14,5%,
-> flash 66,6%) e reusa o mesmo `core/vm.c` já coberto por testes, mas nunca foi
-> gravado numa placa de verdade. Espere acertar detalhes no primeiro contato —
-> pinagem, sentido dos motores, leitura do HC-SR04.
+> **Onde o hardware foi provado, e onde não foi.** A placa já foi gravada e
+> sobe: o firmware compila (`pio run` passa, RAM 18,6%, flash 66,7%), o
+> LittleFS monta, o AP `Robo-01` aparece e a interface é servida. Os motores já
+> responderam a um PLAY.
+>
+> O que ainda não foi provado numa bancada é a **leitura do sensor** — o
+> caminho `👁 distância cm` → bolha existe e é testado no simulador, mas nunca
+> teve um HC-SR04 pendurado nele. Espere acertar detalhes aí, e confira o
+> sentido dos motores no primeiro `andar frente`.
 
 ### Primeira vez, passo a passo
 
@@ -176,8 +181,8 @@ ordem da execução. Isso prova o caminho inteiro — o navegador compila, manda
 WebSocket, a VM roda na placa e devolve o ponteiro. Os motores não giram porque
 ainda não existem. Chegou aqui, o software está validado.
 
-**7. Só então a fiação.** A pinagem e os três cuidados que a antecedem estão em
-[Hardware](#hardware).
+**7. Só então a fiação.** A pinagem, qual sensor comprar e os cuidados que
+antecedem o primeiro fio estão em [Hardware](#hardware).
 
 O primeiro teste de verdade é um `andar frente 1 s` sozinho. Se um dos lados
 girar ao contrário, inverta os dois fios daquele motor no driver — não mexa no
@@ -465,7 +470,8 @@ sai dela: azul royal `#0050f0`, ciano `#20b0f0`, navy `#002080` e amarelo
 ## Hardware
 
 ESP32 DevKit, driver TB6612FNG, dois motores DC com redução, roda boba,
-2× 18650, HC-SR04.
+2× 18650, e um sensor de distância **HC-SR04P** ou **RCWL-1601** — os de 3,3 V,
+que ligam sem resistor.
 
 | pino ESP32 | ligação        |
 |------------|----------------|
@@ -476,11 +482,39 @@ ESP32 DevKit, driver TB6612FNG, dois motores DC com redução, roda boba,
 
 A fonte de verdade dessa tabela é `firmware/src/hal_esp32.cpp`.
 
-Três cuidados antes de encostar um fio:
+### O sensor de distância
 
-- **O ECHO do HC-SR04 devolve 5 V**, e a entrada da ESP32 aguenta 3,3 V. Precisa
-  de divisor de tensão: 1 kΩ do ECHO para o GPIO18, 2 kΩ do GPIO18 para o GND.
-  Sem ele a entrada vai degradando.
+Compre o **HC-SR04P** (com "P" no fim) ou o **RCWL-1601**. São os dois de
+**3,3 V nativo**, custam o mesmo que o comum, e ligam direto — quatro fios, nenhum
+componente no meio:
+
+| pino do sensor | vai em            |
+|----------------|-------------------|
+| `VCC`          | **3V3** da ESP32  |
+| `Trig`         | **GPIO 5**        |
+| `Echo`         | **GPIO 18**       |
+| `GND`          | **GND**           |
+
+É a ligação recomendada aqui, e a razão é uma só: **não precisa de resistor
+nenhum**. Um sensor de dez reais resolve no ato o que de outro modo vira um
+divisor de tensão soldado no meio do fio.
+
+O **HC-SR04 comum** — sem o "P" — é alimentado com 5 V e por isso devolve 5 V no
+`Echo`, enquanto a entrada da ESP32 aguarda 3,3 V. Ligar esse direto no GPIO 18
+vai degradando o pino até ele morrer. Quem já tem um em casa e não quer trocar
+precisa de um divisor: 1 kΩ do `Echo` para o GPIO 18, e 2 kΩ do GPIO 18 para o
+GND. Não há terceiro caminho — ou o sensor é de 3,3 V, ou entram os dois
+resistores.
+
+Para conferir que acertou, **sem precisar de motor nem de chassi**: abra a
+interface, vá no nível Gigante, largue um `👁 distância cm` num canto solto e
+toque nele. A bolha mostra a leitura. Ponha a mão a uns 10 cm e toque de novo —
+o número tem que cair. Se der sempre **400**, é o valor que o firmware devolve
+quando o eco não voltou: confira a alimentação, depois se `Trig` e `Echo` não
+estão trocados, depois o GND comum.
+
+### Os outros dois cuidados
+
 - **Os motores não podem sair do USB.** O `VM` do TB6612 vai nas 18650, o `VCC`
   (lógica) no 3V3 da placa, e todos os GND juntos. Motor puxando corrente pelo
   USB derruba a ESP32 no meio da execução.

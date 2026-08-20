@@ -13,7 +13,7 @@ const PORTA = Number(process.env.PORTA || 8080);
 const GUID_WS = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 const T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03, T_ARENA = 0x04;
-const T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83;
+const T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83, T_VALOR = 0x84;
 
 /* Carimbo de versão: um resumo do estado real dos arquivos servidos. Injetado
    no HTML na hora de servir, então o número na tela é sempre o do arquivo que
@@ -189,6 +189,14 @@ function paraQuadroDoNavegador(linha) {
     q.writeInt16LE(Number(p[3]) | 0, 5);
     q.writeUInt16LE(Number(p[4]) & 0xffff, 7);
     q[9] = Number(p[5]) ? 1 : 0;      /* ausente vira 0 */
+    return q;
+  }
+  if (p[0] === 'V') {
+    /* int32, e não int16 como os outros campos: a pilha da VM é de 32
+       bits, e uma conta da criança chega lá. */
+    const q = Buffer.alloc(5);
+    q[0] = T_VALOR;
+    q.writeInt32LE(Number(p[1]) | 0, 1);
     return q;
   }
   return null;

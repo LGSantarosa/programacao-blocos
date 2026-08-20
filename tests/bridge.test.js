@@ -150,3 +150,23 @@ test('o HTML sai carimbado com a versão, e o carimbo muda com os arquivos', asy
     await new Promise((ok) => servidor.close(ok));
   }
 });
+
+test('a linha V vira o quadro T_VALOR, em int32', () => {
+  const q = paraQuadroDoNavegador('V 42');
+  assert.strictEqual(q.length, 5);
+  assert.strictEqual(q[0], 0x84);
+  assert.strictEqual(q.readInt32LE(1), 42);
+});
+
+test('o valor relatado passa dos 16 bits sem estragar', () => {
+  /* A pilha da VM é int32, e 100 x 100 já não caberia em int16. Cortar aqui
+     faria a bolha mentir para a criança justamente na conta grande, que é a
+     que ela quis conferir. */
+  const q = paraQuadroDoNavegador('V 100000');
+  assert.strictEqual(q.readInt32LE(1), 100000);
+});
+
+test('valor negativo atravessa como negativo', () => {
+  const q = paraQuadroDoNavegador('V -7');
+  assert.strictEqual(q.readInt32LE(1), -7);
+});

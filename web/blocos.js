@@ -25,6 +25,48 @@
      duplicá-las é como elas divergiriam. */
   var VELOCIDADES = [['normal', '200'], ['devagar', '120'], ['rápido', '255']];
 
+  /* Os ícones que carregam sentido sozinhos são desenhados, não escritos.
+     Eram caracteres — ⬆ ⬇ ↻ ↺ — e um caractere só existe se a fonte do
+     aparelho tiver aquele desenho. As setas de rotação não estão na Roboto,
+     que é a fonte do Android: num Galaxy o menu do girar virava um retângulo
+     vazio, e no nível Pequeno, onde as palavras somem, a peça inteira ficava
+     sem sinal nenhum. As setas de andar tinham a doença irmã: quando o
+     aparelho as troca por emoji colorido, a largura muda depois de o Blockly
+     já ter medido a peça, e ela sai torta.
+
+     SVG embutido resolve os dois: desenho idêntico em qualquer aparelho, e
+     medida que o Blockly conhece antes de montar o bloco. */
+  function icone(desenho) {
+    return 'data:image/svg+xml,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
+      desenho + '</svg>');
+  }
+
+  var LADO_ICONE = 20;
+
+  /* Seta grossa: haste larga e cabeça grande, para ler a 20px num tablet. */
+  var SETA_CIMA  = icone('<path d="M12 2 L22 13 L16 13 L16 22 L8 22 L8 13 L2 13 Z" fill="#fff"/>');
+  var SETA_BAIXO = icone('<path d="M12 22 L22 11 L16 11 L16 2 L8 2 L8 11 L2 11 Z" fill="#fff"/>');
+
+  /* Volta de 270°, aberta em cima, com a ponta indicando para onde o giro vai.
+     O anti-horário é o mesmo desenho espelhado — duas cópias divergiriam. */
+  var VOLTA = '<path d="M12 4.5 A 7.5 7.5 0 1 1 4.5 12" fill="none"' +
+              ' stroke="#fff" stroke-width="3" stroke-linecap="round"/>' +
+              '<path d="M4.5 5.5 L9 13 L0 13 Z" fill="#fff"/>';
+  var GIRO_HORARIO = icone(VOLTA);
+  var GIRO_ANTI    = icone('<g transform="translate(24,0) scale(-1,1)">' +
+                           VOLTA + '</g>');
+
+  /* Nomeado, e não anônimo. O Blockly guarda os campos que vêm antes de um
+     encaixe na fileira daquele encaixe: o ícone vem antes do SEG, e no Pequeno
+     o SEG está escondido — a fileira some e leva o desenho junto. Quem reacende
+     campo escondido é a tabela do nível, e ela só enxerga campo com nome. Por
+     isso ICONE aparece no campos de todos os níveis, sempre true. */
+  function imagem(src, alt) {
+    return { type: 'field_image', name: 'ICONE', src: src,
+             width: LADO_ICONE, height: LADO_ICONE, alt: alt };
+  }
+
   var extensaoPronta = false;
 
   /* GRAUS é a fonte de verdade; o menu direita/esquerda é só um editor
@@ -65,10 +107,9 @@
       },
       {
         type: 'mover_frente',
-        /* O ícone é texto cru porque aparece em todos os níveis; as palavras
-           são campos porque precisam sumir no Pequeno. */
-        message0: '⬆ %1 %2 %3 %4',
+        message0: '%1 %2 %3 %4 %5',
         args0: [
+          imagem(SETA_CIMA, 'para frente'),
           { type: 'field_label', name: 'T1', text: 'andar frente' },
           { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },
@@ -82,8 +123,9 @@
       },
       {
         type: 'mover_tras',
-        message0: '⬇ %1 %2 %3 %4',
+        message0: '%1 %2 %3 %4 %5',
         args0: [
+          imagem(SETA_BAIXO, 'para trás'),
           { type: 'field_label', name: 'T1', text: 'andar trás' },
           { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },
@@ -97,14 +139,29 @@
       },
       {
         type: 'girar',
-        message0: '%1 %2 %3 %4',
+        /* Cinco pedaços e não quatro: o LINHA_DIR existe só para dar ao menu
+           uma fileira própria. O Blockly guarda os campos que vêm antes de um
+           encaixe na fileira daquele encaixe, e o Pequeno e o Médio escondem o
+           encaixe GRAUS para mostrar o menu no lugar do número. Sem esta
+           divisão, esconder o encaixe demolia a fileira onde o menu morava: o
+           corpo do bloco encolhia para 39px e o ícone continuava desenhado em
+           x=75, boiando fora da peça. */
+        message0: '%1 %2 %3 %4 %5',
         args0: [
           { type: 'field_label', name: 'T1', text: 'girar' },
           /* Só a seta. É o único texto que sobrava no nível Pequeno, e a
              seta de rotação diz sozinha para que lado o robô vira. */
+          /* O menu aceita imagem no lugar do rótulo, e é o mesmo desenho
+             que o resto dos blocos usa. O alt não é decoração: é o que o
+             getText() devolve, e é por ele que o teste pergunta para que
+             lado a peça diz que vira. */
           { type: 'field_dropdown', name: 'DIR', options: [
-            ['↻', '90'], ['↺', '-90'],
+            [{ src: GIRO_HORARIO, width: LADO_ICONE, height: LADO_ICONE,
+               alt: 'direita' }, '90'],
+            [{ src: GIRO_ANTI, width: LADO_ICONE, height: LADO_ICONE,
+               alt: 'esquerda' }, '-90'],
           ] },
+          { type: 'input_dummy', name: 'LINHA_DIR' },
           { type: 'input_value', name: 'GRAUS', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 'graus' },
         ],

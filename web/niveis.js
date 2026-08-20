@@ -13,7 +13,11 @@
   var COR_MOVIMENTO = '#0050f0', COR_LACO = '#f0c000', COR_SENSOR = '#20b0f0';
   var COR_CONTA = '#002080';
 
-  /* T1 e T2 são as palavras dos blocos. Elas são campos justamente para poderem
+  /* ICONE é o desenho que abre a peça, e é sempre visível: ele vem antes de um
+     encaixe, então some junto com a fileira quando o encaixe se esconde, e é a
+     tabela que o traz de volta. No Pequeno ele é a única coisa que sobra.
+
+     T1 e T2 são as palavras dos blocos. Elas são campos justamente para poderem
      sumir no Pequeno — se fossem texto cru do message0, sobrariam na tela
      coisas como "⬆ andar frente  s" depois de esconder o número. */
   /* Cada encaixe nasce com o seu shadow, senão a peça sai da paleta com um
@@ -67,14 +71,14 @@
     pequeno: {
       blocos: ['mover_frente', 'mover_tras', 'girar', 'repetir'],
       /* campo -> visível neste nível? */
-      campos: { T1: false, T2: false, SEG: false, VEL: false,
+      campos: { ICONE: true, T1: false, T2: false, SEG: false, VEL: false,
                 DIR: true, GRAUS: false, N: true, CM: true },
       bolinhas: true,
     },
     medio: {
       blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'parar',
                'repetir', 'repetir_sempre', 'se_obstaculo'],
-      campos: { T1: true, T2: true, SEG: true, VEL: false,
+      campos: { ICONE: true, T1: true, T2: true, SEG: true, VEL: false,
                 DIR: true, GRAUS: false, N: true, CM: true },
       bolinhas: false,
     },
@@ -82,7 +86,7 @@
       blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'parar',
                'repetir', 'repetir_sempre', 'repetir_ate_perto',
                'se_obstaculo', 'se_senao'],
-      campos: { T1: true, T2: true, SEG: true, VEL: true,
+      campos: { ICONE: true, T1: true, T2: true, SEG: true, VEL: true,
                 DIR: false, GRAUS: true, N: true, CM: true },
       bolinhas: false,
     },
@@ -194,62 +198,77 @@
      isso que subir e descer de nível não perde nada. */
   function aplicar(workspace, nivel) {
     var def = definicao(nivel);
+    for (var b of workspace.getAllBlocks(false)) aplicarNoBloco(b, def);
+  }
+
+  /* Uma peça só, e o nível já resolvido em def. Existe separada porque há um
+     momento em que reaplicar o workspace inteiro é justamente o erro: enquanto
+     a criança arrasta, redesenhar todos os blocos mexe no banco de conexões e
+     tira o encaixe que ela estava mirando debaixo do dedo. A peça recém-nascida
+     na mão dela não é alvo de encaixe de ninguém, então essa pode — e precisa,
+     senão ela viaja na mão vestida de outro nível. */
+  function aplicarNoBloco(b, def) {
     var campos = def.campos;
-    for (var b of workspace.getAllBlocks(false)) {
-      /* Duas passadas, e a ordem é o que faz funcionar. O Blockly guarda os
-         campos que vêm antes de um encaixe na fileira daquele encaixe, então
-         esconder o encaixe esconde o rótulo e o menu vizinhos — e mostrá-lo
-         traz os dois de volta. Encaixes primeiro, campos depois: assim quem dá
-         a palavra final sobre cada campo é a tabela do nível.
+    /* Duas passadas, e a ordem é o que faz funcionar. O Blockly guarda os
+       campos que vêm antes de um encaixe na fileira daquele encaixe, então
+       esconder o encaixe esconde o rótulo e o menu vizinhos — e mostrá-lo
+       traz os dois de volta. Encaixes primeiro, campos depois: assim quem dá
+       a palavra final sobre cada campo é a tabela do nível.
 
-         É o encaixe que se esconde, e não o campo lá dentro: um campo
-         escondido dentro do shadow deixaria o encaixe vazio aparecendo — um
-         buraco na peça, pior que o número. */
-      var nome;
-      for (nome of Object.keys(campos)) {
-        var entrada = b.getInput(nome);
-        if (entrada) entrada.setVisible(campos[nome]);
-      }
-      for (nome of Object.keys(campos)) {
-        if (b.getInput(nome)) continue;
-        var campo = b.getField(nome);
-        if (campo) campo.setVisible(campos[nome]);
-      }
-      /* O "repetir" é sempre o mesmo campo, com a mesma faixa de 1 a 100. Só
-         o desenho muda: bolinhas para quem não lê, algarismo para quem lê. */
-      var alvoN = b.getInput('N') && b.getInputTargetBlock('N');
-      var n = alvoN ? alvoN.getField('NUM') : null;
-      if (n && n.setModoBolinhas) n.setModoBolinhas(def.bolinhas);
-
-      /* O girar tem dois controles para o mesmo valor. O menu é o que a
-         criança lê por ícone, mas ele só sabe dizer 90 e -90. Um ângulo
-         qualquer, herdado do nível Grande, não cabe nele — e mostrar
-         "direita" num bloco que vira 45 graus seria mentira. Mesma regra das
-         bolinhas: quando o controle simples não representa o valor, mostra o
-         honesto. */
-      var dir = b.getField('DIR'), entradaG = b.getInput('GRAUS');
-      if (dir && entradaG) {
-        /* Uma conta não cabe no menu de dois itens — do mesmo jeito que 45° não
-           cabia. A regra não precisou de cláusula nova: quando o controle
-           simples não representa o valor, aparece o honesto. */
-        var dentro = b.getInputTargetBlock('GRAUS');
-        var ehNumero = !!dentro && dentro.type === 'numero';
-        var g = ehNumero ? Number(dentro.getFieldValue('NUM')) : NaN;
-        var cabeNoMenu = (g === 90 || g === -90);
-        if (cabeNoMenu && dir.getValue() !== String(g)) dir.setValue(String(g));
-        if (!campos.GRAUS) {          /* Pequeno e Médio: o menu é o normal */
-          /* Encaixe antes do menu, de novo: o menu mora na fileira do encaixe,
-             e mostrá-lo depois é o que faz a escolha do menu valer. */
-          entradaG.setVisible(!cabeNoMenu);
-          dir.setVisible(cabeNoMenu);
-        }
-        /* "graus" é a unidade do número. Sem o número na tela vira texto solto:
-           o bloco leria "girar direita graus". */
-        var t2 = b.getField('T2');
-        if (t2 && campos.T2) t2.setVisible(entradaG.isVisible());
-      }
-      if (b.render) b.render();
+       É o encaixe que se esconde, e não o campo lá dentro: um campo
+       escondido dentro do shadow deixaria o encaixe vazio aparecendo — um
+       buraco na peça, pior que o número. */
+    var nome;
+    for (nome of Object.keys(campos)) {
+      var entrada = b.getInput(nome);
+      if (entrada) entrada.setVisible(campos[nome]);
     }
+    for (nome of Object.keys(campos)) {
+      if (b.getInput(nome)) continue;
+      var campo = b.getField(nome);
+      if (campo) campo.setVisible(campos[nome]);
+    }
+    /* O "repetir" é sempre o mesmo campo, com a mesma faixa de 1 a 100. Só
+       o desenho muda: bolinhas para quem não lê, algarismo para quem lê. */
+    var alvoN = b.getInput('N') && b.getInputTargetBlock('N');
+    var n = alvoN ? alvoN.getField('NUM') : null;
+    if (n && n.setModoBolinhas) n.setModoBolinhas(def.bolinhas);
+
+    /* O girar tem dois controles para o mesmo valor. O menu é o que a
+       criança lê por ícone, mas ele só sabe dizer 90 e -90. Um ângulo
+       qualquer, herdado do nível Grande, não cabe nele — e mostrar
+       "direita" num bloco que vira 45 graus seria mentira. Mesma regra das
+       bolinhas: quando o controle simples não representa o valor, mostra o
+       honesto. */
+    var dir = b.getField('DIR'), entradaG = b.getInput('GRAUS');
+    if (dir && entradaG) {
+      /* Uma conta não cabe no menu de dois itens — do mesmo jeito que 45° não
+         cabia. A regra não precisou de cláusula nova: quando o controle
+         simples não representa o valor, aparece o honesto. */
+      var dentro = b.getInputTargetBlock('GRAUS');
+      var ehNumero = !!dentro && dentro.type === 'numero';
+      var g = ehNumero ? Number(dentro.getFieldValue('NUM')) : NaN;
+      var cabeNoMenu = (g === 90 || g === -90);
+      if (cabeNoMenu && dir.getValue() !== String(g)) dir.setValue(String(g));
+      if (!campos.GRAUS) {          /* Pequeno e Médio: o menu é o normal */
+        /* Encaixe antes do menu, de novo: o menu mora na fileira do encaixe,
+           e mostrá-lo depois é o que faz a escolha do menu valer. */
+        entradaG.setVisible(!cabeNoMenu);
+        dir.setVisible(cabeNoMenu);
+      }
+      /* "graus" é a unidade do número. Sem o número na tela vira texto solto:
+         o bloco leria "girar direita graus". */
+      var t2 = b.getField('T2');
+      if (t2 && campos.T2) t2.setVisible(entradaG.isVisible());
+    }
+    if (b.render) b.render();
+  }
+
+  /* O que o app chama: a peça e o nome do nível, sem conhecer o def. */
+  function aplicarEmUm(bloco, nivel) {
+    var def = definicao(nivel);
+    var todos = bloco.getDescendants ? bloco.getDescendants(false) : [bloco];
+    for (var i = 0; i < todos.length; i++) aplicarNoBloco(todos[i], def);
   }
 
   var CHAVE = 'robo_nivel';
@@ -277,7 +296,7 @@
   }
 
   var api = { LISTA: LISTA, NOMES: NOMES, definicao: definicao,
-              caixaXml: caixaXml, aplicar: aplicar,
+              caixaXml: caixaXml, aplicar: aplicar, aplicarEmUm: aplicarEmUm,
               atual: atual, definir: definir };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Niveis = api;

@@ -472,3 +472,109 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
 
     cdp.fechar();
   });
+
+test('a peça já sai da caixa vestida do nível, antes de ser solta',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* No Pequeno as palavras somem e a peça de andar é só uma seta. Mas o
+       nível era aplicado quando o arrasto terminava, então ela atravessava a
+       tela na mão da criança escrita "andar frente 1 s" e encolhia ao ser
+       solta. O que se afirma aqui é o meio do gesto: com o dedo ainda em cima,
+       a peça já tem que estar no nível certo.
+
+       Reaplicar o nível durante o arrasto não serve — derruba o encaixe, e o
+       teste acima guarda isso. Por isso a peça é vestida no createBlock, antes
+       de o gesto anotar as conexões. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 2) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-arrasto-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 2}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 2}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 2}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 2}/` });
+    await espera(3000);
+
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=pequeno]').click();
+      return 1;
+    })()`);
+    await espera(600);
+
+    /* Abre a categoria de movimento e mira a primeira peça da gaveta. */
+    const cat = await aval(`(() => {
+      const r = document.querySelectorAll('.blocklyTreeRow')[0].getBoundingClientRect();
+      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    })()`);
+    const c = JSON.parse(cat);
+    await mouse('mousePressed', c.x, c.y);
+    await mouse('mouseReleased', c.x, c.y);
+    await espera(800);
+
+    const alvo = JSON.parse(await aval(`(() => {
+      const b = document.querySelectorAll('.blocklyFlyout .blocklyDraggable')[0];
+      const r = b.getBoundingClientRect();
+      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    })()`));
+
+    /* Segura e leva para o meio da bancada, SEM soltar. */
+    await mouse('mousePressed', alvo.x, alvo.y);
+    for (let k = 1; k <= 8; k++) {
+      await mouse('mouseMoved', alvo.x + (700 - alvo.x) * k / 8,
+                                alvo.y + (400 - alvo.y) * k / 8);
+      await espera(40);
+    }
+
+    const naMao = JSON.parse(await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const b = ws.getAllBlocks(false).filter((x) => x.type === 'mover_frente')[0];
+      if (!b) return JSON.stringify({ achou: false });
+      return JSON.stringify({
+        achou: true,
+        t1: b.getField('T1') ? b.getField('T1').isVisible() : null,
+        icone: b.getField('ICONE') ? b.getField('ICONE').isVisible() : null,
+        seg: b.getInput('SEG') ? b.getInput('SEG').isVisible() : null
+      });
+    })()`));
+
+    await mouse('mouseReleased', 700, 400);
+    await espera(500);
+
+    assert.ok(naMao.achou, 'a peça não chegou à bancada durante o arrasto');
+    assert.strictEqual(naMao.t1, false,
+      'no Pequeno a peça viaja na mão da criança escrita "andar frente"');
+    assert.strictEqual(naMao.seg, false,
+      'no Pequeno a peça viaja na mão da criança mostrando o campo de segundos');
+    assert.strictEqual(naMao.icone, true,
+      'a seta some justamente enquanto a criança olha para a peça');
+
+    cdp.fechar();
+  });

@@ -161,6 +161,22 @@
     paleta.getWorkspace().addChangeListener(function (e) {
       if (e.type === Blockly.Events.BLOCK_CREATE) aplicarNaPaleta();
     });
+
+    /* A peça precisa nascer no nível certo, e o evento BLOCK_CREATE chega
+       tarde demais para isso: quando ele sai da fila, o gesto já anotou quais
+       conexões existem, e mexer nelas ali derruba o encaixe — foi o que o teste
+       do arrasto pegou. Aqui é o instante anterior: o createBlock devolve a
+       peça já posta no workspace principal e ainda não arrastada. Vestir o
+       nível neste ponto é a diferença entre a criança ver uma seta atravessar a
+       tela e ver "andar frente 1 s" encolher na mão dela ao soltar. */
+    if (paleta.createBlock) {
+      var criarDaCaixa = paleta.createBlock;
+      paleta.createBlock = function (blocoOriginal) {
+        var nova = criarDaCaixa.call(this, blocoOriginal);
+        if (nova) Niveis.aplicarEmUm(nova, nivel);
+        return nova;
+      };
+    }
   }
 
   atualizarMudo();

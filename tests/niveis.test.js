@@ -194,7 +194,7 @@ test('o menu do girar acompanha o GRAUS quando cabe nele', () => {
   }
   const b = ws.getBlocksByType('girar', false)[0];
   Niveis.aplicar(ws, 'pequeno');
-  assert.strictEqual(b.getField('DIR').getText(), '↺',
+  assert.strictEqual(b.getField('DIR').getText(), 'esquerda',
     'o menu mentiria sobre para que lado o bloco vira');
 });
 
@@ -254,12 +254,74 @@ test('cada nível oferece a quantidade certa de blocos', () => {
   assert.strictEqual(quantos('grande'), 10);
 });
 
+/* ---------- os ícones desenhados ---------- */
+
+/* Os dois testes abaixo guardam defeitos que a criança viu antes da bateria:
+   no tablet e no celular as peças de movimento saíam vazias, e o menu do girar
+   aparecia desenhado fora do próprio bloco. Nenhum dos dois quebrava um teste —
+   por isso passaram. */
+
+test('o ícone sobrevive em todos os níveis, inclusive no Pequeno', () => {
+  /* No Pequeno as palavras somem e o desenho passa a ser a única coisa legível
+     da peça. Ele vem antes do encaixe SEG, então mora na fileira dele e some
+     junto quando o Pequeno esconde o encaixe: é a tabela do nível que precisa
+     reacendê-lo, e ela só enxerga campo com nome. */
+  for (const nivel of ['pequeno', 'medio', 'grande', 'gigante']) {
+    for (const tipo of ['mover_frente', 'mover_tras']) {
+      const ws = new Blockly.Workspace();
+      Blockly.Events.disable();
+      try {
+        Blockly.serialization.blocks.append({ type: tipo }, ws);
+      } finally {
+        Blockly.Events.enable();
+      }
+      const b = ws.getBlocksByType(tipo, false)[0];
+      Niveis.aplicar(ws, nivel);
+      const icone = b.getField('ICONE');
+      assert.ok(icone, tipo + ' perdeu o campo do ícone no ' + nivel);
+      assert.ok(icone.isVisible(),
+        'no ' + nivel + ' o ' + tipo + ' fica sem sinal nenhum na tela');
+    }
+  }
+});
+
+test('o menu do girar tem fileira própria, separada do encaixe', () => {
+  /* O Blockly guarda os campos que vêm antes de um encaixe na fileira daquele
+     encaixe, e calcula posição só de fileira visível. Com o menu morando na
+     fileira do GRAUS — que o Pequeno e o Médio escondem para mostrar o menu no
+     lugar do número — o corpo do bloco encolhia e o ícone continuava desenhado
+     na coordenada antiga, boiando fora da peça. */
+  const ws = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.blocks.append({ type: 'girar' }, ws);
+  } finally {
+    Blockly.Events.enable();
+  }
+  const b = ws.getBlocksByType('girar', false)[0];
+  const linha = b.getInput('LINHA_DIR');
+  assert.ok(linha, 'o girar perdeu a fileira própria do menu');
+
+  const nomes = [];
+  for (const campo of linha.fieldRow) nomes.push(campo.name);
+  assert.ok(nomes.indexOf('DIR') >= 0,
+    'o menu voltou para a fileira do encaixe, e vai boiar fora do bloco');
+  assert.ok(nomes.indexOf('T1') >= 0,
+    'a palavra "girar" precisa acompanhar o menu, senão some com o encaixe');
+});
+
 test('o mapa de campos não precisou de linha nova', () => {
   /* Os blocos novos reaproveitam CM, T1 e T2. Se alguém acrescentar um campo
-     aqui, é sinal de que criou nome novo sem necessidade. */
+     aqui, é sinal de que criou nome novo sem necessidade.
+
+     ICONE é a exceção que se justificou: o desenho que abre a peça vem antes de
+     um encaixe, então o Blockly o guarda na fileira daquele encaixe e ele some
+     junto quando o encaixe se esconde. Só a tabela do nível reacende campo
+     escondido, e ela só enxerga campo com nome. Sem esta linha, o nível Pequeno
+     mostra peças de movimento vazias. */
   const campos = Object.keys(Niveis.definicao('grande').campos).sort();
   assert.deepStrictEqual(campos,
-    ['CM', 'DIR', 'GRAUS', 'N', 'SEG', 'T1', 'T2', 'VEL']);
+    ['CM', 'DIR', 'GRAUS', 'ICONE', 'N', 'SEG', 'T1', 'T2', 'VEL']);
 });
 
 /* ---------- o quarto nível ---------- */

@@ -1,0 +1,667 @@
+<meta charset="utf-8">
+<title>Relatório de Atividades — Robô de Blocos</title>
+<style>
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #000000;
+    max-width: 46em;
+    margin: 3em auto;
+    padding: 0 1.5em;
+  }
+  h1 { font-size: 20pt; margin: 0 0 0.2em; }
+  h2 { font-size: 15pt; margin: 1.8em 0 0.5em; }
+  h3 { font-size: 12.5pt; margin: 1.6em 0 0.4em; }
+  p, li { font-size: 11pt; }
+  ul { margin: 0.4em 0 0.8em; padding-left: 1.6em; }
+  li { margin-bottom: 0.25em; }
+  table { border-collapse: collapse; margin: 0.8em 0 1.2em; width: 100%; }
+  th, td {
+    border: 1px solid #999999;
+    padding: 6px 9px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 10.5pt;
+  }
+  th { background: #efefef; font-weight: bold; }
+  .cod { font-family: 'Courier New', Courier, monospace; font-size: 10pt; }
+  .campo { margin: 0.15em 0; }
+  .imagem {
+    color: #666666;
+    font-style: italic;
+    border: 1px dashed #bbbbbb;
+    padding: 10px 12px;
+    margin: 0.8em 0;
+  }
+  hr { border: none; border-top: 1px solid #cccccc; margin: 2em 0; }
+</style>
+
+<h1>Relatório de Atividades — Robô de Blocos</h1>
+
+<h2>1. Introdução</h2>
+
+<p>Este relatório tem como objetivo registrar as atividades realizadas durante o
+desenvolvimento do projeto <b>Robô de Blocos</b>: um ambiente de programação
+visual em que uma criança monta blocos na tela, aperta PLAY e o robô executa na
+hora — no robô virtual do navegador e, agora também validado em hardware, na
+ESP32, sem mudar a lógica.</p>
+
+<p>As atividades descritas neste documento são organizadas com base no fluxo de
+trabalho do projeto, registrado em documentos de projeto e planos de
+implementação, um par por ciclo de desenvolvimento.</p>
+
+<p>Para melhor visualização do funcionamento do código e do projeto em si, peça
+acesso ao repositório e procure o README:
+<a href="https://github.com/LGSantarosa/programacao-blocos">https://github.com/LGSantarosa/programacao-blocos</a></p>
+
+<p><b>Decisão de arquitetura que atravessa o projeto todo:</b> a lógica de
+execução mora num único arquivo C que não conhece hardware. Ele fala com o mundo
+por três funções — motores, sensor de distância e relógio. Existem duas
+implementações dessa camada: uma para o PC (robô virtual) e uma para a ESP32.
+<b>Não existem duas VMs.</b> É isso que garante que o robô virtual e o real se
+comportem igual, e é o que um teste chamado “dourado” prova, comparando byte a
+byte o programa gerado no navegador com o escrito à mão em C.</p>
+
+<h2>2. Atividades Realizadas</h2>
+
+<h3>Atividade 1: Projeto do sistema de programação em blocos</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 06/08</p>
+
+<p><b>Descrição:</b><br>
+Definição da arquitetura do sistema antes de escrever código: como um bloco
+arrastado na tela vira movimento num robô ESP32, e onde cada responsabilidade
+mora.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Documento de projeto com a decisão da VM única e da camada de hardware trocável</li>
+  <li>Definição do formato das instruções: 7 bytes, com um código de operação e três argumentos</li>
+  <li>Plano de implementação dividido em 10 tarefas, cada uma com testes próprios</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Arquitetura fechada em três camadas — interface em blocos (navegador), compilador
+para instruções (JavaScript) e máquina virtual (C) — com o protocolo binário
+definido entre elas.</p>
+
+<h3>Atividade 2: Núcleo da máquina virtual</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 06/08 a 07/08</p>
+
+<p><b>Descrição:</b><br>
+Implementação do interpretador que executa o programa da criança, em C puro, sem
+dependência de hardware e sem alocação dinâmica de memória.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Instruções de parada, motores e espera</li>
+  <li>Laços com registradores</li>
+  <li>Giro por tempo calibrado e leitura de sensor com salto condicional</li>
+  <li>Watchdog independente do laço principal, que corta os motores se a execução travar</li>
+  <li>Teste dourado: o contrato do sistema, comparando o programa gerado dos dois lados</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Máquina virtual completa e coberta por testes automatizados em C, rodando
+idêntica no PC e na placa. O watchdog roda por um caminho independente da
+execução — sem isso, ele morreria junto com aquilo que deveria vigiar.</p>
+
+<h3>Atividade 3: Robô virtual com física e colisão</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 07/08</p>
+
+<p><b>Descrição:</b><br>
+Construção de um robô simulado que roda no PC, para a criança ensaiar o programa
+antes de mandá-lo ao robô real.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Física de deslocamento diferencial com colisão contra paredes</li>
+  <li>Sensor de distância simulado por projeção de raios na arena</li>
+  <li>Executável do robô virtual com protocolo de texto</li>
+  <li>Telemetria de posição, ângulo, distância lida e colisão</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Robô virtual completo, usando exatamente a mesma máquina virtual do robô real —
+apenas a camada de hardware muda. É o ensaio: a criança vê o que vai acontecer
+antes de mandar no robô de verdade.</p>
+
+<p class="imagem">[inserir imagem: arena com o robô virtual]</p>
+
+<h3>Atividade 4: Ponte WebSocket sem dependências</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 07/08</p>
+
+<p><b>Descrição:</b><br>
+Servidor que liga o navegador ao robô virtual, escrito apenas com módulos
+embutidos do Node.js — o projeto inteiro não tem uma dependência sequer.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Servidor HTTP servindo a interface e WebSocket falando o protocolo binário</li>
+  <li>Tradução entre o protocolo binário do navegador e o de texto do robô virtual</li>
+  <li>Sem instalação de pacotes: nenhuma biblioteca externa</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Caminho completo do navegador até o robô virtual, falando o mesmo protocolo que a
+ESP32 fala — o que permite trocar o alvo sem mudar a interface.</p>
+
+<h3>Atividade 5: Compilador de blocos</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 07/08</p>
+
+<p><b>Descrição:</b><br>
+Tradução da árvore de blocos montada na tela para as instruções que a máquina
+virtual executa.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Compilador em JavaScript que roda no navegador e fora dele, o que o torna testável sem interface</li>
+  <li>Mapa de instrução para bloco, que permite acender na tela o bloco em execução</li>
+  <li>Mensagens de erro em português, no vocabulário da criança</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Compilador coberto por testes que rodam em milissegundos, sem navegador. O mapa
+de instruções é o que faz o bloco acender enquanto o robô o executa — a criança
+vê o programa andando.</p>
+
+<h3>Atividade 6: Interface em blocos, em português</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 07/08</p>
+
+<p><b>Descrição:</b><br>
+Construção da tela onde a criança monta o programa, usando a biblioteca Blockly.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Blocos em português: andar frente e trás, girar, esperar, repetir, se obstáculo</li>
+  <li>Biblioteca Blockly incorporada ao projeto na versão 8, a última compatível com navegadores antigos</li>
+  <li>Bloco raiz “quando apertar PLAY” fixo, que a criança não consegue apagar sem querer</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Interface funcional com o ciclo completo: montar blocos, apertar PLAY, ver o robô
+executar e o bloco correspondente acender.</p>
+
+<p class="imagem">[inserir imagem: tela com blocos montados]</p>
+
+<h3>Atividade 7: Firmware da ESP32</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 07/08</p>
+
+<p><b>Descrição:</b><br>
+Firmware que roda na placa reusando a mesma máquina virtual do robô virtual,
+servindo a interface a partir da própria placa.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Camada de hardware para ESP32: controle dos motores pelo driver TB6612FNG e leitura do sensor de distância HC-SR04</li>
+  <li>Modo ponto de acesso: a placa cria a própria rede Wi-Fi, sem roteador e sem internet</li>
+  <li>Interface servida do sistema de arquivos da placa, comprimida</li>
+  <li>Watchdog por temporizador independente do laço principal</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Firmware compilando com folga. Na verificação mais recente, ocupou 18,6% da
+memória RAM e 66,7% do espaço de programa. A interface é servida pela própria
+placa de propósito — um site seguro não consegue abrir conexão WebSocket para a
+ESP32, então hospedar fora quebraria a conexão. A validação posterior numa placa
+real está registrada na Atividade 19.</p>
+
+<h3>Atividade 8: Níveis por idade e carisma do robô</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 07/08 a 10/08</p>
+
+<p><b>Descrição:</b><br>
+Adaptação da mesma interface para servir de 4 a 10 anos, e transformação do robô
+virtual em personagem.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Três níveis: Pequeno (4 a 6), Médio (7 a 9) e Grande (10 ou mais)</li>
+  <li>Regra central: <b>um bloco nunca troca de tipo entre níveis</b>, ele ganha controles. A seta que a criança de 4 anos empilha é literalmente o mesmo bloco que a de 9 vê como “andar frente 1 s”</li>
+  <li>Campo de bolinhas para o bloco “repetir” no nível Pequeno, para quem ainda não lê algarismo</li>
+  <li>Regra de honestidade: <b>quando o controle simples não representa o valor, aparece o honesto</b> — um “repetir 12” mostra o número em vez de bolinhas; um giro de 45 graus mostra o ângulo em vez de mentir “direita”</li>
+  <li>Escolha de velocidade nos blocos de movimento, exposta só no nível Grande</li>
+  <li>Som sintetizado sem arquivo de áudio, e reações do robô virtual: tontura ao bater, pulinho ao vencer</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+A mesma tela serve três faixas de idade sem trocar de programa, e o valor
+escondido num nível continua guardado — é isso que permite subir de nível sem
+perder trabalho.</p>
+
+<p class="imagem">[inserir imagem: o mesmo bloco nos três níveis]</p>
+
+<h3>Atividade 9: Compatibilidade com tablet antigo</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 10/08</p>
+
+<p><b>Descrição:</b><br>
+Adaptação da interface para rodar num iPad 2 com iOS 9, cujo navegador não lê
+sintaxe moderna de JavaScript — ele dá erro ao carregar o arquivo, então uma
+única construção moderna perdida mata a página inteira antes da primeira linha
+rodar.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Conversão de toda a interface para a sintaxe antiga da linguagem</li>
+  <li>Teste automatizado que varre os arquivos e recusa sintaxe moderna, para não depender de ir até o tablet descobrir</li>
+  <li>Folha de estilo sem recursos novos de CSS</li>
+  <li>Correções específicas do navegador antigo: marcação do bloco aceso, altura do editor congelada em pixel, e som que não derruba a página</li>
+  <li>Página de diagnóstico que mostra na tela o que aquele navegador tem — num tablet não há console</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Interface funcionando no iPad 2. Isso já quebrou duas vezes por descuido, e cada
+descoberta custou uma ida ao tablet. O teste automatizado é o guarda que evitou a
+terceira.</p>
+
+<h3>Atividade 10: Identidade visual</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 10/08</p>
+
+<p><b>Descrição:</b><br>
+Repaginação da interface com a identidade da Educação Criativa e com alvos de
+toque dimensionados para dedo de criança.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Paleta medida do logo da plataforma: azul royal, ciano, navy e amarelo</li>
+  <li>Famílias de blocos por cor, seguindo a lógica do Scratch: mover em azul, sentir em ciano, repetir em amarelo, início em verde</li>
+  <li>Blocos, botões e abas ampliados — dedo de criança de quatro anos erra o que for pequeno, e errar o PLAY é a diferença entre brincar e desistir</li>
+  <li>Marca no cabeçalho, com a atribuição da biblioteca Blockly exigida pela licença</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Interface com cara de brinquedo em vez de cara de ferramenta, mantendo a
+legibilidade em tela de tablet.</p>
+
+<p class="imagem">[inserir imagem: interface completa]</p>
+
+<h3>Atividade 11: Missões e gabarito</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 10/08</p>
+
+<p><b>Descrição:</b><br>
+Transformação do ambiente livre em uma sequência de desafios, com ajuda para
+quando a criança trava.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Cinco fases em ordem crescente de dificuldade, a última um labirinto</li>
+  <li>Cada missão traz a própria arena — onde o robô nasce e o que há no caminho — enviada pelo protocolo, sem recompilar nada</li>
+  <li>Botão “me mostra como faz”, que aparece sozinho depois de três tentativas sem sucesso e monta a solução em blocos no espaço de trabalho</li>
+  <li>A solução é escrita na língua de cada nível: no Pequeno vira pilha de passos curtos, no Médio e no Grande vira um bloco com os segundos somados</li>
+  <li>Teste que varre a arena em grade de 2 cm e confirma que existe caminho até a estrela</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Sistema de missões completo com ajuda progressiva. A solução vem montada em
+bloco, e não descrita em palavras, porque quem ainda não lê precisa ver a peça —
+ela aperta PLAY e assiste, depois desmonta e mexe.</p>
+
+<p>O teste que mais importa aqui não é o de geometria, é o de alcance: estrela em
+espaço livre e robô em espaço livre não garantem nada, porque as paredes podem
+selar o caminho entre os dois.</p>
+
+<h3>Atividade 12: Teste que dirige o navegador de verdade</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 10/08</p>
+
+<p><b>Descrição:</b><br>
+Criação de uma bateria de testes que sobe o servidor, abre um navegador sem
+interface gráfica e confere o que a criança veria — o único nível em que dá para
+testar interface, evento e biblioteca de blocos ao mesmo tempo.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Teste dirigindo o navegador pelo protocolo de depuração do Chrome</li>
+  <li>Verificação de que a página não lança exceção ao carregar: uma página pode desenhar a casca inteira e estar quebrada por dentro</li>
+  <li>Espera por condição em vez de por relógio — tempo fixo ora sobra, ora falta, e teste que falha sozinho de vez em quando é quase tão ruim quanto teste que passa sem testar nada</li>
+  <li>Bateria que monta cada solução, aperta PLAY e confere se a missão é cumprida, nas cinco fases e em todos os níveis</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Cobertura de ponta a ponta. Uma solução que não resolve é pior que solução
+nenhuma, porque a criança que travou segue a resposta, não funciona, e conclui
+que o erro é dela. E isso não dá para conferir no papel: as duas primeiras
+versões escritas pareciam certas e raspavam na parede.</p>
+
+<h3>Atividade 13: Blocos de controle</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 11/08</p>
+
+<p><b>Descrição:</b><br>
+Ampliação do vocabulário com quatro peças de controle de fluxo, distribuídas
+entre os níveis Médio e Grande.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>“parar tudo” e “repetir para sempre”, no nível Médio</li>
+  <li>“se… senão” e “repetir até chegar perto”, no nível Grande</li>
+  <li>Nova fase que só se resolve usando o sensor</li>
+  <li>Correção da solução automática no nível Pequeno, que produzia peças que a criança daquele nível não consegue construir</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Os quatro blocos foram implementados <b>sem nenhuma instrução nova na máquina
+virtual</b>: o salto incondicional já existia desde a primeira versão, sem nunca
+ter sido usado por ninguém.</p>
+
+<p>O “repetir até” testa antes de rodar, e não depois — um laço que testa depois
+daria um passo mesmo já estando colado na parede, e o bloco diz “até chegar”, não
+“pelo menos uma vez”.</p>
+
+<h3>Atividade 14: Troca de nível com confirmação</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 11/08</p>
+
+<p><b>Descrição:</b><br>
+Correção de um defeito e uma reversão de decisão, ambos com a mesma causa: a aba
+de blocos continuava oferecendo peças do nível anterior, e passava a ser possível
+arrastar um bloco do Grande para dentro do Pequeno.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Diálogo de confirmação antes de trocar de nível, com o foco nascendo no “Não” — o que escapar por teclado escapa para o lado seguro</li>
+  <li>Fechamento da aba de blocos na troca</li>
+  <li>Duas guardas para não perguntar à toa: clicar no nível já ativo não faz nada, e espaço de trabalho vazio troca direto</li>
+  <li>Três funções novas isoladas da interface, testáveis sem navegador</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+A decisão original do projeto — “a criança nunca perde trabalho ao subir de
+nível” — precisou ser revista, e a reversão ficou registrada por escrito com o
+motivo: os blocos de controle quebraram a premissa. Um “se… senão” no Pequeno não
+tem desenho simplificado possível; ele não é o “se obstáculo” com menos campos, é
+outra coisa. A promessa só era sustentável enquanto todo bloco cabia nos três
+níveis.</p>
+
+<p>Um diálogo que aparece quando não precisa treina a criança a atravessá-lo sem
+ler, e aí ele deixa de proteger — daí as guardas.</p>
+
+<h3>Atividade 15: Roteiro de primeiro contato com a ESP32</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 17/08</p>
+
+<p><b>Descrição:</b><br>
+Documentação passo a passo do processo de gravação da placa, escrita para quem
+nunca gravou um microcontrolador.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Sete passos, começando com a placa sozinha, sem nada ligado nela — gravar a placa nua valida o software inteiro sem que nenhum fio errado possa queimar nada</li>
+  <li>Diagnóstico dos três modos de falhar ao encontrar a porta serial: cabo só de carga, um programa do sistema operacional que sequestra o adaptador, e permissão de usuário</li>
+  <li>Explicação de que são duas gravações e não uma (o firmware e os arquivos da interface), que é a confusão mais comum de primeira vez</li>
+  <li>Marco intermediário explícito: com a placa nua, apertar PLAY deve acender os blocos em sequência. Se acender, o software está provado e o que sobra é fio</li>
+  <li>Três cuidados de hardware documentados: divisor de tensão no sensor, alimentação dos motores separada da porta USB, e o pino que impede a placa de ligar se estiver em nível alto</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Roteiro completo no README, com a tabela de pinos e a indicação de qual arquivo é
+a fonte de verdade dela. O roteiro deixou de ser apenas documentação e foi
+executado com sucesso no primeiro teste real, registrado na Atividade 19.</p>
+
+<h3>Atividade 16: Exportação do programa para código Arduino</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 17/08</p>
+
+<p><b>Descrição:</b><br>
+Criação da porta de saída do ambiente de blocos: o programa montado na tela vira
+um arquivo de código Arduino que a criança lê, reconhece, e pode gravar numa
+placa de verdade. O nível Grande era o teto — acabavam os blocos.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Terceiro consumidor da mesma árvore de blocos: além das instruções da máquina virtual e da solução automática, agora um gerador de código C++</li>
+  <li>Botão “ver código” com painel na tela e download do arquivo</li>
+  <li>Tradução de todos os blocos para C++ legível, com funções em português</li>
+  <li>O arquivo carrega só as funções que o programa usa: um programa que não sente nada não leva o sensor junto</li>
+  <li>Teste que compila o C++ gerado com um compilador de verdade, contra cabeçalhos falsos do Arduino</li>
+  <li>Teste que lê os arquivos do firmware e falha se algum pino ou constante de calibração divergir da cópia no gerador</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+A criança monta blocos, aperta “ver código”, e vê o próprio programa escrito em
+C++ — com o cabeçalho avisando que gravar aquilo apaga a tela de blocos da placa,
+e como voltar.</p>
+
+<p>Três decisões técnicas registradas:</p>
+<ul>
+  <li><b>Espera bloqueante é a resposta certa aqui</b>, embora a máquina virtual seja não-bloqueante. A máquina virtual precisa servir a rede enquanto anda; o arquivo exportado não tem essa obrigação, e a função de espera do ESP32 cede o processador ao sistema, então o watchdog fica satisfeito. A forma legível e a correta são a mesma.</li>
+  <li><b>Uso da função genérica de saída analógica</b> em vez da específica do ESP32, porque a criança vai abrir o arquivo no Arduino IDE, que instala uma versão da plataforma onde aquela função mudou de assinatura — o programa não compilaria.</li>
+  <li><b>Comentário curto e pouco.</b> Quem abre o arquivo veio ler o próprio programa, não um manual. Fica só o que ela não descobre sozinha.</li>
+</ul>
+
+<p class="imagem">[inserir imagem: painel do código gerado]</p>
+
+<h3>Atividade 17: Números que se calculam, e o quarto nível</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 17/08</p>
+
+<p><b>Descrição:</b><br>
+Primeiro ciclo de uma série cujo alvo é a criança nunca esbarrar num teto. Até
+aqui, todo número num bloco era uma constante digitada: “andar frente 1 s” só
+sabia andar um segundo. Este ciclo fez um número poder ser uma conta, e abriu o
+quarto nível.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li><b>Pilha de valores na máquina virtual</b>, com instruções novas para empilhar, calcular, ler o sensor e saltar por condição. O formato de 7 bytes não mudou</li>
+  <li><b>Compilador com caminho único:</b> todo valor passa pela pilha. A alternativa era literal quando dá e pilha quando precisa, e duas regras por bloco é o dobro de jeitos de errar</li>
+  <li><b>Campos numéricos viraram encaixes:</b> o desenho é idêntico nos três níveis de baixo, e no quarto ele recebe uma peça</li>
+  <li><b>Nível Gigante (12 ou mais)</b> com 15 blocos: contas, comparações, lógica (e, ou, não), sorteio aleatório, a distância do sensor como valor, e as formas gerais “se”, “se… senão” e “repetir até”</li>
+  <li>Tradução das contas para C++ no arquivo exportado, com parênteses em toda conta composta</li>
+  <li>Teto de tamanho do programa ampliado de 256 para 1024 instruções</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+O bloco que carrega a lição é o “distância cm”. Com ele, o “se obstáculo a menos
+de 20 cm”, que a criança usa desde os sete anos, deixa de ser mágica e vira um
+caso particular de “se a distância for menor que 20”. Os dois convivem lado a
+lado no nível Gigante de propósito: o ciano sente, o amarelo decide.</p>
+
+<p>E a unificação vale até nas instruções da máquina: os três blocos de sensor do
+nível Grande deixaram de ter instrução própria e passaram a gerar exatamente a
+mesma sequência que a criança monta à mão no Gigante.</p>
+
+<p>O sistema de tipos recusa o encaixe sem sentido antes do PLAY: “andar frente
+(3 &lt; 4) s” não entra, porque “três é menor que quatro” não é uma quantidade de
+segundos; e “se (5)” não entra, porque um número não responde sim nem não. É essa
+exigência que ensina a diferença entre “quanto” e “se”.</p>
+
+<p class="imagem">[inserir imagem: nível Gigante com uma conta dentro de um bloco de movimento]</p>
+
+<h3>Atividade 18: Correções de defeitos encontrados em uso</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 17/08</p>
+
+<p><b>Descrição:</b><br>
+Três defeitos encontrados ao usar a interface, com investigação até a causa raiz
+antes de qualquer correção.</p>
+
+<p><b>O que foi feito:</b></p>
+
+<p><b>1. Contas não encaixavam e o desenho embaralhava ao arrastar.</b>
+Reproduzido dirigindo o navegador e simulando o gesto com o mouse — pressionar
+sobre o bloco na caixa, doze movimentos até o encaixe, soltar — rodando duas
+vezes, com e sem o suspeito desligado. A causa raiz era um trecho de código que
+reaplicava a configuração de nível a cada bloco criado, inclusive no meio do
+arrasto, redesenhando os blocos e mexendo no registro interno de conexões: o
+encaixe que a criança estava mirando sumia debaixo do dedo. Nunca tinha doído
+porque até então nenhum bloco recebia outro bloco dentro de si. Corrigido para
+esperar o gesto terminar, e coberto por um teste que arrasta de verdade.</p>
+
+<p><b>2. Blocos aceitando encaixes sem sentido.</b>
+Levantada a matriz completa de compatibilidade: todo valor contra todo encaixe.
+Os blocos de conta tinham sido definidos sem declarar o tipo dos encaixes, então
+aceitavam qualquer coisa. Corrigido e travado por quatro testes que percorrem a
+tabela inteira nos dois sentidos, inclusive o que não pode encaixar.</p>
+
+<p><b>3. Mensagem grande não carregava na placa.</b>
+O firmware descartava qualquer mensagem de rede que não chegasse inteira de uma
+vez, e um programa de 256 instruções já ultrapassa o tamanho máximo de pacote da
+rede — ou seja, programa grande simplesmente não carregaria, em silêncio.
+Escrito um montador de mensagens fragmentadas em C puro, sem dependência do
+Arduino, para caber num teste de mesa.</p>
+
+<p><b>Resultado:</b><br>
+Os três corrigidos na raiz, cada um com teste de regressão que foi verificado
+falhando antes da correção — um teste que nunca falhou não prova nada.</p>
+
+<p>A investigação do terceiro ainda destapou um defeito latente de configuração:
+ao acrescentar o primeiro cabeçalho local do projeto, o sistema de compilação do
+firmware parou de funcionar, porque adotava a própria pasta do projeto como se
+fosse uma biblioteca externa.</p>
+
+<h3>Atividade 19: Primeiro teste real da ESP32</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 19/08</p>
+
+<p><b>Descrição:</b><br>
+Validação do firmware numa ESP32 física, começando pela placa sozinha para
+separar o funcionamento do software das etapas posteriores de alimentação,
+driver, motores e sensor.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Gravação das duas áreas da placa: firmware e interface no LittleFS</li>
+  <li>Inicialização da ESP32 em modo ponto de acesso, com criação da rede <span class="cod">Robo-01</span> e abertura da interface servida pela própria placa</li>
+  <li>Conexão WebSocket entre navegador e ESP32, envio do programa ao apertar PLAY e execução pela máquina virtual embarcada</li>
+  <li>Inspeção pelo monitor serial do programa recebido, das instruções executadas e dos comandos enviados à camada dos motores</li>
+  <li>Confirmação visual no navegador: os blocos acenderam na ordem da execução, fechando o caminho de ida e volta entre interface e placa</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+A ESP32 funcionou com excelente estabilidade e resposta. O primeiro contato com
+hardware passou sem exigir mudança na arquitetura: a placa iniciou, criou a rede,
+serviu a interface, recebeu o programa, executou a mesma máquina virtual usada no
+robô simulado e devolveu o andamento ao navegador. Com isso, o caminho completo
+de software deixou de ser apenas compilado e simulado e passou a estar validado
+na placa real.</p>
+
+<p>O teste foi deliberadamente feito antes da montagem dos atuadores. O que
+permanece para a próxima etapa é integração elétrica e mecânica — alimentação,
+TB6612FNG, motores e HC-SR04 — e não mais a validação básica da ESP32.</p>
+
+<hr>
+
+<h2>3. Estado atual e verificação</h2>
+
+<p>Bateria de testes completa, toda verde:</p>
+
+<table>
+  <tr>
+    <th>Verificação</th>
+    <th>Escopo</th>
+    <th>Resultado</th>
+  </tr>
+  <tr>
+    <td>Testes em JavaScript</td>
+    <td>Compilador, blocos, níveis, solução automática, som, ponte e navegador</td>
+    <td><b>229 / 229</b></td>
+  </tr>
+  <tr>
+    <td>Testes em C</td>
+    <td>Máquina virtual, física e montador de mensagens</td>
+    <td>Verde</td>
+  </tr>
+  <tr>
+    <td>Teste de ponta a ponta</td>
+    <td>Robô virtual, do protocolo ao movimento</td>
+    <td>Verde</td>
+  </tr>
+  <tr>
+    <td>Teste de compatibilidade</td>
+    <td>Sintaxe aceita por tablet antigo</td>
+    <td>Verde</td>
+  </tr>
+  <tr>
+    <td>Compilação do firmware</td>
+    <td>ESP32</td>
+    <td>Sucesso — RAM 18,6%, flash 66,7%</td>
+  </tr>
+  <tr>
+    <td>Teste em hardware</td>
+    <td>Gravação, LittleFS, Wi-Fi, interface, WebSocket e execução na ESP32 física</td>
+    <td><b>Aprovado</b></td>
+  </tr>
+</table>
+
+<p>O teste dourado — o contrato do sistema — compara byte a byte os 98 bytes do
+programa de referência gerados pelo compilador JavaScript com os escritos à mão
+em C, e os dois lados são escritos independentemente.</p>
+
+<p>Níveis implementados:</p>
+
+<table>
+  <tr>
+    <th></th>
+    <th>Pequeno (4 a 6)</th>
+    <th>Médio (7 a 9)</th>
+    <th>Grande (10+)</th>
+    <th>Gigante (12+)</th>
+  </tr>
+  <tr>
+    <td><b>Movimento</b></td>
+    <td>Passo fixo</td>
+    <td>Com segundos</td>
+    <td>Com velocidade</td>
+    <td>Idem</td>
+  </tr>
+  <tr>
+    <td><b>Controle</b></td>
+    <td>Repetir</td>
+    <td>Mais parar, para sempre e se obstáculo</td>
+    <td>Mais se… senão e repetir até perto</td>
+    <td>Idem</td>
+  </tr>
+  <tr>
+    <td><b>Números</b></td>
+    <td>Bolinhas</td>
+    <td>Algarismos</td>
+    <td>Ângulo livre</td>
+    <td><b>Contas</b></td>
+  </tr>
+  <tr>
+    <td><b>Saída</b></td>
+    <td>—</td>
+    <td>—</td>
+    <td>Código Arduino</td>
+    <td>Código Arduino</td>
+  </tr>
+</table>
+
+<h2>4. Pendências</h2>
+
+<ul>
+  <li><b>Validação do código exportado num Arduino IDE real.</b> O teste compila
+      o C++ gerado com um compilador de verdade, o que prova a sintaxe, mas não
+      prova a plataforma.</li>
+  <li><b>Integração do robô físico.</b> A ESP32 e o caminho completo de software
+      já foram validados na placa real. Falta ligar e testar a alimentação, o
+      TB6612FNG, os motores e o HC-SR04.</li>
+  <li><b>Calibração real do giro.</b> Os valores usados são estimativa; só o robô
+      real dirá o quanto erram.</li>
+</ul>
+
+<h2>5. Próximos ciclos</h2>
+
+<p>Na ordem combinada, ditada pelo que a máquina virtual precisa e não por
+preferência:</p>
+
+<ol>
+  <li><b>Caixas com nome</b> — variáveis, criadas e nomeadas pela criança.</li>
+  <li><b>Tarefas e eventos</b> — “quando começar”, “quando tal condição”, avisos
+      entre pedaços do programa. Precisa de mais de um ponteiro de execução.</li>
+  <li><b>Blocos que ela inventa</b> — funções do usuário.</li>
+  <li><b>Dados</b> — listas e texto.</li>
+  <li><b>Execução viva</b> — clicar num bloco e ele rodar na hora, sem ciclo de
+      envio.</li>
+</ol>

@@ -12,3 +12,10 @@ Vendorizado, nunca por CDN, por duas razões:
   arrow functions e `let`/`const`, que o Safari do iOS 9 não lê — num iPad 2 a
   página nem chega a carregar. Não atualize sem antes decidir que tablets
   antigos deixaram de importar.
+
+`media/` é a pasta de imagens e sons da mesma versão 8.0.5, tirada do pacote
+oficial no npm. Ela ficou de fora na primeira vez, e o efeito só aparecia na
+placa: sem a opção `media` apontando para cá, o Blockly busca a lixeira, as
+lupas de zoom e os cursores no servidor dele. No computador, que tem internet,
+tudo aparecia; na ESP32, que não tem, os ícones sumiam. Quem liga as duas
+pontas é o `media: 'vendor/media/'` no `web/app.js`.

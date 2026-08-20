@@ -473,6 +473,105 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
     cdp.fechar();
   });
 
+
+/* ---------- a tela estreita ---------- */
+
+test('nada escapa pela lateral num celular nem num tablet em pé',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* O cabeçalho já teve dez itens numa faixa que não dobrava, somando 904px
+       de conteúdo. Qualquer tela mais estreita que isso — um iPad em pé tem
+       768 — perdia o PARAR para fora do alcance: a criança só chegava nele
+       arrastando a página para o lado, e uma criança não descobre isso. O que
+       se afirma aqui não é o desenho, é a regra: o que serve para apertar
+       precisa estar onde o dedo alcança. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 1) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-estreito-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 1}`,
+      '--window-size=1000,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 1}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 1}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    /* Imita a ESP32: a conexão existe, mas não chega telemetria de posição.
+       A interface escondia o painel inteiro depois de dois segundos nesse
+       caso, fazendo missão, arena e robô sumirem justamente no tablet real. */
+    await cdp.envia('Page.addScriptToEvaluateOnNewDocument', { source: `
+      (function () {
+        function WebSocketSemTelemetria() { this.readyState = 1; }
+        WebSocketSemTelemetria.OPEN = 1;
+        WebSocketSemTelemetria.prototype.send = function () {};
+        WebSocketSemTelemetria.prototype.close = function () {};
+        window.WebSocket = WebSocketSemTelemetria;
+      })();
+    ` });
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+
+    for (const [larg, alt, apelido] of [[360, 800, 'celular em pé'],
+                                        [768, 1024, 'tablet em pé']]) {
+      await cdp.envia('Emulation.setDeviceMetricsOverride',
+        { width: larg, height: alt, deviceScaleFactor: 1, mobile: true });
+      await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 1}/` });
+      /* Passa do antigo temporizador de dois segundos. */
+      await espera(3000);
+
+      const rola = await aval('document.documentElement.scrollWidth');
+      assert.strictEqual(rola, larg,
+        `${apelido}: a página tem ${rola}px de largura numa tela de ${larg} — ` +
+        'alguma coisa está empurrando o resto para fora');
+
+      /* Um a um, porque saber QUAL escapou é metade do conserto. */
+      for (const id of ['play', 'parar', 'mudo', 'niveis', 'missao', 'arena']) {
+        const fora = await aval(`(function () {
+          var e = document.getElementById('${id}');
+          if (!e) return 'sumiu';
+          var c = e.getBoundingClientRect();
+          if (c.width === 0 && c.height === 0) return 'sem tamanho';
+          var larg = document.documentElement.clientWidth;
+          return (c.left >= -1 && c.right <= larg + 1) ? '' :
+            'esq=' + Math.round(c.left) + ' dir=' + Math.round(c.right);
+        })()`);
+        assert.strictEqual(fora, '',
+          `${apelido}: #${id} está fora da tela (${fora})`);
+      }
+
+      /* Sem telemetria ainda precisa haver personagem. O centro do robô na
+         primeira missão é (1,00 m; 0,40 m), isto é, (200, 320) no canvas de
+         400px. Sem pose esse ponto tem apenas o bege do chão. */
+      const pixelRobo = JSON.parse(await aval(`(function () {
+        var c = document.getElementById('arena');
+        return JSON.stringify(Array.prototype.slice.call(
+          c.getContext('2d').getImageData(200, 320, 1, 1).data));
+      })()`));
+      assert.deepStrictEqual(pixelRobo.slice(0, 3), [55, 194, 107],
+        `${apelido}: a arena apareceu, mas o robô não foi desenhado nela`);
+    }
+
+    cdp.fechar();
+  });
+
+
 test('a peça já sai da caixa vestida do nível, antes de ser solta',
   { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
   async (t) => {

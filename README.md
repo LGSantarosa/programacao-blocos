@@ -203,12 +203,12 @@ Blockly + arena canvas           sem dependências            vm.c + física + h
 
 ```
 navegador ──WebSocket binário──► ESP32 (modo AP, 192.168.4.1)
-Blockly                          vm.c + hal_esp32
+Blockly + arena canvas           vm.c + hal_esp32
 ```
 
 A página é a mesma, o protocolo é o mesmo, o `vm.c` é o mesmo arquivo. Só muda o
-endereço — e o painel da arena some sozinho, porque o robô real se move no mundo
-real e não manda telemetria.
+endereço. No robô real a arena continua visível como referência da missão; sem
+telemetria, apenas o desenho do robô fica parado na posição inicial.
 
 ### Bytecode
 

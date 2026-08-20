@@ -63,6 +63,19 @@ function diz(rotulo, valor) {
 <script src="arena.js"></script>
 
 <script>
+/* A medida da tela vem primeiro: é a pergunta que aparece toda vez que alguém
+   diz "no meu aparelho está feio", e sem ela a conversa vira adivinhação. O que
+   decide qual regra de CSS vale é o innerWidth em pontos, não os pixels do
+   anúncio do fabricante. */
+diz('tela em pontos (é o que o CSS enxerga)',
+    window.innerWidth + ' x ' + window.innerHeight);
+diz('pixels por ponto', window.devicePixelRatio || 1);
+diz('faixa de layout',
+    window.innerWidth <= 560 ? 'celular (≤560)' :
+    window.innerWidth <= 780 ? 'estreita (≤780)' :
+    window.innerWidth <= 950 ? 'cabeçalho em duas faixas (≤950)' :
+    window.innerWidth <= 1100 ? 'tablet (≤1100)' : 'larga');
+
 diz('Blockly', typeof Blockly);
 diz('nossos módulos', (typeof Blocos) + '/' + (typeof Niveis) + '/' + (typeof Campos));
 

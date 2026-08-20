@@ -1,6 +1,6 @@
-/* Desenha o mundo virtual: o chão, os obstáculos e o feixe do ultrassônico.
-   Só existe no modo de teste: com a ESP32 nenhum pacote de telemetria chega
-   e este painel some. */
+/* Desenha a planta da missão: chão, obstáculos e feixe do ultrassônico. No
+   simulador a pose acompanha a telemetria; com a ESP32 o robô fica desenhado
+   no ponto de partida, porque a placa não informa onde está no mundo real. */
 (function (raiz) {
   'use strict';
 

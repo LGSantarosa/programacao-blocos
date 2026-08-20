@@ -30,7 +30,6 @@
   var mapaPc = [];
   var blocoAceso = null;
   var robo = null;
-  var viuTelemetria = false;
   var poseAtual = null;
   var rodando = false;
 
@@ -49,19 +48,37 @@
 
   /* A fonte dos blocos vai pelo tema, não pelo CSS: o Blockly mede o texto
      para dimensionar o bloco, e trocar a família por fora estoura a borda. */
+  /* Num celular a gaveta de blocos tem uns 230px, e com fonte 15 as peças saem
+     com 277 — a criança vê o bloco decapitado. Encolher só por CSS não adianta:
+     o Blockly mede o texto para dimensionar a peça antes de qualquer folha de
+     estilo valer, então a régua é esta linha. Medido uma vez, na entrada: girar
+     o aparelho não remonta o workspace, e uma peça que muda de tamanho no meio
+     do arrasto é pior que uma peça um pouco menor. */
+  var telaEstreita = window.innerWidth <= 560;
+
   var tema = Blockly.Theme.defineTheme('robo', {
     base: Blockly.Themes.Classic,
     /* 15 e não 11: o Blockly dimensiona o bloco a partir do texto medido,
        então a fonte é o que engorda a peça toda — e peça grande é o que um
        dedo de criança acerta. */
-    fontStyle: { family: 'system-ui, sans-serif', weight: 'bold', size: 15 },
+    fontStyle: { family: 'system-ui, sans-serif', weight: 'bold',
+                 size: telaEstreita ? 12 : 15 },
   });
 
   var workspace = Blockly.inject('editor', {
     theme: tema,
+    /* Sem isto o Blockly busca lixeira, lupas e cursores no site dele. Aqui há
+       internet e elas aparecem; na ESP32 não há, e a criança vê uma lixeira
+       invisível. O vendor/media/ é a mesma pasta da versão 8.0.5 que já está
+       em vendor/, e a barra final é obrigatória — o Blockly concatena cru. */
+    media: 'vendor/media/',
     toolbox: Niveis.caixaXml(nivel),
     trashcan: true,
-    zoom: { controls: true, startScale: 1.1, minScale: 0.6, maxScale: 2.0 },
+    /* 0.9 no celular: com 1.1 o bloco raiz nasce em 158px e mede 227, numa
+       faixa de 350 úteis — a criança abre a página e vê a peça cortada.
+       As lupas continuam ali para quem quiser aproximar. */
+    zoom: { controls: true, startScale: telaEstreita ? 0.9 : 1.1,
+            minScale: 0.6, maxScale: 2.0 },
     grid: { spacing: 22, length: 3, colour: '#dde3ea', snap: true },
   });
 
@@ -185,6 +202,11 @@
   /* ---------- missão ---------- */
 
   function mostrarMissao() {
+    /* A ESP32 não manda posição: nesse caso o desenho continua sendo a planta
+       da missão, com o robô parado no ponto de partida. No simulador esta pose
+       dura só até chegar o primeiro pacote de telemetria. */
+    poseAtual = { x: missao.inicio.x, y: missao.inicio.y,
+                  theta: missao.inicio.theta, dist: 0, colidiu: false };
     txtMissao.textContent = missao.texto;
     caixaMissao.className = '';
     btProxima.hidden = true;
@@ -231,27 +253,59 @@
   /* Abrir com ?diag mostra as medidas da página REAL na tela. Num tablet não
      há console, e medir a página de teste já provou não bastar: ela difere da
      real justamente no layout. */
+  /* Uma peça por linha, dizendo onde está e se dá para ver. É o substituto do
+     console num tablet: sem isto a única informação disponível é alguém dizendo
+     "sumiu", e sumir tem causas diferentes — não existir, ter tamanho zero,
+     estar com display:none, ou existir inteira fora da área visível. */
+  function medirPeca(id) {
+    var e = document.getElementById(id);
+    if (!e) return id + ': NAO EXISTE';
+    var c = e.getBoundingClientRect();
+    var st = window.getComputedStyle ? window.getComputedStyle(e) : null;
+    if (st && st.display === 'none') return id + ': display:none';
+    if (c.width === 0 && c.height === 0) return id + ': TAMANHO ZERO';
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var dentro = c.right > 0 && c.left < vw && c.bottom > 0 && c.top < vh;
+    return id + ': ' + Math.round(c.width) + 'x' + Math.round(c.height) +
+           ' em ' + Math.round(c.left) + ',' + Math.round(c.top) +
+           (dentro ? ' ok' : ' FORA DA TELA');
+  }
+
   if (location.search.indexOf('diag') >= 0) {
-    setTimeout(function () {
-      var ed = document.getElementById('editor');
+    var cx = document.createElement('div');
+    cx.setAttribute('style',
+      'position:fixed;left:0;bottom:0;right:0;z-index:99;background:#1b3a57;' +
+      'color:#fff;font:13px monospace;padding:8px;white-space:pre-wrap;' +
+      'line-height:1.45;max-height:62%;overflow:auto');
+    document.body.appendChild(cx);
+
+    /* Repetido, e não uma foto só: o defeito que trouxe esta barra até aqui é
+       uma peça que aparece no carregamento e some depois. Um retrato tirado a
+       1200ms mostraria justamente o instante em que ainda estava tudo bem. */
+    var conta = 0;
+    var medir = function () {
+      conta++;
       var m = medirSvg();
+      var d = document.documentElement;
       var linhas = [
-        'janela ' + window.innerWidth + 'x' + window.innerHeight,
-        'editor ' + (ed ? ed.offsetWidth + 'x' + ed.offsetHeight : 'sem div'),
-        'svg ' + m.l + 'x' + m.a,
-        'categorias ' + document.querySelectorAll('.blocklyTreeRow').length,
-        'blocos ' + document.querySelectorAll('#editor .blocklyDraggable').length,
-        'flyout ' + (workspace.getFlyout && workspace.getFlyout() ? 'sim' : 'nao'),
-        'nivel ' + nivel,
-        'estado ' + spEstado.textContent
+        't=' + conta + 's   janela ' + window.innerWidth + 'x' + window.innerHeight +
+          '   pagina ' + d.scrollWidth + 'x' + d.scrollHeight +
+          (d.scrollWidth > window.innerWidth + 1 ? '   <<< TRANSBORDA DE LADO' : ''),
+        medirPeca('editor') + '   svg ' + m.l + 'x' + m.a,
+        medirPeca('painel'),
+        medirPeca('missao'),
+        medirPeca('arena'),
+        medirPeca('leitura'),
+        'nivel ' + nivel +
+          '   categorias ' + document.querySelectorAll('.blocklyTreeRow').length +
+          '   blocos ' + document.querySelectorAll('#editor .blocklyDraggable').length +
+          '   estado ' + spEstado.textContent
       ];
-      var cx = document.createElement('div');
-      cx.setAttribute('style',
-        'position:fixed;left:0;bottom:0;right:0;z-index:99;background:#1b3a57;' +
-        'color:#fff;font:14px monospace;padding:8px;white-space:pre-wrap');
-      cx.appendChild(document.createTextNode(linhas.join('  |  ')));
-      document.body.appendChild(cx);
-    }, 1200);
+      while (cx.firstChild) cx.removeChild(cx.firstChild);
+      cx.appendChild(document.createTextNode(linhas.join('\n')));
+    };
+    medir();
+    setInterval(medir, 1000);
   }
 
   /* ---------- destaque ---------- */
@@ -398,7 +452,6 @@
         definirRodando(estado === 1);
       },
       aoTelem: function (t) {
-        if (!viuTelemetria) { viuTelemetria = true; painel.style.display = 'flex'; }
         poseAtual = t;
         if (t.colidiu && Date.now() - tColisao > Robo.MS_TONTO) {
           tColisao = Date.now();
@@ -411,9 +464,6 @@
       },
     });
   }
-
-  /* Sem telemetria por 2 s significa robô real: esconde a arena. */
-  setTimeout(function () { if (!viuTelemetria) painel.style.display = 'none'; }, 2000);
 
   /* ---------- controles ---------- */
 

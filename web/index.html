@@ -21,8 +21,17 @@
 
   * { box-sizing: border-box; }
 
+  /* height:100% e não 100vh, e a altura no html junto para o 100% ter contra o
+     que medir. Num tablet ou celular, 100vh é a janela SEM a barra de endereço
+     — a maior das duas — então a página nasce mais alta que a área visível e o
+     rodapé do corpo cai fora da tela. Era o que fazia a missão aparecer no
+     carregamento e sumir um segundo depois, quando o navegador se acertava.
+     O dvh resolveria isso numa linha e não existe no Safari do iOS 9; o 100%
+     resolve em todos. */
+  html { height: 100%; }
+
   body {
-    margin: 0; height: 100vh; display: flex; flex-direction: column;
+    margin: 0; height: 100%; display: flex; flex-direction: column;
     /* Fundo quente, não branco clínico: é o que separa brinquedo de formulário. */
     background: #eaf4fe; color: #002080;
     font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
@@ -35,8 +44,12 @@
   /* Faixa colorida em vez de branca. Branco sobre branco é o que dava cara de
      hospital, e uma barra forte também ancora a tela. */
 
+  /* Dobra em vez de esticar a página. Era nowrap, e com dez itens dentro isso
+     dava 904px de conteúdo numa faixa que não quebrava: em qualquer tela mais
+     estreita que isso — um iPad em pé tem 768 — o PARAR ficava fora do alcance,
+     só chegável arrastando a página para o lado. */
   header {
-    display: flex; align-items: center; flex-wrap: nowrap;
+    display: flex; align-items: center; flex-wrap: wrap;
     padding: 10px 14px; background: #0050f0; color: #fff;
     box-shadow: 0 3px 0 rgba(0,0,0,.12);
   }
@@ -292,10 +305,74 @@
   @media (max-width: 780px) {
     main { flex-direction: column; }
     #editor { margin-right: 0; margin-bottom: 12px; }
-    #painel { width: auto; flex-direction: row; align-items: center; }
+    /* Envolve em vez de espremer: num tablet de 7 polegadas em pé a missão
+       sobrava com 148px entre a arena e a leitura, ilegível. Com o mínimo
+       declarado, a linha quebra sozinha quando não cabe, e a missão desce
+       inteira para a faixa de cima. Onde cabe — o iPad em pé, com 744 —
+       continua tudo lado a lado. */
+    #painel { width: auto; flex-direction: row; align-items: center;
+              flex-wrap: wrap; justify-content: center; }
     #painel > * { margin-bottom: 0; margin-right: 10px; }
-    #arena { max-width: 160px; height: 160px; }
-    #leitura { flex: 1; }
+    /* width:100% na missão, herdado da coluna, a fazia disputar a linha inteira
+       com a arena; elástica ela toma só o que sobra. */
+    #missao { width: auto; flex: 1 1 240px; min-width: 240px; }
+    #arena { max-width: 220px; height: 220px; }
+    /* width:auto junto: sem ele a leitura leva os 100% da coluna para
+       dentro da linha, toma 720px e empurra missão e arena para fora
+       da tela pela esquerda. */
+    #leitura { width: auto; flex: none; }
+  }
+
+  /* Onde o cabeçalho deixa de caber numa faixa só. O corte é decidido aqui e
+     não pelo flex-wrap: o "{ } ver código" aparece e some conforme o nível, e
+     deixar o navegador escolher faria a barra saltar de duas linhas para três
+     ao trocar de nível. O espaçador vira uma linha inteira de altura zero, e
+     tudo que vem depois dele desce junto. */
+  @media (max-width: 950px) {
+    header { padding-bottom: 3px; }
+    header > * { margin-bottom: 7px; }
+    /* flex-basis junto, e não só width: a regra base dá flex:1 ao espaçador,
+       o que fixa a base em zero — o width:100% sozinho não empurra nada e a
+       barra quebra onde o navegador quiser, deixando o PARAR órfão numa
+       linha longe do PLAY. */
+    .espaco { flex: 0 0 100%; width: 100%; height: 0; margin: 0; }
+  }
+
+  /* Celular. O lugar de verdade é o tablet; aqui a meta é só não estar
+     quebrado — nada fora da tela, nada espremido, todo alvo de toque grande.
+     A página passa a rolar, e é isso que deixa cada peça manter tamanho
+     decente em vez de todas caberem apertadas. */
+  @media (max-width: 560px) {
+    body { height: auto; min-height: 100%; }
+    main { display: block; padding: 10px; }
+
+    h1 { font-size: 15px; }
+    h1 .marca { height: 26px; }
+    #erro { max-width: none; }
+    #niveis { width: 100%; }
+    #niveis button { flex: 1; font-size: 14px; padding: 10px 4px; }
+    #codigo { width: 100%; }
+    #play, #parar { flex: 1; font-size: 17px; padding: 13px 10px; }
+    #estado { width: 100%; text-align: center; }
+
+    #editor { height: 58vh; min-height: 300px; margin-right: 0; margin-bottom: 12px; }
+
+    /* Desfaz a linha da quebra de 780: em 360px ela espremia a missão a 80px
+       de largura, uma palavra por linha, e ainda começando fora da tela. */
+    #painel { width: auto; flex-direction: column; align-items: stretch; }
+    #painel > * { margin-right: 0; margin-bottom: 10px; }
+    #painel > *:last-child { margin-bottom: 0; }
+    #missao { width: 100%; flex: none; }
+    #arena { width: 260px; max-width: 100%; height: 260px;
+             margin-left: auto; margin-right: auto; }
+    #leitura { flex: none; }
+
+    /* A caixa de categorias afina para sobrar gaveta. Sozinho não resolve: a
+       largura do bloco vem da fonte que o Blockly mede, e essa mora no tema,
+       no app.js. */
+    .blocklyToolboxDiv { min-width: 104px !important; padding-top: 8px !important; }
+    .blocklyTreeLabel { font-size: 15px !important; }
+    .blocklyTreeRow { height: 40px !important; }
   }
 </style>
 </head>

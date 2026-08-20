@@ -4,10 +4,11 @@ set -eu
 
 cd "$(dirname "$0")"
 rm -rf data
-mkdir -p data/vendor data/img
+mkdir -p data/vendor/media data/img
 
 cp ../web/*.html ../web/*.js data/
 cp ../web/vendor/*.js data/vendor/
+cp ../web/vendor/media/* data/vendor/media/
 cp ../web/img/* data/img/
 
 # O ESPAsyncWebServer serve o .gz automaticamente quando só ele existe.

@@ -30,6 +30,9 @@
   var mapaPc = [];
   var blocoAceso = null;
   var robo = null;
+  /* A execução em curso conta como tentativa da missão? Só quando o que rodou
+     foi o programa da âncora. Ver definirRodando. */
+  var contarTentativa = true;
   var poseAtual = null;
   var rodando = false;
 
@@ -407,8 +410,12 @@
     if (rodando && !estaRodando) {
       /* Rodou e não chegou: uma tentativa. Depois de algumas, a ajuda aparece
          sozinha — sem a criança precisar pedir, que é justamente o que quem
-         travou não faz. */
-      if (!cumpriu) {
+         travou não faz.
+
+         Só o programa da âncora conta. Uma pilha solta rodada com o dedo é
+         exploração, não tentativa: contá-la ofereceria o gabarito a quem está
+         se divertindo, dizendo que fracassou. */
+      if (!cumpriu && contarTentativa) {
         tentativas++;
         if (tentativas >= Missoes.TENTATIVAS_ATE_AJUDA) btGabarito.hidden = false;
       }
@@ -467,19 +474,46 @@
 
   /* ---------- controles ---------- */
 
-  btPlay.addEventListener('click', function () {
+  /* O corpo do PLAY, agora com dois chamadores: o botão e o dedo.
+
+     ehPrograma diz o que rodou, não por onde foi pedido — é essa distinção
+     que a contagem de tentativas usa. */
+  function rodar(ast, ehPrograma) {
     spErro.textContent = '';
     Som.tocar('play');
     var compilado;
     try {
-      compilado = Compilador.compilar(Blocos.workspaceParaAst(workspace));
+      compilado = Compilador.compilar(ast);
     } catch (e) {
       spErro.textContent = e.message;
       return;
     }
+    contarTentativa = ehPrograma;
     mapaPc = compilado.pcMap;
     robo.carregar(compilado.bytes);
     robo.rodar();
+  }
+
+  btPlay.addEventListener('click', function () {
+    rodar(Blocos.workspaceParaAst(workspace), true);
+  });
+
+  /* Tocar numa peça roda a peça. O evento vem do próprio Blockly, e é por isso
+     que ele acerta o gesto: o handleUp do Gesture despacha em cadeia
+     exclusiva — arrastar vence campo, que vence bloco — então arrastar não
+     chega aqui, e tocar no número abre o editor sem chegar aqui. Um ouvinte
+     próprio, com raio de arrasto na mão, erraria as duas coisas.
+
+     O flyout tem workspace próprio, então a gaveta de blocos não dispara. */
+  workspace.addChangeListener(function (e) {
+    if (e.type !== Blockly.Events.CLICK || e.targetType !== 'block') return;
+    if (!robo || !robo.pronto()) return;
+    var bloco = workspace.getBlockById(e.blockId);
+    if (!bloco) return;
+    var pilha = Blocos.pilhaDoBloco(bloco);
+    if (!pilha) return;          /* relator: quem trata é a bolha */
+    if (!pilha.ast.length) return;
+    rodar(pilha.ast, pilha.ehPrograma);
   });
 
   btParar.addEventListener('click', function () { robo.parar(); });

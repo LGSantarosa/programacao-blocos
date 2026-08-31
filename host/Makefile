@@ -6,7 +6,7 @@ LDLIBS  = -lm
 
 all: robo_host
 
-robo_host: main.c hal_sim.c physics.c ../core/vm.c
+robo_host: main.c laco.c hal_sim.c relogio.c physics.c ../core/vm.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:

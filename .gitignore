@@ -4,3 +4,4 @@ tests/quadros_test
 host/robo_host
 firmware/.pio/
 firmware/data/
+tests/laco_test

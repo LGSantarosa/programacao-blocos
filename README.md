@@ -231,6 +231,9 @@ quem desenha a lista é o sistema.
 > `docs/superpowers/plans/2026-08-31-app-android.md`, tarefa 4.
 >
 > O layout ainda é o de tablet. Num celular ele aperta, e isso é ciclo próprio.
+>
+> O roteiro dessa prova — instalar, o que testar, em que ordem, e o que fazer
+> com cada resultado — está em [`docs/prova-no-aparelho.md`](docs/prova-no-aparelho.md).
 
 ---
 

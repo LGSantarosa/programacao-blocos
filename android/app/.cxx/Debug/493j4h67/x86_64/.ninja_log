@@ -1,8 +1,0 @@
-# ninja log v5
-1	30	1788189817883610252	CMakeFiles/robo.dir/home/rbe-luis/Workspace/prog_blocos/host/hal_sim.c.o	ebdbfd6080df5ad5
-2	45	1788189817898610825	CMakeFiles/robo.dir/home/rbe-luis/Workspace/prog_blocos/host/relogio.c.o	126634b524de74e3
-0	48	1788189817901610940	CMakeFiles/robo.dir/ponte.c.o	4cfb6bb55eb8f35d
-2	69	1788189817921611705	CMakeFiles/robo.dir/home/rbe-luis/Workspace/prog_blocos/host/physics.c.o	f79564fc9d79421b
-1	71	1788189817923611781	CMakeFiles/robo.dir/home/rbe-luis/Workspace/prog_blocos/core/vm.c.o	107d36ea34cc0860
-1	97	1788189817948612737	CMakeFiles/robo.dir/home/rbe-luis/Workspace/prog_blocos/host/laco.c.o	fb045a86b6c11874
-97	137	1788189817990614343	/home/rbe-luis/Workspace/prog_blocos/android/app/build/intermediates/cxx/Debug/493j4h67/obj/x86_64/librobo.so	a7f1de23777d3513

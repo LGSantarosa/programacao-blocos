@@ -11,3 +11,4 @@ android/app/build/
 android/local.properties
 android/app/src/main/assets/
 android/.cxx/
+android/app/.cxx/

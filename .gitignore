@@ -5,3 +5,9 @@ host/robo_host
 firmware/.pio/
 firmware/data/
 tests/laco_test
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/
+android/.cxx/

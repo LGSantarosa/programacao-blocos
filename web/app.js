@@ -727,17 +727,6 @@
     });
   }
 
-  /* Só dentro do app: no navegador não há como entrar na rede do robô, e um
-     botão que não faz nada é pior que botão nenhum. É o mesmo teste de
-     capacidade que decide se o .ino pode ser baixado. */
-  if (typeof Android !== 'undefined' && Android.temApp) {
-    btProcurar.hidden = false;
-    btProcurar.onclick = function () {
-      spEstado.textContent = 'procurando o robô…';
-      Android.procurarRobo();
-    };
-  }
-
   /* A ponte do app: o Kotlin diz para onde apontar, e a página reconecta sem
      recarregar — recarregar apagaria o programa que a criança montou. */
   window.App = {
@@ -747,7 +736,29 @@
       if (robo && robo.pronto()) robo.parar();
       conectar();
     },
+    /* O Kotlin avisa onde estamos depois de cada troca. A página não descobre
+       isso sozinha: entrar na rede do robô é ato do sistema. Um lugar só
+       decide o texto e o gesto, para os dois nunca discordarem. */
+    aoTrocarDeRobo: function (onde) {
+      var noRobo = onde === 'robo';
+      btProcurar.textContent = noRobo ? '🔌 voltar para o ensaio'
+                                      : '🤖 procurar o robô';
+      btProcurar.onclick = noRobo
+        ? function () { Android.voltarParaEnsaio(); }
+        : function () {
+            spEstado.textContent = 'procurando o robô…';
+            Android.procurarRobo();
+          };
+    },
   };
+
+  /* Só dentro do app: no navegador não há como entrar na rede do robô, e um
+     botão que não faz nada é pior que botão nenhum. É o mesmo teste de
+     capacidade que decide se o .ino pode ser baixado. */
+  if (typeof Android !== 'undefined' && Android.temApp) {
+    btProcurar.hidden = false;
+    window.App.aoTrocarDeRobo('ensaio');
+  }
 
   conectar();
 })();

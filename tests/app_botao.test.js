@@ -25,3 +25,11 @@ test('o gesto chama Android.procurarRobo', () => {
 test('dentro do app, o download passa pelo Kotlin e não pelo Blob', () => {
   assert.match(APP, /Android\.salvarIno\(/);
 });
+
+test('a página sabe dizer se está no ensaio ou no robô', () => {
+  assert.match(APP, /aoTrocarDeRobo/);
+});
+
+test('existe como voltar para o ensaio', () => {
+  assert.match(APP, /Android\.voltarParaEnsaio\(\)/);
+});

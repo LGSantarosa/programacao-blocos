@@ -190,6 +190,50 @@ código para isso.
 
 ---
 
+## No celular e no tablet Android
+
+A mesma tela, num app. Ele carrega o `web/` de dentro dele e traz o robô
+virtual junto — a mesma `core/vm.c`, compilada para o aparelho pelo NDK. Sem
+Wi-Fi, sem internet, sem nada ligado, o ensaio funciona.
+
+```bash
+./android/preparar_assets.sh                 # copia web/ para os assets
+cd android && ./gradlew installDebug
+```
+
+Precisa do SDK do Android (platform 34, build-tools 34) e do NDK 26.1, com o
+caminho em `android/local.properties` (`sdk.dir=...`). O wrapper do Gradle já
+está no repositório.
+
+### Ensaio e robô, um de cada vez
+
+O botão **🤖 procurar o robô** abre o diálogo do próprio Android, que lista as
+redes `Robo-*` por perto. Escolhida uma, o app passa a mandar na placa e o
+botão vira **🔌 voltar para o ensaio**. O programa montado na tela **não se
+perde na troca**: a página não recarrega, só troca de alvo.
+
+Um exclui o outro de propósito. Entrar na rede do robô prende o processo
+àquela rede — é o que faz o `192.168.4.1` responder em vez de o pedido sair
+pelo 4G — e enquanto isso o simulador de dentro do app pode ficar
+inalcançável. Voltar para o ensaio solta a rede.
+
+O app não pede permissão de localização, porque não varre Wi-Fi: quem varre e
+quem desenha a lista é o sistema.
+
+> **O que foi provado, e o que não foi.** O app compila inteiro: o APK monta
+> com o `web/` dentro, o `librobo.so` sai para arm64, arm32 e x86_64 com
+> `-Wall -Wextra -Werror`, e os 14 testes do tradutor passam na JVM.
+>
+> **Nada disso foi aberto num aparelho ainda.** Falta a prova que importa mais:
+> que o `bindProcessToNetwork` alcança o WebView — com **dados móveis
+> ligados**, que é o caso que quebra. Se não alcançar, a conversa com a placa
+> precisa sair do WebView e subir para o Kotlin. Ver
+> `docs/superpowers/plans/2026-08-31-app-android.md`, tarefa 4.
+>
+> O layout ainda é o de tablet. Num celular ele aperta, e isso é ciclo próprio.
+
+---
+
 ## Como funciona
 
 A lógica de execução mora num único arquivo C, `core/vm.c`, que não conhece
@@ -404,11 +448,17 @@ registradores, não do C++.
 ## Testes
 
 ```bash
-cd tests && make test && cd ..      # VM e física (C)
+cd tests && make test && cd ..      # VM, física, laço e montador (C)
 ./tests/host_test.sh                # robô virtual de ponta a ponta
 node --test tests/                  # compilador, bridge, níveis, som, navegador
 cd firmware && pio run && cd ..     # o firmware compila
+cd android && ./gradlew testDebugUnitTest && cd ..   # o tradutor do app (JVM)
 ```
+
+O `tests/host_test.sh` faz mais do que parece: ele é a rede de segurança do
+`host/laco.c`. Como o laço e a casca de stdio foram separados para o app
+Android caber, é ele que prova que a separação não mudou comportamento — ele
+não foi alterado uma linha desde antes disso.
 
 O mais lento deles é `tests/gabaritos.test.js`, uns três minutos: ele monta cada
 gabarito, aperta PLAY e vê se a missão é cumprida — as cinco fases nos três
@@ -446,13 +496,16 @@ criança na frente da tela.
 
 ```
 core/       vm.c vm.h hal.h bytecode.h    compartilhado entre PC e ESP32
-host/       main.c physics.c hal_sim.c    o robô virtual
+host/       laco.c main.c physics.c       o robô virtual: laco.c é o miolo,
+            hal_sim.c relogio.c           main.c é só a casca de stdio
 bridge/     server.js                     WebSocket + arquivos estáticos, zero deps
 web/        compilador.js niveis.js       compilador, níveis, campo de bolinhas
             campos.js blocos.js           blocos Blockly em português
             robo.js arena.js som.js       personagem, mundo, síntese de áudio
             rede.js app.js index.html     protocolo e fiação
 firmware/   src/main.cpp hal_esp32.cpp    a placa
+android/    app/src/main/java/...         o app: WebView, Wi-Fi, servidor local
+            app/src/main/cpp/ponte.c      JNI sobre o mesmo host/laco.c
 tests/                                    tudo acima
 docs/superpowers/                         specs e planos de implementação
 ```

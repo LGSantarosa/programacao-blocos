@@ -14,6 +14,9 @@ class PonteJs(private val tela: MainActivity) {
     @JavascriptInterface
     fun procurarRobo() = tela.procurarRobo()
 
+    @JavascriptInterface
+    fun voltarParaEnsaio() = tela.voltarParaEnsaio()
+
     /* O Blob do navegador não vira arquivo aqui: blob: nem chega no
        DownloadListener do WebView. Devolve o nome salvo, ou vazio se falhou. */
     @JavascriptInterface

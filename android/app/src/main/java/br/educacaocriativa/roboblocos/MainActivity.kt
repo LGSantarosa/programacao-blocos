@@ -67,9 +67,27 @@ class MainActivity : AppCompatActivity() {
 
     fun procurarRobo() = runOnUiThread {
         redeDoRobo.procurar(
-            aoConectar = { runOnUiThread { irPara(RedeDoRobo.IP) } },
-            aoCair = { runOnUiThread { irPara(alvoEnsaio) } },
+            aoConectar = {
+                runOnUiThread {
+                    irPara(RedeDoRobo.IP)
+                    webView.evaluateJavascript("App.aoTrocarDeRobo('robo')", null)
+                }
+            },
+            aoCair = {
+                runOnUiThread {
+                    irPara(alvoEnsaio)
+                    webView.evaluateJavascript("App.aoTrocarDeRobo('ensaio')", null)
+                }
+            },
         )
+    }
+
+    /* Soltar a rede do robô devolve o processo à rota padrão, e é o que faz o
+       127.0.0.1 do ensaio voltar a responder. Um exclui o outro. */
+    fun voltarParaEnsaio() = runOnUiThread {
+        redeDoRobo.soltar()
+        irPara(alvoEnsaio)
+        webView.evaluateJavascript("App.aoTrocarDeRobo('ensaio')", null)
     }
 
     override fun onDestroy() {

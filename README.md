@@ -240,11 +240,16 @@ quem desenha a lista é o sistema.
 > ESP32 — e o ensaio rodando sozinho com o aparelho sem rede alguma, que não
 > chegou a ser observado isolado.
 >
-> O Android 16 mostra um aviso na primeira abertura: **o app não é compatível
-> com páginas de 16 KB**, porque o segmento LOAD do `librobo.so` não está
-> alinhado. Neste aparelho ele carregou e rodou assim mesmo, mas em aparelhos
-> com página de 16 KB a biblioteca não carregaria. O conserto é alinhar no
-> link (`-Wl,-z,max-page-size=16384`) ou subir o NDK, e ainda não foi feito.
+> O Android 16 avisou, na primeira abertura, que **o app não era compatível com
+> páginas de 16 KB**: os segmentos LOAD do `librobo.so` saíam alinhados a 4 KB,
+> que é o padrão do NDK 26. Neste aparelho a biblioteca carregou assim mesmo,
+> mas num aparelho com página de 16 KB ela não carregaria — e esses estão
+> chegando.
+>
+> **Corrigido** com `-Wl,-z,max-page-size=16384` no `CMakeLists.txt`. Os três
+> `librobo.so` do APK passaram de `0x1000` para `0x4000` nos LOAD, e dentro do
+> zip eles caem em deslocamentos múltiplos de 16 KB — as duas metades do
+> requisito. Falta só reabrir o app no aparelho para ver o aviso não aparecer.
 >
 > Para chegar até aqui foi preciso desligar o **Bloqueador automático** da
 > Samsung: com ele ligado, a Depuração USB fica em cinza e a instalação por

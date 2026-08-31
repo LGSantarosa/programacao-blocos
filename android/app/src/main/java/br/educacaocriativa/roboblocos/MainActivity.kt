@@ -13,11 +13,12 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
 
-    /* Provisório: o IP da máquina onde roda o bridge/server.js. A tarefa 8
-       troca isto pelo servidor local do próprio app. */
-    private val ALVO_INICIAL = "192.168.18.9:8080"
-
     private val redeDoRobo by lazy { RedeDoRobo(this) }
+    private val servidor = ServidorLocal()
+
+    /* O robô virtual, servido de dentro do próprio app. Sem rede nenhuma
+       ligada isto continua funcionando — é o ensaio. */
+    private var alvoEnsaio = ""
 
     /* http, e não https: uma página https não consegue abrir ws:// para a
        ESP32 nem para o servidor local. É a mesma parede que o README descreve
@@ -45,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         webView.settings.mediaPlaybackRequiresUserGesture = false
         WebView.setWebContentsDebuggingEnabled(true)
         webView.addJavascriptInterface(PonteJs(this), "Android")
+        alvoEnsaio = "127.0.0.1:" + servidor.iniciar()
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
@@ -52,7 +54,7 @@ class MainActivity : AppCompatActivity() {
             ): WebResourceResponse? = carregadorDeAssets.shouldInterceptRequest(pedido.url)
 
             override fun onPageFinished(v: WebView, url: String) {
-                irPara(ALVO_INICIAL)
+                irPara(alvoEnsaio)
             }
         }
 
@@ -66,12 +68,13 @@ class MainActivity : AppCompatActivity() {
     fun procurarRobo() = runOnUiThread {
         redeDoRobo.procurar(
             aoConectar = { runOnUiThread { irPara(RedeDoRobo.IP) } },
-            aoCair = { runOnUiThread { irPara(ALVO_INICIAL) } },
+            aoCair = { runOnUiThread { irPara(alvoEnsaio) } },
         )
     }
 
     override fun onDestroy() {
         redeDoRobo.soltar()
+        servidor.parar()
         super.onDestroy()
     }
 }

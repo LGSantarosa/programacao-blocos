@@ -17,6 +17,8 @@ class MainActivity : AppCompatActivity() {
        troca isto pelo servidor local do próprio app. */
     private val ALVO_INICIAL = "192.168.18.9:8080"
 
+    private val redeDoRobo by lazy { RedeDoRobo(this) }
+
     /* http, e não https: uma página https não consegue abrir ws:// para a
        ESP32 nem para o servidor local. É a mesma parede que o README descreve
        para o site hospedado, e é por isso que o app carrega a interface de
@@ -42,7 +44,7 @@ class MainActivity : AppCompatActivity() {
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
         WebView.setWebContentsDebuggingEnabled(true)
-        webView.addJavascriptInterface(PonteJs(), "Android")
+        webView.addJavascriptInterface(PonteJs(this), "Android")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
@@ -59,5 +61,17 @@ class MainActivity : AppCompatActivity() {
 
     fun irPara(host: String) {
         webView.evaluateJavascript("App.irPara('$host')", null)
+    }
+
+    fun procurarRobo() = runOnUiThread {
+        redeDoRobo.procurar(
+            aoConectar = { runOnUiThread { irPara(RedeDoRobo.IP) } },
+            aoCair = { runOnUiThread { irPara(ALVO_INICIAL) } },
+        )
+    }
+
+    override fun onDestroy() {
+        redeDoRobo.soltar()
+        super.onDestroy()
     }
 }

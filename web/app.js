@@ -7,6 +7,7 @@
   var botoesNivel = Array.prototype.slice.call(
     document.querySelectorAll('#niveis button'));
   var spEstado = document.getElementById('estado');
+  var btProcurar = document.getElementById('procurar');
   var spErro = document.getElementById('erro');
   var divLeitura = document.getElementById('leitura');
   var ctx = document.getElementById('arena').getContext('2d');
@@ -715,6 +716,17 @@
       /* Revogar na hora cancelaria o download que acabou de começar. */
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     });
+  }
+
+  /* Só dentro do app: no navegador não há como entrar na rede do robô, e um
+     botão que não faz nada é pior que botão nenhum. É o mesmo teste de
+     capacidade que decide se o .ino pode ser baixado. */
+  if (typeof Android !== 'undefined' && Android.temApp) {
+    btProcurar.hidden = false;
+    btProcurar.onclick = function () {
+      spEstado.textContent = 'procurando o robô…';
+      Android.procurarRobo();
+    };
   }
 
   /* A ponte do app: o Kotlin diz para onde apontar, e a página reconecta sem

@@ -33,6 +33,10 @@
   var relatorEsperado = null;   /* o bloco cuja resposta estamos aguardando */
   var tempoBolha = null;
   var robo = null;
+  /* null = a origem que serviu a página, que é o caso do navegador. O app
+     Android chama App.irPara() para apontar para o simulador de dentro dele
+     ou para a placa. */
+  var alvo = null;
   /* A execução em curso conta como tentativa da missão? Só quando o que rodou
      foi o programa da âncora. Ver definirRodando. */
   var contarTentativa = true;
@@ -456,8 +460,7 @@
   }
 
   function conectar() {
-    var protocolo = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    robo = Rede.conectar(protocolo + '//' + location.host + '/', {
+    robo = Rede.conectar(Rede.url(alvo || location.host, location.protocol), {
       aoConectar: function () {
         spEstado.textContent = 'parado';
         btPlay.disabled = false;
@@ -713,6 +716,17 @@
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     });
   }
+
+  /* A ponte do app: o Kotlin diz para onde apontar, e a página reconecta sem
+     recarregar — recarregar apagaria o programa que a criança montou. */
+  window.App = {
+    alvo: function () { return alvo; },
+    irPara: function (host) {
+      alvo = host || null;
+      if (robo && robo.pronto()) robo.parar();
+      conectar();
+    },
+  };
 
   conectar();
 })();

@@ -82,5 +82,17 @@
     };
   }
 
-  raiz.Rede = { conectar };
+  /* Onde está o robô. No navegador é sempre a origem que serviu a página; no
+     app Android a origem é um carregador de assets local, e o alvo vem de fora
+     — o simulador em 127.0.0.1 ou a placa em 192.168.4.1. Só o esquema é
+     decidido aqui, e ele segue a página: wss só existe se a página veio de
+     https, e nenhum dos dois alvos locais vem. */
+  function url(host, protocoloDaPagina) {
+    var esquema = protocoloDaPagina === 'https:' ? 'wss:' : 'ws:';
+    return esquema + '//' + host + '/';
+  }
+
+  var api = { conectar, url };
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else raiz.Rede = api;
 })(typeof self !== 'undefined' ? self : globalThis);

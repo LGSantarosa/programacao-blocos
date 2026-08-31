@@ -249,7 +249,7 @@ quem desenha a lista é o sistema.
 > **Corrigido** com `-Wl,-z,max-page-size=16384` no `CMakeLists.txt`. Os três
 > `librobo.so` do APK passaram de `0x1000` para `0x4000` nos LOAD, e dentro do
 > zip eles caem em deslocamentos múltiplos de 16 KB — as duas metades do
-> requisito. Falta só reabrir o app no aparelho para ver o aviso não aparecer.
+> requisito. Reinstalado no mesmo aparelho, o aviso não aparece mais.
 >
 > Para chegar até aqui foi preciso desligar o **Bloqueador automático** da
 > Samsung: com ele ligado, a Depuração USB fica em cinza e a instalação por
@@ -272,7 +272,9 @@ quem desenha a lista é o sistema.
 > si mesma. Existe agora uma regra de altura, e nela o "próxima" e o
 > "me mostra como faz" dividem uma linha em vez de empilhar — juntos, eram eles
 > que jogavam a arena para fora da tela. O lugar do app segue sendo o tablet,
-> mas no telefone ele cabe inteiro.
+> mas no telefone ele cabe inteiro: medido no aparelho, o cabeçalho caiu de
+> 164px para 86, e a página deixou de transbordar — inclusive no pior caso, com
+> os dois botões abertos, em que o painel ainda cabe sem rolar.
 >
 > O roteiro dessa prova — instalar, o que testar, em que ordem, e o que fazer
 > com cada resultado — está em [`docs/prova-no-aparelho.md`](docs/prova-no-aparelho.md).

@@ -98,10 +98,13 @@ consegue abrir `ws://` para a ESP32, então hospedar fora quebraria a conexão.
 > LittleFS monta, o AP `Robo-01` aparece e a interface é servida. Os motores já
 > responderam a um PLAY.
 >
-> O que ainda não foi provado numa bancada é a **leitura do sensor** — o
-> caminho `👁 distância cm` → bolha existe e é testado no simulador, mas nunca
-> teve um HC-SR04 pendurado nele. Espere acertar detalhes aí, e confira o
-> sentido dos motores no primeiro `andar frente`.
+> O sensor de distância **está montado no robô** desde 31/08/2026, mas a
+> **leitura nunca foi feita**: o caminho `👁 distância cm` → bolha existe e é
+> testado no simulador, e agora tem um sensor pendurado nele, só que ninguém
+> tocou no bloco ainda. Continua sendo o ponto onde esperar acertar detalhes —
+> e o roteiro de conferência, que não precisa de motor nem de chassi, está em
+> [O sensor de distância](#o-sensor-de-distância). Confira também o sentido dos
+> motores no primeiro `andar frente`.
 
 ### Primeira vez, passo a passo
 

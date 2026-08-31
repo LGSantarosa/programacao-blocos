@@ -1,0 +1,3 @@
+/home/rbe-luis/Workspace/prog_blocos/android/app/.cxx/Debug/493j4h67/arm64-v8a/CMakeFiles/robo.dir
+/home/rbe-luis/Workspace/prog_blocos/android/app/.cxx/Debug/493j4h67/arm64-v8a/CMakeFiles/edit_cache.dir
+/home/rbe-luis/Workspace/prog_blocos/android/app/.cxx/Debug/493j4h67/arm64-v8a/CMakeFiles/rebuild_cache.dir

@@ -387,6 +387,64 @@
     .blocklyTreeLabel { font-size: 15px !important; }
     .blocklyTreeRow { height: 40px !important; }
   }
+
+  /* Celular deitado. É a forma em que o telefone roda o app — a tela é travada
+     em paisagem — e era a que faltava: todas as quebras acima olham a largura,
+     e aqui o que falta é altura. Com 808x411 o cabeçalho sozinho comia 164px,
+     e o #editor, com min-height de 260, empurrava o resto para fora da tela: a
+     página tinha 437px de conteúdo para 411 de janela.
+
+     O min-width está aqui para não pisar na régua de celular em pé, logo
+     acima: um aparelho deitado sempre passa dos 560. */
+  @media (max-height: 500px) and (min-width: 561px) {
+    /* O cabeçalho é o que mais custa — 40% da tela. Tudo nele encolhe. */
+    header { padding: 5px 10px; }
+    header > * { margin-right: 7px; margin-bottom: 4px; }
+    h1 { font-size: 15px; }
+    h1 .marca { height: 18px; margin-right: 6px; padding: 2px 4px; border-radius: 7px; }
+    button { font-size: 14px; padding: 7px 12px; }
+    #niveis { padding: 3px; }
+    #niveis button { font-size: 13px; padding: 6px 10px; }
+    #estado, #erro { font-size: 12px; }
+
+    main { padding: 8px; }
+    /* Sem isto o editor não encolhe: os 260 de min-height são maiores que a
+       altura que sobra, e era ele que fazia a página transbordar. */
+    #editor { min-height: 0; }
+
+    /* A coluna do painel cabe inteira, inclusive com o "me mostra como faz"
+       aberto — que é quando estourava. Se um dia não couber, ela rola por
+       dentro em vez de empurrar a página. Alinhada ao topo e não centrada:
+       centrar o que transborda esconde o começo, e é o começo que se lê. */
+    /* Mais largo que a régua de tablet, não mais estreito: com 200px a
+       missão quebrava em duas linhas, e altura é o que falta aqui — largura
+       sobra. A conta é a mesma do editor, que ainda fica com uns 550. */
+    #painel { width: 230px; padding: 8px; min-height: 0;
+              overflow-y: auto; justify-content: flex-start; }
+    #painel > * { margin-bottom: 6px; }
+    /* Os dois botões dividem uma linha em vez de empilhar. Eles aparecem
+       juntos de verdade: quem pediu ajuda e depois cumpriu a missão fica com
+       o "me mostra como faz" e o "próxima" na tela ao mesmo tempo, e
+       empilhados eram eles que empurravam a arena para fora.
+
+       Sem gap, que não existe no Safari do iOS 9 — a margem vai no próxima,
+       que some junto com ele quando está escondido e não deixa buraco. */
+    #missao { display: flex; flex-wrap: wrap; align-items: center;
+              font-size: 13px; padding: 6px 8px; border-radius: 10px; }
+    #missao-texto { flex: 1 1 100%; }
+    /* Fonte menor porque a regra base é nowrap: dividindo a linha, o
+       "me mostra como faz" não cabia e era cortado no meio da palavra. */
+    /* Fonte menor porque a regra base é nowrap: dividindo a linha, o
+       "me mostra como faz" não cabia e era cortado no meio da palavra. E a
+       sobra vai toda para ele: o "próxima" fica no tamanho do que escreve,
+       porque em partes iguais ainda faltava espaço para o texto longo. */
+    #proxima, #gabarito { width: auto; min-width: 0;
+                          font-size: 11px; padding: 7px 6px; margin-top: 6px; }
+    #proxima { flex: 0 1 auto; margin-right: 6px; }
+    #gabarito { flex: 1 1 auto; }
+    #arena { max-width: 144px; height: 144px; border-width: 2px; }
+    #leitura { font-size: 13px; padding: 6px 8px; }
+  }
 </style>
 </head>
 <body>

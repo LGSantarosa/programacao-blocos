@@ -79,6 +79,15 @@
       },
       rodar: function () { if (pronto()) ws.send(new Uint8Array([T_RUN])); },
       parar: function () { if (pronto()) ws.send(new Uint8Array([T_STOP])); },
+      /* Desligar os manipuladores antes de fechar é o ponto: quem troca de
+         alvo não quer o aoDesconectar do soquete velho mexendo na tela nem
+         agendando reconexão. Sem isto o soquete abandonado continua vivo do
+         lado de lá — e o servidor local, que atende um por vez, fica preso
+         nele para sempre. */
+      fechar: function () {
+        ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
+        try { ws.close(); } catch (e) { }
+      },
     };
   }
 

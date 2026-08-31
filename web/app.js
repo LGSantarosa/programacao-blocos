@@ -34,6 +34,7 @@
   var relatorEsperado = null;   /* o bloco cuja resposta estamos aguardando */
   var tempoBolha = null;
   var robo = null;
+  var geracaoDaConexao = 0;
   /* null = a origem que serviu a página, que é o caso do navegador. O app
      Android chama App.irPara() para apontar para o simulador de dentro dele
      ou para a placa. */
@@ -461,8 +462,15 @@
   }
 
   function conectar() {
+    /* Cada conexão leva um número. Uma reconexão já agendada por um soquete
+       velho acorda depois da troca de alvo, e sem isto abriria uma conexão a
+       mais — que abre outra ao morrer, e mais outra. */
+    var minha = ++geracaoDaConexao;
+    function souAtual() { return minha === geracaoDaConexao; }
+
     robo = Rede.conectar(Rede.url(alvo || location.host, location.protocol), {
       aoConectar: function () {
+        if (!souAtual()) return;
         spEstado.textContent = 'parado';
         btPlay.disabled = false;
         /* Cada conexão sobe um robô virtual novo, com a arena padrão: ele
@@ -470,12 +478,13 @@
         enviarArena();
       },
       aoDesconectar: function () {
+        if (!souAtual()) return;
         spEstado.textContent = 'desconectado';
         /* Cair a conexão no meio de uma execução não é terminar o programa. */
         rodando = false;
         btPlay.disabled = true;
         btParar.disabled = true;
-        setTimeout(conectar, 1500);
+        setTimeout(function () { if (souAtual()) conectar(); }, 1500);
       },
       aoPc: function (pc) {
         var id = pc < mapaPc.length ? mapaPc[pc] : null;
@@ -733,7 +742,14 @@
     alvo: function () { return alvo; },
     irPara: function (host) {
       alvo = host || null;
-      if (robo && robo.pronto()) robo.parar();
+      /* Parar antes de fechar, para o robô que estamos deixando não seguir
+         andando sozinho. Fechar é obrigatório: um soquete abandonado prende o
+         servidor local, que atende um cliente por vez. */
+      if (robo) {
+        if (robo.pronto()) robo.parar();
+        robo.fechar();
+        robo = null;
+      }
       conectar();
     },
     /* O Kotlin avisa onde estamos depois de cada troca. A página não descobre

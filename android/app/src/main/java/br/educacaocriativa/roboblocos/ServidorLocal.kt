@@ -11,31 +11,57 @@ import kotlin.concurrent.thread
 
 /* O bridge/server.js dentro do app, sem a parte de servir arquivos: aqui os
    arquivos vêm dos assets. Só 127.0.0.1, e só um cliente por vez — há um robô
-   e uma criança. */
+   e uma criança. Um por vez, mas nunca preso ao primeiro: ver
+   trocarDeCliente. */
 class ServidorLocal {
 
     private var tomada: ServerSocket? = null
     private var vivo = false
+    private var clienteAtual: Socket? = null
+    private var atendimento: Thread? = null
 
     /* Porta zero: quem escolhe é o sistema, e o número volta daqui. Porta fixa
        brigaria com qualquer outro app que já a tivesse tomado. */
     fun iniciar(): Int {
-        val s = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
+        val s = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
         tomada = s
         vivo = true
         thread(name = "servidor-local") {
             while (vivo) {
                 val cliente = try { s.accept() } catch (e: Exception) { break }
-                try { atender(cliente) } catch (e: Exception) { }
+                trocarDeCliente(cliente)
             }
         }
         return s.localPort
+    }
+
+    /* Aceitar sempre, e atender fora do laço. Atender dentro dele travava o
+       servidor: um cliente que a página largou sem fechar — o que acontecia a
+       cada troca entre ensaio e robô — segurava o accept para sempre, e toda
+       conexão seguinte morria esperando na fila.
+
+       Continua um cliente por vez, que é o certo: há um robô e uma criança. O
+       que muda é quem ganha. Quem chega manda, e o anterior é dispensado;
+       antes o primeiro mandava, para sempre. */
+    private fun trocarDeCliente(cliente: Socket) {
+        try { clienteAtual?.close() } catch (e: Exception) { }
+        /* Esperar o anterior sair de cena: a VM é uma só e não tem trava, e
+           dois atendimentos ao mesmo tempo a corromperiam. Fechar o soquete
+           dele acima é o que desbloqueia a leitura e faz esta espera ser
+           curta. */
+        atendimento?.join(1500)
+        clienteAtual = cliente
+        atendimento = thread(name = "atende") {
+            try { atender(cliente) } catch (e: Exception) { }
+        }
     }
 
     fun parar() {
         vivo = false
         try { tomada?.close() } catch (e: Exception) { }
         tomada = null
+        try { clienteAtual?.close() } catch (e: Exception) { }
+        clienteAtual = null
     }
 
     private fun atender(cliente: Socket) {

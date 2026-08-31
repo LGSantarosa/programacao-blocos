@@ -255,7 +255,24 @@ quem desenha a lista é o sistema.
 > Samsung: com ele ligado, a Depuração USB fica em cinza e a instalação por
 > fora da Play Store é barrada.
 >
-> O layout ainda é o de tablet. Num celular ele aperta, e isso é ciclo próprio.
+> Duas coisas quebravam e foram consertadas depois dessa prova.
+>
+> **Entrar no robô com o celular já num Wi-Fi travava o app.** A página nunca
+> fechava o soquete anterior ao trocar de alvo, e o servidor local atendia um
+> cliente por vez dentro do próprio laço de `accept` — então o soquete
+> abandonado do ensaio o prendia para sempre, e toda conexão seguinte morria na
+> fila. Com dados móveis o problema se escondia: prender o processo à rede do
+> robô matava o loopback, o soquete abandonado caía sozinho e o servidor se
+> soltava. No Wi-Fi ele não caía. Agora a página fecha o que larga, e o
+> servidor aceita sempre — um cliente por vez ainda, mas quem chega manda.
+>
+> **O layout do celular deitado.** Todas as quebras do CSS olhavam largura, e o
+> que falta num telefone deitado é altura: em 808x411 o cabeçalho comia 40% da
+> tela e o `#editor`, com `min-height` de 260, empurrava a página para fora de
+> si mesma. Existe agora uma regra de altura, e nela o "próxima" e o
+> "me mostra como faz" dividem uma linha em vez de empilhar — juntos, eram eles
+> que jogavam a arena para fora da tela. O lugar do app segue sendo o tablet,
+> mas no telefone ele cabe inteiro.
 >
 > O roteiro dessa prova — instalar, o que testar, em que ordem, e o que fazer
 > com cada resultado — está em [`docs/prova-no-aparelho.md`](docs/prova-no-aparelho.md).

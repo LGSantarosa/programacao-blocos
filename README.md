@@ -220,15 +220,35 @@ inalcançável. Voltar para o ensaio solta a rede.
 O app não pede permissão de localização, porque não varre Wi-Fi: quem varre e
 quem desenha a lista é o sistema.
 
-> **O que foi provado, e o que não foi.** O app compila inteiro: o APK monta
-> com o `web/` dentro, o `librobo.so` sai para arm64, arm32 e x86_64 com
-> `-Wall -Wextra -Werror`, e os 14 testes do tradutor passam na JVM.
+> **O que foi provado, e o que não foi.** O app rodou num aparelho: um Galaxy
+> S24 FE (SM-S721B) com Android 16, em 31/08/2026. O APK foi montado do commit
+> do dia com SDK 34 e NDK 26.1, e instalado por `adb install`.
 >
-> **Nada disso foi aberto num aparelho ainda.** Falta a prova que importa mais:
-> que o `bindProcessToNetwork` alcança o WebView — com **dados móveis
-> ligados**, que é o caso que quebra. Se não alcançar, a conversa com a placa
-> precisa sair do WebView e subir para o Kotlin. Ver
-> `docs/superpowers/plans/2026-08-31-app-android.md`, tarefa 4.
+> **O `bindProcessToNetwork` alcança o WebView.** Era a prova que faltava, e
+> ela passou no caso que quebra: com os **dados móveis ligados**, o
+> **🤖 procurar o robô** abriu o diálogo do Android, o `Robo-01` estava lá, e
+> depois de escolhido o **PLAY moveu o robô de verdade**. O 4G continuou como
+> rota padrão do aparelho e o `ws://192.168.4.1` chegou na placa mesmo assim.
+> A conversa com o robô pode continuar dentro do WebView; o plano de recuo de
+> subir tudo para o Kotlin não foi preciso.
+>
+> O **🔌 voltar para o ensaio** também funcionou: volta ao robô da arena com o
+> programa ainda montado na tela.
+>
+> Ficaram **sem prova nesta sessão**: a leitura do `👁 distância cm` no robô de
+> verdade — que segue sem nunca ter sido lida de um HC-SR04, como na seção da
+> ESP32 — e o ensaio rodando sozinho com o aparelho sem rede alguma, que não
+> chegou a ser observado isolado.
+>
+> O Android 16 mostra um aviso na primeira abertura: **o app não é compatível
+> com páginas de 16 KB**, porque o segmento LOAD do `librobo.so` não está
+> alinhado. Neste aparelho ele carregou e rodou assim mesmo, mas em aparelhos
+> com página de 16 KB a biblioteca não carregaria. O conserto é alinhar no
+> link (`-Wl,-z,max-page-size=16384`) ou subir o NDK, e ainda não foi feito.
+>
+> Para chegar até aqui foi preciso desligar o **Bloqueador automático** da
+> Samsung: com ele ligado, a Depuração USB fica em cinza e a instalação por
+> fora da Play Store é barrada.
 >
 > O layout ainda é o de tablet. Num celular ele aperta, e isso é ciclo próprio.
 >

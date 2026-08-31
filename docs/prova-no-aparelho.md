@@ -3,6 +3,15 @@
 Data: 2026-08-31. Escrito para a sessão do Claude **no notebook**, que tem o
 repositório mas não a conversa em que isto foi construído.
 
+> **Feito em 31/08/2026, num Galaxy S24 FE com Android 16.** O portão passou:
+> com os dados móveis ligados, o app entrou na rede do `Robo-01` e o PLAY moveu
+> o robô de verdade — o `bindProcessToNetwork` alcança o WebView, e o caminho de
+> recuo descrito aqui não foi preciso. O que ficou de fora, e dois achados
+> novos, estão no `README.md`, na seção "No celular e no tablet Android".
+>
+> O que segue é o roteiro como foi escrito antes da prova. Vale como receita
+> para repetir em outro aparelho.
+
 ## Em uma frase
 
 O app Android está inteiro no `master` e compila, mas **nunca foi aberto num

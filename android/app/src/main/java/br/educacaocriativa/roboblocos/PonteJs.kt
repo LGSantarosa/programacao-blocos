@@ -13,4 +13,10 @@ class PonteJs(private val tela: MainActivity) {
        tem que voltar para a principal, e MainActivity.procurarRobo faz isso. */
     @JavascriptInterface
     fun procurarRobo() = tela.procurarRobo()
+
+    /* O Blob do navegador não vira arquivo aqui: blob: nem chega no
+       DownloadListener do WebView. Devolve o nome salvo, ou vazio se falhou. */
+    @JavascriptInterface
+    fun salvarIno(texto: String): String =
+        Arquivos.salvarEmDownloads(tela, "robo.ino", texto)
 }

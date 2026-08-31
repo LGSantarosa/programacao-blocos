@@ -21,3 +21,7 @@ test('o botão só se revela quando window.Android existe', () => {
 test('o gesto chama Android.procurarRobo', () => {
   assert.match(APP, /Android\.procurarRobo\(\)/);
 });
+
+test('dentro do app, o download passa pelo Kotlin e não pelo Blob', () => {
+  assert.match(APP, /Android\.salvarIno\(/);
+});

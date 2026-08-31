@@ -678,8 +678,8 @@
   /* O download precisa de Blob e do atributo download, e o Safari do iOS 9 não
      tem nenhum dos dois. Botão que não faz nada ensina a criança a desconfiar
      da tela: no tablet velho ele não nasce, e sobra o texto para selecionar. */
-  var podeBaixar = typeof Blob !== 'undefined' &&
-    'download' in document.createElement('a');
+  var podeBaixar = (typeof Android !== 'undefined' && Android.salvarIno) ||
+    (typeof Blob !== 'undefined' && 'download' in document.createElement('a'));
   if (!podeBaixar && btCodigoBaixar.parentNode) {
     btCodigoBaixar.parentNode.removeChild(btCodigoBaixar);
   }
@@ -705,6 +705,15 @@
 
   if (podeBaixar) {
     btCodigoBaixar.addEventListener('click', function () {
+      /* Dentro do app o Blob não vira arquivo: blob: nem chega no
+         DownloadListener do WebView. O texto atravessa para o Kotlin, que
+         escreve em Downloads pelo MediaStore. */
+      if (typeof Android !== 'undefined' && Android.salvarIno) {
+        var nome = Android.salvarIno(preCodigo.textContent);
+        spEstado.textContent = nome ? 'salvo em Downloads/' + nome
+                                    : 'não deu para salvar';
+        return;
+      }
       var blob = new Blob([preCodigo.textContent], { type: 'text/plain' });
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');

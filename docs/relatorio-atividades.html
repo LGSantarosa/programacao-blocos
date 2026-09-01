@@ -551,7 +551,121 @@ na placa real.</p>
 permanece para a próxima etapa é integração elétrica e mecânica — alimentação,
 TB6612FNG, motores e HC-SR04 — e não mais a validação básica da ESP32.</p>
 
-<h3>Atividade 20: Integração elétrica e primeira leitura do sensor</h3>
+<h3>Atividade 20: Ícones desenhados em vez de escritos</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 20/08</p>
+
+<p><b>Descrição:</b><br>
+Substituição dos símbolos de texto que abrem os blocos por desenhos próprios, e
+correção da peça que mudava de cara depois de sair da caixa de blocos.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Setas de andar e voltas de girar redesenhadas em SVG embutido no próprio bloco</li>
+  <li>Ícone com nome próprio, para a tabela de níveis conseguir reacendê-lo quando
+      a fileira em que ele mora se esconde</li>
+  <li>Fileira própria para o menu do girar, sem a qual esconder o ângulo demolia a
+      linha onde o menu estava</li>
+  <li>Configuração do nível aplicada ao bloco ainda dentro da caixa, e não depois
+      de ele ser solto na tela</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Um caractere só existe se a fonte do aparelho tiver aquele desenho. As setas de
+rotação não estão na fonte do Android: num celular o menu do girar virava um
+retângulo vazio — e no nível Pequeno, onde as palavras somem, a peça inteira
+ficava sem sinal nenhum. As setas de andar tinham a doença irmã: quando o
+aparelho as troca por emoji colorido, a largura muda depois de a biblioteca já
+ter medido a peça, e ela sai torta. O desenho embutido resolve os dois.</p>
+
+<h3>Atividade 21: Layout para tablet em pé e para celular</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 20/08</p>
+
+<p><b>Descrição:</b><br>
+Adaptação da tela às larguras que ela não cobria. O ambiente foi desenhado para
+tablet deitado, e a primeira prova em hardware foi feita abrindo a interface da
+placa num celular — onde a tela apareceu quebrada.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Cabeçalho que dobra em vez de esticar: eram dez itens numa faixa que não
+      quebrava, e em qualquer tela mais estreita que 904 pixels o botão PARAR
+      ficava fora do alcance</li>
+  <li>Altura da página medida em porcentagem no lugar da altura da janela, que num
+      aparelho móvel é medida sem a barra de endereço</li>
+  <li>Três cortes de largura, cada um com um desenho: o do cabeçalho, o do painel
+      lateral e o do celular</li>
+  <li>Pasta de imagens e sons da biblioteca incorporada ao projeto e copiada para
+      a placa</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+A interface deixou de estar quebrada no celular. No mesmo ciclo, um defeito que só
+aparecia na placa: a pasta de imagens da biblioteca tinha ficado de fora, então a
+lixeira, as lupas e os cursores eram buscados no servidor dela. No computador, que
+tem internet, tudo aparecia; na ESP32, que não tem, os ícones sumiam. É o tipo de
+falha que a simulação não pega, porque a simulação roda numa máquina conectada.</p>
+
+<h3>Atividade 22: Execução viva — tocar numa peça e ela roda</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 21/08</p>
+
+<p><b>Descrição:</b><br>
+Segundo ciclo da série cujo alvo é a criança nunca esbarrar num teto. Até aqui só
+existia uma maneira de o robô se mexer: montar o programa dentro do bloco “quando
+apertar PLAY” e apertar PLAY. Um bloco solto no canto era papel. Este ciclo faz
+tocar numa peça rodar aquela peça na hora, e tocar num relator mostrar o valor
+dele numa bolha.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Instrução nova de relato na máquina virtual, com a quarta função na camada
+      de hardware: entregar um valor de volta a quem perguntou</li>
+  <li>Caminho de volta completo — a máquina virtual relata, a ponte traduz e o
+      navegador desenha a bolha ao lado da peça tocada</li>
+  <li>Ciclo partido em duas etapas, a primeira funcionando na placa já gravada,
+      sem instrução nova nenhuma</li>
+  <li>Sete tarefas com testes próprios, incluindo os que dirigem o navegador de
+      verdade e simulam o toque</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+O gesto central do MicroBlocks, que troca o ciclo “monto tudo, mando, vejo,
+conserto” por “toco, vejo”. O número da bolha não é calculado pelo navegador: ele
+desce até a máquina virtual e volta de lá, então é o mesmo número que o robô
+usaria — e na ESP32 isso lê o sensor de verdade. O dedo virou a melhor ferramenta
+de bancada que o projeto tem.</p>
+
+<p>O limite ficou escrito junto: um toque interrompe o que estiver rodando, porque
+a máquina virtual tem um ponteiro de execução e um programa só. Não é defeito — é
+o teto desta versão, e é o que o ciclo de tarefas e eventos existe para levantar.</p>
+
+<h3>Atividade 23: Qual sensor comprar</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 21/08</p>
+
+<p><b>Descrição:</b><br>
+Revisão da recomendação de hardware do sensor de distância, escrita para quem vai
+comprar a peça antes de montar o robô.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Indicação do sensor de 3,3 V nativo — HC-SR04P ou RCWL-1601 — no lugar do
+      HC-SR04 comum</li>
+  <li>Tabela de ligação dos quatro fios, sem nenhum componente no meio</li>
+  <li>Registro do porquê, e do único caminho alternativo para quem já tem o sensor
+      comum em casa</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Um sensor de dez reais resolve no ato o que de outro modo vira um divisor de
+tensão soldado no meio do fio. O comum é alimentado com 5 V e devolve 5 V no pino
+de eco, enquanto a entrada da ESP32 aguarda 3,3 V: ligar direto vai degradando o
+pino até ele morrer. Não há terceiro caminho — ou o sensor é de 3,3 V, ou entra o
+divisor.</p>
+
+<h3>Atividade 24: Integração elétrica e primeira leitura do sensor</h3>
 <p class="campo"><b>Status:</b> Concluído<br>
 <b>Data:</b> 31/08 e 01/09</p>
 
@@ -581,7 +695,7 @@ apenas a leitura — a placa informa só aquilo que de fato sabe. A leitura é f
 dez vezes por segundo e não é feita quando não há ninguém conectado, porque o
 sensor custa até 25 ms por medição e esse tempo sairia do laço de execução.</p>
 
-<h3>Atividade 21: Identidade do aplicativo</h3>
+<h3>Atividade 25: Identidade do aplicativo</h3>
 <p class="campo"><b>Status:</b> Concluído<br>
 <b>Data:</b> 01/09</p>
 
@@ -604,7 +718,7 @@ Nome e ícone do aplicativo Android, que até então usava um nome provisório e
 Verificado no aparelho: o rótulo aparece no lançador, no cabeçalho e nos próprios
 diálogos do sistema Android.</p>
 
-<h3>Atividade 22: Teclado numérico para trocar os números dos blocos</h3>
+<h3>Atividade 26: Teclado numérico para trocar os números dos blocos</h3>
 <p class="campo"><b>Status:</b> Concluído<br>
 <b>Data:</b> 01/09</p>
 
@@ -645,7 +759,7 @@ testes que dirigem um navegador de verdade, um deles com eventos de toque —
 quarto teste garante que o teclado cabe inteiro na tela de um telefone deitado,
 a pior medida de altura do projeto.</p>
 
-<h3>Atividade 23: Calibração das velocidades no robô real</h3>
+<h3>Atividade 27: Calibração das velocidades no robô real</h3>
 <p class="campo"><b>Status:</b> Concluído<br>
 <b>Data:</b> 01/09</p>
 
@@ -792,9 +906,9 @@ em C, e os dois lados são escritos independentemente.</p>
       prova a plataforma.</li>
   <li><b>Integração do robô físico.</b> <i>Concluída em 01/09</i> — alimentação,
       driver TB6612FNG, motores e HC-SR04 validados no chassi montado
-      (Atividades 20 e 23).</li>
+      (Atividades 24 e 27).</li>
   <li><b>Calibração do giro.</b> As três velocidades de andar foram medidas no
-      robô (Atividade 23), mas o giro usa um valor próprio, ainda estimado — e é
+      robô (Atividade 27), mas o giro usa um valor próprio, ainda estimado — e é
       o mesmo valor que mal tira o robô da inércia andando reto. Como girar no
       lugar é mais pesado que andar, porque as rodas arrastam de lado, é provável
       que o bloco de giro tenha hoje o mesmo defeito que a velocidade
@@ -804,7 +918,70 @@ em C, e os dois lados são escritos independentemente.</p>
       bancada. Bateria descarregando altera todos os limiares medidos.</li>
 </ul>
 
-<h2>5. Próximos ciclos</h2>
+<h2>5. Plano das próximas duas semanas</h2>
+
+<p>As atividades abaixo estão <b>planejadas</b>, não realizadas. Elas saem
+diretamente das pendências da seção 4 e do que a sessão de 01/09 deixou anotado
+como não medido.</p>
+
+<table>
+  <tr>
+    <th>Data prevista</th>
+    <th>Atividade</th>
+    <th>Por que é necessária</th>
+  </tr>
+  <tr>
+    <td>02/09 a 03/09</td>
+    <td><b>Calibração do giro no robô real</b></td>
+    <td>O giro usa um valor próprio, ainda estimado, e é o mesmo que mal tira o
+        robô da inércia andando reto. Girar no lugar é mais pesado, porque as
+        rodas arrastam de lado: é provável que o bloco de giro tenha hoje o mesmo
+        defeito que a velocidade <i>devagar</i> tinha. Envolve medir com a régua
+        de bancada, ajustar o valor e refazer a relação entre tempo e ângulo.</td>
+  </tr>
+  <tr>
+    <td>04/09</td>
+    <td><b>Verificação do ângulo girado</b></td>
+    <td>Mudar a velocidade de giro muda quantos milissegundos custa um grau, e
+        esse número está copiado em três lugares — a máquina virtual, a física do
+        robô virtual e o código Arduino exportado. Medir o ângulo real de um giro
+        de 90 e de 360 graus, e reconciliar os três.</td>
+  </tr>
+  <tr>
+    <td>05/09</td>
+    <td><b>Blocos de sensor rodando no robô montado</b></td>
+    <td>A leitura do sensor está provada, mas os blocos que <i>decidem</i> a
+        partir dela — “se obstáculo a menos de”, “repetir até chegar perto” —
+        nunca foram executados no robô real com o sensor ligado. É o caminho
+        completo: sensor, decisão e motor.</td>
+  </tr>
+  <tr>
+    <td>08/09 a 09/09</td>
+    <td><b>Autonomia e comportamento com bateria</b></td>
+    <td>Todas as velocidades foram medidas com fonte de bancada em 7,5 V fixos.
+        Bateria descarregando baixa a tensão, e o limiar em que o robô sai da
+        inércia sobe junto: o <i>devagar</i> pode parar de andar com a bateria
+        pela metade. Medir com as 18650 em três estados de carga.</td>
+  </tr>
+  <tr>
+    <td>10/09</td>
+    <td><b>Missões no robô real</b></td>
+    <td>A chegada à estrela é decidida pela posição que a telemetria informa, e a
+        placa não tem física para informar posição alguma. No robô real a missão
+        nunca se dá por cumprida. Definir o que a missão significa fora da arena
+        simulada.</td>
+  </tr>
+  <tr>
+    <td>11/09 a 12/09</td>
+    <td><b>Validação do código exportado num Arduino IDE real</b></td>
+    <td>Pendência aberta desde a Atividade 16. O teste automatizado compila o C++
+        gerado com um compilador de verdade, o que prova a sintaxe, mas não prova
+        a plataforma: bibliotecas, versão do núcleo ESP32 e gravação pelo próprio
+        IDE.</td>
+  </tr>
+</table>
+
+<h2>6. Próximos ciclos</h2>
 
 <p>Na ordem combinada, ditada pelo que a máquina virtual precisa e não por
 preferência:</p>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Robô de Blocos</title>
+<title>Programação Criativa</title>
 <link rel="icon" href="img/foguete.png">
 <link rel="apple-touch-icon" href="img/foguete.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -189,6 +189,48 @@
   #confirma-nao { background: #002080; box-shadow: 0 5px 0 #00185f; }
   #confirma-sim { background: #f0c000; color: #002080;
                   box-shadow: 0 5px 0 #c49c00; }
+
+  /* ---------- teclado numérico ---------- */
+
+  /* Por que existe: web/teclado.js. Aqui é só o desenho — teclas grandes,
+     porque quem troca o número é o mesmo dedo que aperta o PLAY. */
+
+  #teclado {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 210;
+    background: rgba(0, 32, 128, .55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  /* Obrigatório, mesmo motivo do #confirma: o display:flex vence o [hidden]. */
+  #teclado[hidden] { display: none; }
+
+  #teclado-caixa {
+    background: #fff; border-radius: 22px; padding: 20px 22px;
+    text-align: center; box-shadow: 0 10px 0 rgba(0, 32, 128, .25);
+  }
+  #teclado-titulo { margin: 0 0 10px; font-size: 21px; font-weight: 800;
+                    color: #002080; }
+  /* O número aparece grande e sozinho: é ele que a criança está trocando, e
+     ela precisa ver o que já apertou antes de dizer pronto. */
+  #teclado-valor {
+    font-size: 30px; font-weight: 800; color: #0050f0;
+    background: #f2f5fb; border-radius: 12px; padding: 8px 10px;
+    margin-bottom: 12px; min-height: 38px; line-height: 38px;
+    font-family: monospace; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* Sem gap nem grid, que o Safari do iOS 9 não tem: largura fixa e margem
+     fazem as três colunas. */
+  #teclado-teclas { display: flex; flex-wrap: wrap; width: 252px; }
+  #teclado-teclas button {
+    width: 74px; height: 56px; margin: 0 5px 10px 5px; padding: 0;
+    font-size: 24px; background: #0050f0; box-shadow: 0 4px 0 #003bb3;
+    border-radius: 14px;
+  }
+  #teclado-teclas button:active { box-shadow: 0 1px 0 rgba(0,0,0,.25); }
+  #teclado-botoes { display: flex; justify-content: center; }
+  #teclado-botoes button { margin: 0 5px; font-size: 18px; padding: 12px 20px; }
+  #teclado-nao { background: #002080; box-shadow: 0 5px 0 #00185f; }
+  #teclado-sim { background: #37c26b; box-shadow: 0 5px 0 #2a9c54; }
 
   /* ---------- corpo ---------- */
 
@@ -444,12 +486,24 @@
     #gabarito { flex: 1 1 auto; }
     #arena { max-width: 144px; height: 144px; border-width: 2px; }
     #leitura { font-size: 13px; padding: 6px 8px; }
+
+    /* Num telefone deitado sobram 411px de altura, e a caixa inteira precisa
+       caber neles: sem esta régua as teclas de baixo — o 0 e o apagar — ficam
+       fora da tela, e com elas o "pronto". */
+    #teclado-caixa { padding: 12px 14px; }
+    #teclado-titulo { font-size: 16px; margin-bottom: 6px; }
+    #teclado-valor { font-size: 22px; min-height: 30px; line-height: 30px;
+                     margin-bottom: 8px; }
+    #teclado-teclas { width: 216px; }
+    #teclado-teclas button { width: 64px; height: 42px; font-size: 19px;
+                             margin: 0 4px 7px 4px; }
+    #teclado-botoes button { font-size: 15px; padding: 9px 16px; }
   }
 </style>
 </head>
 <body>
   <header>
-    <h1><img class="marca" src="img/foguete.png" alt="Educação Criativa">Robô de Blocos</h1>
+    <h1><img class="marca" src="img/foguete.png" alt="Educação Criativa">Programação Criativa</h1>
     <span id="erro"></span>
     <span class="espaco"></span>
     <div id="niveis" role="group" aria-label="nível">
@@ -493,6 +547,32 @@
     </div>
   </div>
 
+  <div id="teclado" hidden>
+    <div id="teclado-caixa" role="dialog" aria-modal="true"
+         aria-labelledby="teclado-titulo">
+      <h2 id="teclado-titulo">Qual número?</h2>
+      <div id="teclado-valor" aria-live="polite">1</div>
+      <div id="teclado-teclas">
+        <button type="button" data-tecla="7">7</button>
+        <button type="button" data-tecla="8">8</button>
+        <button type="button" data-tecla="9">9</button>
+        <button type="button" data-tecla="4">4</button>
+        <button type="button" data-tecla="5">5</button>
+        <button type="button" data-tecla="6">6</button>
+        <button type="button" data-tecla="1">1</button>
+        <button type="button" data-tecla="2">2</button>
+        <button type="button" data-tecla="3">3</button>
+        <button type="button" data-tecla="," aria-label="vírgula">,</button>
+        <button type="button" data-tecla="0">0</button>
+        <button type="button" data-tecla="apaga" aria-label="apagar">⌫</button>
+      </div>
+      <div id="teclado-botoes">
+        <button id="teclado-nao" type="button">Deixa</button>
+        <button id="teclado-sim" type="button">Pronto</button>
+      </div>
+    </div>
+  </div>
+
   <div id="painel-codigo" hidden>
     <div id="codigo-caixa" role="dialog" aria-modal="true"
          aria-labelledby="codigo-titulo">
@@ -524,6 +604,7 @@
   <script src="vendor/pt-br.js"></script>
   <script src="compilador.js"></script>
   <script src="arduino.js"></script>
+  <script src="teclado.js"></script>
   <script src="campos.js"></script>
   <script src="som.js"></script>
   <script src="niveis.js"></script>

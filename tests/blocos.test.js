@@ -64,11 +64,11 @@ test('o bloco de movimento carrega a velocidade para a AST', () => {
   const ast = astDe({
     type: 'quando_play',
     inputs: { CORPO: { block: {
-      type: 'mover_frente', inputs: { SEG: num(2) }, fields: { VEL: '255' },
+      type: 'mover_frente', inputs: { SEG: num(2) }, fields: { VEL: '225' },
     } } },
   });
   assert.strictEqual(ast[0].segundos, 2);
-  assert.strictEqual(ast[0].velocidade, 255);
+  assert.strictEqual(ast[0].velocidade, 225);
 });
 
 test('repetir usa o campo de bolinhas, agora dentro do shadow', () => {

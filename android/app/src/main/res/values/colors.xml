@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- O branco de trás do foguete, no ícone do lançador. -->
+    <color name="fundo_icone">#FFFFFFFF</color>
+</resources>

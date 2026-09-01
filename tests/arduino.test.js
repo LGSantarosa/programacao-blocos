@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { gerar, PINOS, VEL_GIRO, MS_POR_GRAU } = require('../web/arduino.js');
+const { gerar, PINOS, VEL_GIRO, MS_POR_GRAU, TRIM_DIR } = require('../web/arduino.js');
 
 const RAIZ = path.join(__dirname, '..');
 
@@ -226,6 +226,18 @@ test('os pinos do .ino são os mesmos do firmware', () => {
     assert.strictEqual(Number(m[1]), PINOS[nome],
       'o pino ' + nome + ' divergiu entre o firmware e o .ino');
   }
+});
+
+/* O trim é a única coisa que o .ino precisa copiar do hal e que não é pino nem
+   calibração da VM. Sem esta guarda ele divergiria em silêncio, e o sketch
+   exportado sairia torto onde o robô anda reto. */
+test('a compensação de partida do .ino é a mesma do firmware', () => {
+  const hal = fs.readFileSync(
+    path.join(RAIZ, 'firmware/src/hal_esp32.cpp'), 'utf8');
+  const m = hal.match(/TRIM_DIR\s*=\s*(-?\d+)/);
+  assert.ok(m, 'não achei TRIM_DIR no hal_esp32.cpp');
+  assert.strictEqual(Number(m[1]), TRIM_DIR,
+    'o trim divergiu entre o firmware e o .ino');
 });
 
 test('a calibração do giro é a mesma da VM', () => {

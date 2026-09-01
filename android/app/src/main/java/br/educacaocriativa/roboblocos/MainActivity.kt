@@ -2,6 +2,7 @@ package br.educacaocriativa.roboblocos
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -46,6 +47,16 @@ class MainActivity : AppCompatActivity() {
         webView.settings.mediaPlaybackRequiresUserGesture = false
         WebView.setWebContentsDebuggingEnabled(true)
         webView.addJavascriptInterface(PonteJs(this), "Android")
+        /* Sem um WebChromeClient, um alert/confirm/prompt do JavaScript não
+           abre nada e devolve null na mesma hora — sem erro, sem aviso. Foi
+           esse silêncio que escondeu o defeito do número: em aparelho de
+           toque, o editor de campo do Blockly é um prompt, e tocar no
+           "andar frente 1 s" simplesmente não fazia nada.
+
+           A página hoje pergunta pelo teclado dela (web/teclado.js) e não
+           depende mais disto. Fica assim mesmo assim, para o próximo diálogo
+           que aparecer falhar à vista e não em segredo. */
+        webView.webChromeClient = WebChromeClient()
         alvoEnsaio = "127.0.0.1:" + servidor.iniciar()
 
         webView.webViewClient = object : WebViewClient() {

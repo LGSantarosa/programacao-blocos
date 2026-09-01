@@ -66,6 +66,56 @@
 
     Blockly.fieldRegistry.register('field_bolinhas', FieldBolinhas);
 
+    /* O editor de número passa a ser o teclado da página.
+
+       Não é enfeite: em aparelho de toque o showEditor_ do Blockly abre um
+       window.prompt, e no WebView do app o prompt devolve null sem mostrar
+       nada. Tocar no número não fazia coisa alguma — o defeito que obrigava a
+       encaixar uma conta (2 × 3) para chegar a 6 segundos.
+
+       Trocado aqui, e não só no aparelho: um caminho só para telefone, tablet e
+       computador é um caminho só para acertar, e é o que o Chromium dos testes
+       consegue exercitar. */
+    var TITULOS = {
+      SEG: 'Quantos segundos?',
+      GRAUS: 'Quantos graus?',
+      CM: 'Quantos centímetros?',
+      N: 'Quantas vezes?',
+    };
+
+    /* O nome do encaixe mora no bloco de cima, e não no shadow: o campo aqui
+       dentro se chama NUM em todos eles. É subindo uma peça que se descobre se
+       este número é segundo, grau ou centímetro. */
+    function tituloDoCampo(campo) {
+      var bloco = campo.getSourceBlock && campo.getSourceBlock();
+      if (!bloco) return null;
+      var nome = campo.name;
+      if (bloco.outputConnection && bloco.outputConnection.targetConnection) {
+        var encaixe = bloco.outputConnection.targetConnection.getParentInput();
+        if (encaixe) nome = encaixe.name;
+      }
+      return TITULOS[nome] || null;
+    }
+
+    /* O teclado se prepara agora, e não na primeira vez que abrir: é aqui que
+       ele pendura o ouvinte que reconhece o toque fantasma, e esse ouvinte
+       precisa existir antes do primeiro dedo na tela. Ver web/teclado.js. */
+    if (typeof Teclado !== 'undefined' && Teclado.preparar) Teclado.preparar();
+
+    Blockly.FieldNumber.prototype.showEditor_ = function () {
+      var campo = this;
+      if (typeof Teclado === 'undefined' ||
+          !Teclado.pedir({ valor: campo.getText(), titulo: tituloDoCampo(campo) },
+                         function (texto) {
+                           if (texto === null) return;
+                           campo.setValue(campo.getValueFromEditorText_(texto));
+                         })) {
+        /* Sem a caixa na página — o diagnóstico do iPad, um teste de campo sem
+           HTML — o editor de sempre ainda é melhor que nada. */
+        Blockly.FieldTextInput.prototype.showEditor_.call(campo);
+      }
+    };
+
     /* Dois blocos de número que existem só para morar dentro de um encaixe.
        Enquanto ninguém solta uma conta em cima, eles desenham e se comportam
        como o campo que eram antes — é isso que deixa os três níveis de baixo

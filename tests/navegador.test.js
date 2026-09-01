@@ -114,7 +114,7 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
     }
     assert.ok(pronta, 'a página não ficou pronta em 30 s');
 
-    assert.strictEqual(await aval('document.title'), 'Robô de Blocos');
+    assert.strictEqual(await aval('document.title'), 'Programação Criativa');
     assert.strictEqual(await aval('typeof Blockly'), 'object');
 
     /* Monta no Pequeno: dois passos e um giro, sem número nenhum. */
@@ -787,6 +787,48 @@ test('tocar no corpo da peça roda; tocar no número só abre o editor',
       'parado',
       'tocar no número ligou os motores — a criança troca esse número o tempo todo');
 
+    /* E abre o teclado da página. Em aparelho de toque o editor do Blockly é um
+       window.prompt, que dentro do WebView do app não abre nada e devolve null
+       na hora: tocar no número não fazia coisa alguma, e a única saída para
+       chegar a seis segundos era encaixar uma conta (2 × 3) no lugar. */
+    assert.strictEqual(await aval('document.getElementById("teclado").hidden'), false,
+      'tocar no número não abriu o teclado');
+    assert.strictEqual(
+      await aval('document.getElementById("teclado-titulo").textContent'),
+      'Quantos segundos?',
+      'o teclado precisa dizer o que se está trocando');
+    assert.strictEqual(
+      await aval('document.getElementById("teclado-valor").textContent'), '2',
+      'o teclado tinha que abrir com o número que já estava no bloco');
+
+    /* Seis, que é justamente o número que antes só se alcançava com uma conta. */
+    await aval(`document.querySelector('#teclado-teclas [data-tecla="6"]').click()`);
+    await aval('document.getElementById("teclado-sim").click()');
+    await espera(400);
+
+    assert.strictEqual(await aval('document.getElementById("teclado").hidden'), true,
+      'o teclado não fechou depois do pronto');
+    assert.strictEqual(await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      return b.getInputTargetBlock('SEG').getFieldValue('NUM');
+    })()`), 6, 'o número do bloco não mudou');
+
+    /* Desistir devolve o bloco intacto: a criança que abriu sem querer não
+       pode perder o número que estava lá. */
+    await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      b.getInputTargetBlock('SEG').getField('NUM').showEditor_();
+      return 1;
+    })()`);
+    await espera(300);
+    await aval(`document.querySelector('#teclado-teclas [data-tecla="9"]').click()`);
+    await aval('document.getElementById("teclado-nao").click()');
+    await espera(300);
+    assert.strictEqual(await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      return b.getInputTargetBlock('SEG').getFieldValue('NUM');
+    })()`), 6, 'o "Deixa" trocou o número mesmo assim');
+
     cdp.fechar();
   });
 
@@ -954,6 +996,207 @@ test('tocar num relator mostra o valor numa bolha',
       'a bolha não apareceu');
     assert.strictEqual(await aval('document.getElementById("bolha").textContent'),
       '42', 'a conta voltou errada do robô');
+
+    cdp.fechar();
+  });
+
+/* O celular deitado é o pior caso de altura do projeto: 411px de janela, e o
+   README conta a sessão inteira que custou fazer o painel caber neles. Um
+   teclado que nasce sem essa régua repete a história — com as teclas de baixo,
+   o 0 e o apagar, fora da tela, e o "pronto" junto com elas. */
+test('o teclado cabe inteiro num celular deitado',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 7) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-teclado-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 7}`,
+      '--window-size=1000,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 7}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 7}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+
+    /* 808x411 é a medida do aparelho de teste deitado, a mesma do README. */
+    await cdp.envia('Emulation.setDeviceMetricsOverride',
+      { width: 808, height: 411, deviceScaleFactor: 1, mobile: true });
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 7}/` });
+    await espera(3000);
+
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const b = Blockly.serialization.blocks.append(
+        { type: 'mover_frente',
+          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 2 } } } } }, ws);
+      b.getInputTargetBlock('SEG').getField('NUM').showEditor_();
+      return 1;
+    })()`);
+    await espera(500);
+
+    assert.strictEqual(await aval('document.getElementById("teclado").hidden'), false,
+      'o teclado nem abriu');
+
+    /* Uma medida por peça: saber QUAL escapou é metade do conserto. */
+    for (const id of ['teclado-titulo', 'teclado-valor', 'teclado-teclas',
+                      'teclado-sim', 'teclado-nao']) {
+      const fora = await aval(`(function () {
+        var e = document.getElementById('${id}');
+        if (!e) return 'sumiu';
+        var c = e.getBoundingClientRect();
+        if (c.width === 0 && c.height === 0) return 'sem tamanho';
+        var alt = document.documentElement.clientHeight;
+        var larg = document.documentElement.clientWidth;
+        return (c.top >= -1 && c.bottom <= alt + 1 &&
+                c.left >= -1 && c.right <= larg + 1) ? '' :
+          'topo=' + Math.round(c.top) + ' base=' + Math.round(c.bottom) +
+          ' numa janela de ' + alt;
+      })()`);
+      assert.strictEqual(fora, '', `#${id} está fora da tela (${fora})`);
+    }
+
+    /* A última tecla é a que some primeiro, e é a que apaga: sem ela a criança
+       fica presa no número que digitou errado. */
+    const apaga = await aval(`(function () {
+      var e = document.querySelector('#teclado-teclas [data-tecla="apaga"]');
+      var c = e.getBoundingClientRect();
+      return c.bottom <= document.documentElement.clientHeight + 1;
+    })()`);
+    assert.strictEqual(apaga, true, 'a tecla de apagar ficou fora da tela');
+
+    cdp.fechar();
+  });
+
+/* O toque fantasma, que só existe no dedo: a caixa nasce embaixo do dedo que a
+   abriu, e o clique sintetizado daquele mesmo toque é entregue a quem estiver
+   no ponto agora — uma tecla, o "Deixa", ou o escuro em volta. No aparelho isso
+   se disfarçava de outra coisa: "o número dentro do verde não muda, solto
+   muda". Não era o verde; era a posição na tela.
+
+   Só o Chromium com toque de verdade pega isto. Com mouse não acontece. */
+test('o dedo que abre o teclado não aperta tecla nenhuma',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 8) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-fantasma-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 8}`,
+      '--window-size=1000,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 8}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 8}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+
+    /* Dedo, e não mouse: é a diferença que faz o defeito existir. */
+    const tocar = async (x, y) => {
+      await cdp.envia('Input.dispatchTouchEvent',
+        { type: 'touchStart', touchPoints: [{ x, y }] });
+      await espera(60);
+      await cdp.envia('Input.dispatchTouchEvent',
+        { type: 'touchEnd', touchPoints: [] });
+      await espera(400);
+    };
+
+    await cdp.envia('Emulation.setDeviceMetricsOverride',
+      { width: 808, height: 411, deviceScaleFactor: 2.5, mobile: true });
+    await cdp.envia('Emulation.setTouchEmulationEnabled',
+      { enabled: true, maxTouchPoints: 5 });
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 8}/` });
+    await espera(4000);
+
+    /* O caso que o usuário viu: o bloco dentro do ▶ quando apertar PLAY. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      ws.clear();
+      Blockly.serialization.workspaces.load({ blocks: { languageVersion: 0, blocks: [{
+        type: 'quando_play', x: 60, y: 40,
+        inputs: { CORPO: { block: {
+          type: 'mover_frente',
+          fields: { VEL: '200' },
+          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 1 } } } } } } },
+      }]}}, ws);
+      window.__b = ws.getBlocksByType('mover_frente')[0].id;
+      return 1;
+    })()`);
+    await espera(800);
+
+    const c = JSON.parse(await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      const r = b.getInputTargetBlock('SEG').getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    })()`));
+
+    await tocar(c.x, c.y);
+
+    assert.strictEqual(await aval('document.getElementById("teclado").hidden'), false,
+      'o teclado fechou sozinho — o fantasma caiu no "Deixa" ou no escuro');
+    assert.strictEqual(
+      await aval('document.getElementById("teclado-valor").textContent'), '1',
+      'o teclado abriu com outro número — o fantasma apertou uma tecla');
+
+    /* E o dedo de verdade, agora, muda o número. */
+    const seis = JSON.parse(await aval(`(() => {
+      const r = document.querySelector('#teclado-teclas [data-tecla="6"]')
+        .getBoundingClientRect();
+      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    })()`));
+    await tocar(seis.x, seis.y);
+    assert.strictEqual(
+      await aval('document.getElementById("teclado-valor").textContent'), '6');
+
+    const pronto = JSON.parse(await aval(`(() => {
+      const r = document.getElementById('teclado-sim').getBoundingClientRect();
+      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    })()`));
+    await tocar(pronto.x, pronto.y);
+
+    assert.strictEqual(await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById(window.__b);
+      return b.getInputTargetBlock('SEG').getFieldValue('NUM');
+    })()`), 6, 'o número do bloco dentro do verde não mudou');
 
     cdp.fechar();
   });

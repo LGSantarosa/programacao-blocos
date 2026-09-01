@@ -1,4 +1,4 @@
-# Robô de Blocos
+# Programação Criativa
 
 Uma criança monta blocos na tela, aperta PLAY, e o robô executa na hora. Hoje
 num robô virtual no navegador; amanhã numa ESP32, sem mudar a lógica.
@@ -43,8 +43,22 @@ Outra porta, se preferir: `PORTA=9000 node bridge/server.js`.
    HC-SR04 de verdade, o que faz do dedo a melhor ferramenta de bancada que o
    projeto tem.
 
-Tocar no campo de um número não roda nada: abre o editor, como sempre. Quem
-separa as duas coisas é o próprio Blockly, e não um raio de arrasto nosso.
+Tocar no campo de um número não roda nada: abre o **teclado numérico da
+página** — doze teclas grandes, o número em cima, "Deixa" e "Pronto" embaixo. O
+primeiro algarismo troca o número inteiro, como numa calculadora: quem toca no 5
+querendo cinco não espera quinze. Quem separa tocar-no-número de tocar-na-peça é
+o próprio Blockly, e não um raio de arrasto nosso.
+
+> **Por que um teclado nosso, e não o do sistema.** Em aparelho de toque, o
+> editor de número do Blockly é um `window.prompt`. Dentro do WebView do app,
+> que não tinha `WebChromeClient`, o prompt não abre nada e devolve `null` na
+> mesma hora — sem erro, sem aviso. Tocar no `andar frente 1 s` simplesmente não
+> fazia coisa alguma, e a única forma de chegar a seis segundos era encaixar uma
+> conta `2 × 3` no lugar do número. O teclado da página conserta isso e é melhor
+> pelo mesmo preço: doze teclas grandes num telefone deitado valem mais que um
+> teclado inteiro cobrindo a tela, e não pedem que a criança já saiba onde moram
+> os algarismos. O `WebChromeClient` entrou junto, para o próximo diálogo que
+> aparecer falhar à vista e não em segredo.
 
 > **Um clique interrompe o que estiver rodando.** A VM tem um `pc` e um
 > programa só, então tocar em qualquer peça — inclusive no `👁 distância cm`
@@ -209,6 +223,29 @@ Wi-Fi, sem internet, sem nada ligado, o ensaio funciona.
 ./android/preparar_assets.sh                 # copia web/ para os assets
 cd android && ./gradlew installDebug
 ```
+
+### O nome e o ícone
+
+O app se chama **Programação Criativa** — o rótulo mora em
+`android/app/src/main/res/values/strings.xml`, e é o mesmo nome do `<title>` e
+do cabeçalho da página. O identificador do pacote continua
+`br.educacaocriativa.roboblocos` de propósito: trocá-lo instalaria um segundo
+app ao lado do primeiro em vez de renomear este.
+
+O ícone do lançador sai de `web/img/foguete.png`, que é a marca da Educação
+Criativa e a mesma arte do cabeçalho — foguete azul sobre branco, porque a marca
+é azul e sem o branco por trás ela some em fundo escuro. Os PNGs em
+`res/mipmap-*/` são gerados dessa fonte, e não desenhados à mão:
+
+- `ic_launcher_foreground.png` — tela de 108dp por densidade (108, 162, 216,
+  324 e 432px), foguete centrado ocupando **55%** da altura. É a margem que o
+  mantém dentro do círculo de 72dp que o Android garante ao recortar.
+- `ic_launcher.png` e `ic_launcher_round.png` — 48dp por densidade, para o
+  lançador que ignora o ícone adaptativo: quadrado de cantos redondos e círculo,
+  brancos, com o foguete em 62% e 58%.
+
+O `mipmap-anydpi-v26/ic_launcher.xml` junta as duas camadas, e o branco de trás
+é o `fundo_icone` de `values/colors.xml`.
 
 Precisa do SDK do Android (platform 34, build-tools 34) e do NDK 26.1, com o
 caminho em `android/local.properties` (`sdk.dir=...`). O wrapper do Gradle já
@@ -378,6 +415,67 @@ Em `core/vm.h`: `VEL_FRENTE 200`, `VEL_GIRO 180`, `MS_POR_GRAU 5`,
 **derivada** desses valores — juntos eles determinam a velocidade angular do
 giro, e é ela que precisa bater com `MS_POR_GRAU`. Mexer num exige recalcular
 os outros.
+
+#### As três velocidades, medidas no robô
+
+O menu `devagar / normal / rápido` de `web/blocos.js` não é escolhido na régua:
+foi medido em 01/09/2026, no chassi, com fonte de bancada em **7,5 V** — a
+tensão nominal de duas 18650.
+
+| | PWM | avanço em 2 s |
+|---|---|---|
+| devagar | **180** | 17 e 19 cm |
+| normal  | **200** | 30 cm (36 já com o trim) |
+| rápido  | **225** | acima de 40 cm |
+
+O `devagar` era **120, e não saía do lugar**. Nem 120 nem 150: a fonte mostrava
+corrente e as rodas ficavam paradas — motor travado puxando sem girar. Em 170 o
+robô andava uma vez e na seguinte não, que é o comportamento de quem está
+exatamente no limiar do atrito estático. O primeiro PWM que anda toda vez é 180.
+
+O `rápido` desceu de 255 para 225: 255 é rápido demais para uma criança
+acompanhar, e a diferença de velocidade entre os dois é pequena.
+
+#### A compensação de partida
+
+Os dois motores não arrancam no mesmo PWM. O robô guinava, e o conserto é
+`TRIM_DIR` em `firmware/src/hal_esp32.cpp`: **6 pontos a mais no motor
+direito**. Com ele, o mesmo disparo que andava 30 cm tortos passou a andar 36 cm
+reto.
+
+Ele mora na camada de hardware de propósito. A guinada é defeito deste chassi —
+motor, redução, atrito da roda boba — e não da lógica do programa: no `core/vm.c`
+ela vazaria para o robô virtual, e o simulador passaria a guinar também. O
+`web/arduino.js` copia o número para o `.ino` exportado, e
+`tests/arduino.test.js` falha se os dois divergirem.
+
+**Trocando de chassi, remeça.** Os números acima valem para este robô e para
+esta tensão; um motor diferente, uma roda diferente ou uma bateria descarregando
+mudam todos eles.
+
+#### A régua de bancada
+
+`firmware/calibrar/` é o firmware que produziu esta tabela — um robô que não sobe
+Wi-Fi nenhum e só obedece a comandos pela serial:
+
+```bash
+pio run -d firmware/calibrar -t upload    # grava a régua
+pio run -d firmware -t upload             # devolve o robô de verdade
+```
+
+Ele reusa o `firmware/src/hal_esp32.cpp` de verdade, e não uma cópia: a
+frequência do PWM e o jeito de escrever nos pinos são parte do que se está
+medindo. `p<n>` dispara os dois motores por 1 s e diz, **em centímetros pelo
+próprio HC-SR04**, quanto o robô andou — quem mede não é o olho de quem está
+olhando. `t<n>` e `u<n>` fazem o mesmo com um motor de cada vez, `c<n>` mede o
+mínimo que sustenta o movimento depois de um empurrão, e `w<n>` traz o robô de
+ré até a marca, para a varredura seguinte começar do mesmo lugar.
+
+> **Ainda por medir: o giro.** `VEL_GIRO` é 180, o mesmo valor que mal tira o
+> robô da inércia andando reto — e girar no lugar é mais pesado que andar,
+> porque as rodas arrastam de lado. É provável que o bloco `girar` tenha o mesmo
+> defeito que o `devagar` tinha, e ninguém tenha notado. Não foi testado nesta
+> sessão.
 
 ---
 
@@ -564,6 +662,7 @@ host/       laco.c main.c physics.c       o robô virtual: laco.c é o miolo,
 bridge/     server.js                     WebSocket + arquivos estáticos, zero deps
 web/        compilador.js niveis.js       compilador, níveis, campo de bolinhas
             campos.js blocos.js           blocos Blockly em português
+            teclado.js                    o teclado numérico da página
             robo.js arena.js som.js       personagem, mundo, síntese de áudio
             rede.js app.js index.html     protocolo e fiação
 firmware/   src/main.cpp hal_esp32.cpp    a placa

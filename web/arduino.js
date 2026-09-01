@@ -15,6 +15,9 @@
      conclui que o código é que está errado. */
   var VEL_GIRO = 180;
   var MS_POR_GRAU = 5;
+  /* A compensação de partida do chassi. Sem ela o .ino exportado guinaria onde
+     o robô anda reto, e a criança concluiria que o código é que está errado. */
+  var TRIM_DIR = 6;
   var PINOS = {
     PWMA: 25, AIN1: 26, AIN2: 27,
     PWMB: 33, BIN1: 14, BIN2: 12,
@@ -245,7 +248,7 @@
      descobrir sozinho — a pasta que o IDE exige, e que gravar isto apaga a
      tela de blocos. */
   var CABECALHO = [
-    '/* Robô de Blocos — o seu programa, virado código Arduino.',
+    '/* Programação Criativa — o seu programa, virado código Arduino.',
     '   ESP32 dev, motores TB6612FNG, sensor HC-SR04.',
     '',
     '   Salve numa pasta chamada robo/ — o Arduino IDE oferece criar sozinho.',
@@ -295,7 +298,18 @@
     '/* Velocidade de -255 a 255. Negativo é para trás.',
     '   O robô chia: o analogWrite liga e desliga o motor mil vezes por',
     '   segundo, e o ouvido escuta. */',
+    '/* Os dois motores não arrancam no mesmo PWM: sem os ' + TRIM_DIR +
+      ' pontos a mais',
+    '   no direito, o robô sai torto. Parado continua parado. */',
+    'int comTrim(int v) {',
+    '  if (v == 0) return 0;',
+    '  int m = abs(v) + ' + TRIM_DIR + ';',
+    '  if (m > 255) m = 255;',
+    '  return v > 0 ? m : -m;',
+    '}',
+    '',
     'void motores(int esq, int dir) {',
+    '  dir = comTrim(dir);',
     '  digitalWrite(AIN1, esq >= 0 ? HIGH : LOW);',
     '  digitalWrite(AIN2, esq >= 0 ? LOW : HIGH);',
     '  analogWrite(PWMA, abs(esq));',
@@ -409,6 +423,7 @@
   }
 
   var api = { gerar: gerar, VEL_GIRO: VEL_GIRO, MS_POR_GRAU: MS_POR_GRAU,
+              TRIM_DIR: TRIM_DIR,
               PINOS: PINOS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Arduino = api;

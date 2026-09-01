@@ -23,7 +23,10 @@
 
   /* Num lugar só: os dois blocos de movimento oferecem as mesmas opções, e
      duplicá-las é como elas divergiriam. */
-  var VELOCIDADES = [['normal', '200'], ['devagar', '120'], ['rápido', '255']];
+  /* Medidos no robô, e não escolhidos na régua: 120 e 150 não tiravam o chassi
+     da inércia — a fonte mostrava corrente e as rodas ficavam paradas, que é
+     motor travado puxando sem girar. Ver a seção Calibração do README. */
+  var VELOCIDADES = [['normal', '200'], ['devagar', '180'], ['rápido', '225']];
 
   /* Os ícones que carregam sentido sozinhos são desenhados, não escritos.
      Eram caracteres — ⬆ ⬇ ↻ ↺ — e um caractere só existe se a fonte do

@@ -435,6 +435,18 @@
 
   /* ---------- estado ---------- */
 
+  /* A leitura do painel tem duas origens e uma função só: no robô virtual ela
+     vem junto da pose, dentro da telemetria; na placa vem sozinha, no 0x85,
+     porque lá não há pose para acompanhar. Quem lê o painel não precisa saber
+     em qual dos dois está — o número quer dizer a mesma coisa. */
+  function mostrarDistancia(cm) {
+    divLeitura.textContent = 'distância: ' + cm + ' cm';
+  }
+
+  function limparDistancia() {
+    divLeitura.textContent = 'distância: —';
+  }
+
   function definirRodando(estaRodando) {
     if (rodando && !estaRodando) {
       /* Rodou e não chegou: uma tentativa. Depois de algumas, a ajuda aparece
@@ -480,6 +492,9 @@
       aoDesconectar: function () {
         if (!souAtual()) return;
         spEstado.textContent = 'desconectado';
+        /* O último número lido não vale mais nada: ele veio de um robô com
+           quem não falamos mais. Deixá-lo na tela é mentir devagar. */
+        limparDistancia();
         /* Cair a conexão no meio de uma execução não é terminar o programa. */
         rodando = false;
         btPlay.disabled = true;
@@ -500,13 +515,19 @@
       aoEstado: function (estado) {
         definirRodando(estado === 1);
       },
+      /* O que a placa manda no lugar da telemetria. Chega sozinho, umas dez
+         vezes por segundo, sem ninguém tocar em bloco nenhum: é o painel
+         virando bancada de sensor. */
+      aoDistancia: function (cm) {
+        mostrarDistancia(cm);
+      },
       aoTelem: function (t) {
         poseAtual = t;
         if (t.colidiu && Date.now() - tColisao > Robo.MS_TONTO) {
           tColisao = Date.now();
           Som.tocar('batida');
         }
-        divLeitura.textContent = 'distância: ' + t.dist + ' cm';
+        mostrarDistancia(t.dist);
         /* A estrela não existe na física: quem decide a chegada é aqui, com a
            posição que a telemetria já traz. */
         if (Missoes.chegou(t, missao)) cumprirMissao();
@@ -742,6 +763,9 @@
     alvo: function () { return alvo; },
     irPara: function (host) {
       alvo = host || null;
+      /* Trocar de robô apaga a leitura do anterior: o fechar() desliga o
+         aoDesconectar, então ninguém mais faria isso. */
+      limparDistancia();
       /* Parar antes de fechar, para o robô que estamos deixando não seguir
          andando sozinho. Fechar é obrigatório: um soquete abandonado prende o
          servidor local, que atende um cliente por vez. */

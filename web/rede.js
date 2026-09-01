@@ -5,6 +5,7 @@
 
   var T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03, T_ARENA = 0x04;
   var T_PC = 0x81, T_STATE = 0x82, T_TELEM = 0x83, T_VALOR = 0x84;
+  var T_DIST = 0x85;
 
   function conectar(url, manipuladores) {
     var ws = new WebSocket(url);
@@ -37,6 +38,13 @@
           break;
         case T_VALOR:
           if (manipuladores.aoValor) manipuladores.aoValor(d.getInt32(1, true));
+          break;
+        /* A placa não tem física, e por isso não manda o 0x83: sem pose, a
+           telemetria dela seria posição inventada, e o desenho do robô saltaria
+           para a origem. Manda só o que ela tem de verdade para contar — a
+           leitura do HC-SR04. */
+        case T_DIST:
+          if (manipuladores.aoDistancia) manipuladores.aoDistancia(d.getUint16(1, true));
           break;
         default:
           break;

@@ -98,13 +98,19 @@ consegue abrir `ws://` para a ESP32, então hospedar fora quebraria a conexão.
 > LittleFS monta, o AP `Robo-01` aparece e a interface é servida. Os motores já
 > responderam a um PLAY.
 >
-> O sensor de distância **está montado no robô** desde 31/08/2026, mas a
-> **leitura nunca foi feita**: o caminho `👁 distância cm` → bolha existe e é
-> testado no simulador, e agora tem um sensor pendurado nele, só que ninguém
-> tocou no bloco ainda. Continua sendo o ponto onde esperar acertar detalhes —
-> e o roteiro de conferência, que não precisa de motor nem de chassi, está em
-> [O sensor de distância](#o-sensor-de-distância). Confira também o sentido dos
-> motores no primeiro `andar frente`.
+> O sensor de distância foi montado em 31/08/2026 e **lido em 01/09/2026**:
+> tocando no `👁 distância cm` com o robô ligado, a bolha traz a leitura do
+> HC-SR04 e o número muda quando a mão chega perto. O caminho inteiro — pino,
+> opcode `SENSOR`, protocolo, bolha — está provado no hardware.
+>
+> O `distância:` do painel se atualizando sozinho — o quadro `0x85` — foi
+> provado no mesmo dia, com a placa gravada e o app instalado no Galaxy S24 FE:
+> no ensaio o painel marcava 92 cm, e depois do **🤖 procurar o robô** passou a
+> marcar 10 e depois 29 cm, sem ninguém tocar em bloco nenhum. O número é o do
+> HC-SR04, e não o do raycast da arena. Confira também o sentido dos motores no
+> primeiro `andar frente`. O roteiro de conferência do sensor, que não precisa
+> de motor nem de chassi, está em
+> [O sensor de distância](#o-sensor-de-distância).
 
 ### Primeira vez, passo a passo
 
@@ -239,9 +245,9 @@ quem desenha a lista é o sistema.
 > programa ainda montado na tela.
 >
 > Ficaram **sem prova nesta sessão**: a leitura do `👁 distância cm` no robô de
-> verdade — que segue sem nunca ter sido lida de um HC-SR04, como na seção da
-> ESP32 — e o ensaio rodando sozinho com o aparelho sem rede alguma, que não
-> chegou a ser observado isolado.
+> verdade — provada no dia seguinte, 01/09/2026, como conta a seção da ESP32 — e
+> o ensaio rodando sozinho com o aparelho sem rede alguma, que não chegou a ser
+> observado isolado.
 >
 > O Android 16 avisou, na primeira abertura, que **o app não era compatível com
 > páginas de 16 KB**: os segmentos LOAD do `librobo.so` saíam alinhados a 4 KB,
@@ -323,8 +329,15 @@ Blockly + arena canvas           vm.c + hal_esp32
 ```
 
 A página é a mesma, o protocolo é o mesmo, o `vm.c` é o mesmo arquivo. Só muda o
-endereço. No robô real a arena continua visível como referência da missão; sem
-telemetria, apenas o desenho do robô fica parado na posição inicial.
+endereço. No robô real a arena continua visível como referência da missão, e o
+desenho do robô fica parado na posição inicial: a placa não tem física, e por
+isso não manda a telemetria de pose (`0x83`) que o robô virtual manda.
+
+O que ela manda é a **distância** — quadro `0x85`, três bytes, dez vezes por
+segundo — e é ela que aparece no `distância:` do painel. Sem pose inventada:
+mandar um `0x83` com posição de mentira faria o desenho saltar para a origem e a
+missão se dar por cumprida sozinha. A placa conta só o que ela sabe de verdade,
+e quem lê o painel não precisa saber com qual dos dois robôs está falando.
 
 ### Bytecode
 
@@ -610,11 +623,16 @@ GND. Não há terceiro caminho — ou o sensor é de 3,3 V, ou entram os dois
 resistores.
 
 Para conferir que acertou, **sem precisar de motor nem de chassi**: abra a
-interface, vá no nível Gigante, largue um `👁 distância cm` num canto solto e
-toque nele. A bolha mostra a leitura. Ponha a mão a uns 10 cm e toque de novo —
-o número tem que cair. Se der sempre **400**, é o valor que o firmware devolve
-quando o eco não voltou: confira a alimentação, depois se `Trig` e `Echo` não
-estão trocados, depois o GND comum.
+interface e olhe o `distância:` do painel. Ligado na placa, aquele número é o
+HC-SR04 e se atualiza sozinho, dez vezes por segundo — aproxime a mão e ele cai,
+sem tocar em bloco nenhum. Se der sempre **400**, é o valor que o firmware
+devolve quando o eco não voltou: confira a alimentação, depois se `Trig` e
+`Echo` não estão trocados, depois o GND comum.
+
+O `👁 distância cm` continua servindo, e para outra coisa: largue um num canto
+solto no nível Gigante e toque nele. A bolha mostra o número que **a VM** leu,
+e não o que o painel mostra por fora — é o caminho inteiro, do opcode `SENSOR`
+até a tela, provado de uma vez.
 
 ### Os outros dois cuidados
 

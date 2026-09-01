@@ -17,10 +17,15 @@ static const char *NOME_REDE = "Robo-01";
 static const char *SENHA     = "robo1234";   /* mínimo 8 caracteres */
 
 static const uint8_t T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03;
-static const uint8_t T_PC = 0x81, T_STATE = 0x82, T_VALOR = 0x84;
+static const uint8_t T_PC = 0x81, T_STATE = 0x82, T_VALOR = 0x84,
+                     T_DIST = 0x85;
 
 static const int MAX_INSTR_LOOP = 256;
 static const uint32_t PC_MIN_MS = 30;
+/* Dez leituras por segundo: rápido o bastante para a mão chegando perto virar
+   número que desce na hora, e lento o bastante para o pulseIn não morar dentro
+   do loop. Ver enviar_distancia(). */
+static const uint32_t DIST_MS = 100;
 
 static AsyncWebServer servidor(80);
 static AsyncWebSocket ws("/");
@@ -40,6 +45,7 @@ static Montador montador;
 static uint16_t pc_exec = 0;
 static uint16_t pc_enviado = 0xFFFF;
 static uint32_t pc_ultimo_ms = 0;
+static uint32_t dist_ultimo_ms = 0;
 static uint8_t  rodando_ant = 0;
 
 /* Roda no contexto do timer, independente do loop() — é isso que faz o
@@ -73,6 +79,26 @@ extern "C" void hal_report(int32_t valor) {
     uint32_t v = (uint32_t)valor;
     uint8_t q[5] = { T_VALOR, (uint8_t)(v & 0xFF), (uint8_t)((v >> 8) & 0xFF),
                      (uint8_t)((v >> 16) & 0xFF), (uint8_t)((v >> 24) & 0xFF) };
+    ws.binaryAll(q, sizeof(q));
+}
+
+/* A distância no painel, sem ninguém tocar em bloco nenhum. Aqui não vai o
+   quadro de telemetria do robô virtual (0x83): a placa não tem física, e pose
+   inventada faria o desenho do robô saltar para a origem e a missão se dar por
+   cumprida sozinha. Vai só a leitura, que é o que a placa tem de verdade.
+
+   Sem cliente não se lê. O pulseIn custa até 25 ms quando o eco não volta, e
+   pagar isso para ninguém seria roubar do laço da VM — que é o que faz o robô
+   parar na hora certa.
+
+   Os 25 ms do pior caso não desandam o movimento: o esperar_ate da VM é um
+   instante absoluto, então uma leitura no meio de um `andar frente` atrasa a
+   percepção do fim, e não o fim. O robô passa alguns milímetros, uma vez por
+   comando. */
+static void enviar_distancia() {
+    if (ws.count() == 0) return;
+    uint16_t cm = hal_distancia_cm();
+    uint8_t q[3] = { T_DIST, (uint8_t)(cm & 0xFF), (uint8_t)(cm >> 8) };
     ws.binaryAll(q, sizeof(q));
 }
 
@@ -165,6 +191,10 @@ void loop() {
     if (vm.rodando != rodando_ant) {
         rodando_ant = vm.rodando;
         enviar_estado(vm.rodando);
+    }
+    if (agora - dist_ultimo_ms >= DIST_MS) {
+        dist_ultimo_ms = agora;
+        enviar_distancia();
     }
 
     ws.cleanupClients();

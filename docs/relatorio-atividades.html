@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Relatório de Atividades — Robô de Blocos</title>
+<title>Relatório de Atividades — Programação Criativa</title>
 <style>
   body {
     font-family: Arial, Helvetica, sans-serif;
@@ -37,12 +37,13 @@
   hr { border: none; border-top: 1px solid #cccccc; margin: 2em 0; }
 </style>
 
-<h1>Relatório de Atividades — Robô de Blocos</h1>
+<h1>Relatório de Atividades — Programação Criativa</h1>
 
 <h2>1. Introdução</h2>
 
 <p>Este relatório tem como objetivo registrar as atividades realizadas durante o
-desenvolvimento do projeto <b>Robô de Blocos</b>: um ambiente de programação
+desenvolvimento do projeto <b>Programação Criativa</b> (registrado no
+repositório como <i>Robô de Blocos</i> até 01/09/2026): um ambiente de programação
 visual em que uma criança monta blocos na tela, aperta PLAY e o robô executa na
 hora — no robô virtual do navegador e, agora também validado em hardware, na
 ESP32, sem mudar a lógica.</p>
@@ -550,6 +551,146 @@ na placa real.</p>
 permanece para a próxima etapa é integração elétrica e mecânica — alimentação,
 TB6612FNG, motores e HC-SR04 — e não mais a validação básica da ESP32.</p>
 
+<h3>Atividade 20: Integração elétrica e primeira leitura do sensor</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 31/08 e 01/09</p>
+
+<p><b>Descrição:</b><br>
+Fechamento da etapa que a Atividade 19 deixou em aberto: sair da placa sozinha e
+chegar ao robô montado, com alimentação, driver, motores e sensor de distância.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Montagem do HC-SR04 no chassi, na ligação de 3,3 V que dispensa divisor de tensão</li>
+  <li>Primeira leitura do sensor no robô real: tocando no bloco de distância, o valor
+      lido pelo hardware voltou até a bolha na tela, e caiu ao aproximar a mão</li>
+  <li>Leitura contínua no painel, sem precisar tocar em bloco nenhum</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+O caminho inteiro do sensor passou a estar provado no hardware — pino, instrução
+da máquina virtual, protocolo e tela. Até então ele era exercitado apenas no
+robô virtual.</p>
+
+<p>A leitura contínua exigiu uma decisão de protocolo. O robô virtual envia
+posição e distância no mesmo quadro de telemetria, e a placa não tem física para
+informar posição alguma: reaproveitar aquele quadro obrigaria a inventar uma
+posição falsa, o que faria o desenho do robô saltar para a origem e a missão se
+dar por cumprida sozinha. Foi criado um quadro próprio, de três bytes, com
+apenas a leitura — a placa informa só aquilo que de fato sabe. A leitura é feita
+dez vezes por segundo e não é feita quando não há ninguém conectado, porque o
+sensor custa até 25 ms por medição e esse tempo sairia do laço de execução.</p>
+
+<h3>Atividade 21: Identidade do aplicativo</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 01/09</p>
+
+<p><b>Descrição:</b><br>
+Nome e ícone do aplicativo Android, que até então usava um nome provisório e o
+ícone padrão do sistema.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Adoção do nome <b>Programação Criativa</b> no rótulo do aplicativo, no título
+      da página, no cabeçalho e no cabeçalho do código Arduino exportado</li>
+  <li>Criação do ícone do lançador a partir do foguete da marca, nas cinco
+      densidades de tela, em formato adaptativo e nos dois formatos antigos</li>
+  <li>Manutenção deliberada do identificador interno do pacote: alterá-lo
+      instalaria um segundo aplicativo ao lado do primeiro, em vez de renomear
+      o existente</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Verificado no aparelho: o rótulo aparece no lançador, no cabeçalho e nos próprios
+diálogos do sistema Android.</p>
+
+<h3>Atividade 22: Teclado numérico para trocar os números dos blocos</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 01/09</p>
+
+<p><b>Descrição:</b><br>
+Correção de um defeito relatado em uso: dentro do aplicativo não era possível
+trocar o número de um bloco. Para pedir seis segundos de movimento, era preciso
+encaixar uma conta de dois vezes três no lugar do número.</p>
+
+<p><b>O que foi feito:</b></p>
+
+<p><b>1. Causa raiz.</b> Em aparelho de toque, o editor de número da biblioteca de
+blocos não é um campo na tela: é uma caixa de diálogo do próprio navegador.
+Dentro da janela de navegação embutida do aplicativo, sem um componente
+específico registrado, essa caixa não abre e responde imediatamente como se o
+usuário tivesse desistido — sem erro e sem aviso. Tocar no número simplesmente
+não fazia nada.</p>
+
+<p><b>2. Correção.</b> Em vez de habilitar a caixa do sistema, foi escrito um
+teclado numérico próprio: doze teclas grandes, o número em destaque, e o primeiro
+algarismo substituindo o valor inteiro, como numa calculadora. A decisão seguiu o
+mesmo critério do resto da interface — um teclado completo do sistema cobrindo a
+tela de um telefone deitado é pior, para uma criança, que doze teclas grandes.</p>
+
+<p><b>3. Segundo defeito, descoberto ao testar.</b> O relato inicial dizia que o
+número mudava com o bloco solto num canto, mas não com o bloco dentro do bloco
+verde de início. Reproduzido dirigindo um navegador com eventos de toque reais, a
+causa era outra: a caixa nasce embaixo do dedo que a abriu, e o clique que o
+navegador sintetiza a partir daquele mesmo toque é entregue a quem estiver
+naquele ponto agora — uma tecla, o botão de desistir, ou a área escura em volta.
+Não dependia do bloco estar dentro do verde, e sim da posição dele na tela. O
+teclado passou a reconhecer esses cliques pelo critério exato: o dedo encostou na
+tela antes de a caixa existir.</p>
+
+<p><b>Resultado:</b><br>
+Corrigido e verificado no aparelho. Coberto por quinze testes de mesa e por três
+testes que dirigem um navegador de verdade, um deles com eventos de toque —
+único capaz de reproduzir o segundo defeito, que não acontece com o mouse. Um
+quarto teste garante que o teclado cabe inteiro na tela de um telefone deitado,
+a pior medida de altura do projeto.</p>
+
+<h3>Atividade 23: Calibração das velocidades no robô real</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 01/09</p>
+
+<p><b>Descrição:</b><br>
+Relato de uso: a velocidade <i>devagar</i> não movia as rodas. Investigação e
+medição das três velocidades do menu diretamente no chassi.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Escrito um firmware de bancada que não sobe rede alguma e obedece a comandos
+      pela porta serial, reaproveitando a camada de hardware do firmware de
+      verdade — a frequência do sinal enviado aos motores faz parte do que se
+      está medindo, e uma cópia divergiria justamente nisso</li>
+  <li>A medição de quanto o robô andou em cada disparo é feita pelo próprio sensor
+      de distância do robô, em centímetros, e não pela observação de quem assiste</li>
+  <li>Varredura com o operador confirmando cada valor, um de cada vez</li>
+</ul>
+
+<p><b>Resultado:</b></p>
+
+<table>
+  <tr><th></th><th>Antes</th><th>Depois</th><th>Avanço em 2 s</th></tr>
+  <tr><td><b>devagar</b></td><td>120 — não saía do lugar</td><td><b>180</b></td><td>17 a 19 cm</td></tr>
+  <tr><td><b>normal</b></td><td>200</td><td><b>200</b></td><td>30 cm, e 36 já com a compensação</td></tr>
+  <tr><td><b>rápido</b></td><td>255 — rápido demais</td><td><b>225</b></td><td>acima de 40 cm</td></tr>
+</table>
+
+<p>Nem 120 nem 150 tiravam o robô da inércia: a fonte de bancada indicava consumo
+de corrente com as rodas paradas, que é o motor travado. Em 170 o robô andava
+numa tentativa e não andava na seguinte, comportamento típico de quem está
+exatamente no limiar do atrito estático. O primeiro valor que anda em toda
+tentativa é 180.</p>
+
+<p><b>Segundo achado: o robô guinava.</b> Os dois motores não começam a girar no
+mesmo ponto. Foi introduzida uma compensação de seis pontos no motor direito, e
+o mesmo disparo que percorria 30 cm tortos passou a percorrer 36 cm em linha
+reta. A compensação mora na camada de hardware, e não na lógica compartilhada:
+o desvio é defeito deste chassi — motor, redução e atrito da roda boba — e na
+lógica ele vazaria para o robô virtual, que passaria a guinar também. O código
+Arduino exportado copia o valor, e um teste falha caso os dois divirjam.</p>
+
+<p>As medições valem para este chassi e para a tensão usada, 7,5 V, equivalente à
+nominal de duas baterias 18650. O firmware de bancada ficou no repositório
+justamente para que a medição possa ser repetida em outro robô.</p>
+
 <hr>
 
 <h2>3. Estado atual e verificação</h2>
@@ -564,8 +705,8 @@ TB6612FNG, motores e HC-SR04 — e não mais a validação básica da ESP32.</p>
   </tr>
   <tr>
     <td>Testes em JavaScript</td>
-    <td>Compilador, blocos, níveis, solução automática, som, ponte e navegador</td>
-    <td><b>229 / 229</b></td>
+    <td>Compilador, blocos, níveis, solução automática, som, teclado numérico, ponte e navegador</td>
+    <td><b>280 / 280</b></td>
   </tr>
   <tr>
     <td>Testes em C</td>
@@ -590,6 +731,11 @@ TB6612FNG, motores e HC-SR04 — e não mais a validação básica da ESP32.</p>
   <tr>
     <td>Teste em hardware</td>
     <td>Gravação, LittleFS, Wi-Fi, interface, WebSocket e execução na ESP32 física</td>
+    <td><b>Aprovado</b></td>
+  </tr>
+  <tr>
+    <td>Robô montado</td>
+    <td>Motores, sensor de distância, velocidades e trajetória em linha reta</td>
     <td><b>Aprovado</b></td>
   </tr>
 </table>
@@ -644,11 +790,18 @@ em C, e os dois lados são escritos independentemente.</p>
   <li><b>Validação do código exportado num Arduino IDE real.</b> O teste compila
       o C++ gerado com um compilador de verdade, o que prova a sintaxe, mas não
       prova a plataforma.</li>
-  <li><b>Integração do robô físico.</b> A ESP32 e o caminho completo de software
-      já foram validados na placa real. Falta ligar e testar a alimentação, o
-      TB6612FNG, os motores e o HC-SR04.</li>
-  <li><b>Calibração real do giro.</b> Os valores usados são estimativa; só o robô
-      real dirá o quanto erram.</li>
+  <li><b>Integração do robô físico.</b> <i>Concluída em 01/09</i> — alimentação,
+      driver TB6612FNG, motores e HC-SR04 validados no chassi montado
+      (Atividades 20 e 23).</li>
+  <li><b>Calibração do giro.</b> As três velocidades de andar foram medidas no
+      robô (Atividade 23), mas o giro usa um valor próprio, ainda estimado — e é
+      o mesmo valor que mal tira o robô da inércia andando reto. Como girar no
+      lugar é mais pesado que andar, porque as rodas arrastam de lado, é provável
+      que o bloco de giro tenha hoje o mesmo defeito que a velocidade
+      <i>devagar</i> tinha. A régua de bancada da Atividade 23 mede isso do mesmo
+      jeito.</li>
+  <li><b>Autonomia por bateria.</b> As medições foram feitas com fonte de
+      bancada. Bateria descarregando altera todos os limiares medidos.</li>
 </ul>
 
 <h2>5. Próximos ciclos</h2>

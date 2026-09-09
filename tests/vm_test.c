@@ -475,6 +475,114 @@ static void teste_aleatorio_respeita_a_faixa(void) {
     }
 }
 
+/* Sorteia uma vez com a semente pedida e devolve o valor. O relógio fica
+   PARADO de propósito: é o cenário em que o dado velho — que era o relógio —
+   devolvia sempre o mesmo número. */
+static int sorteio(uint32_t semente, int32_t lo, int32_t hi) {
+    VM vm;
+    uint8_t prog[5 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, (int16_t)lo, 0, 0);
+    p = emit(p, OP_PUSH, (int16_t)hi, 0, 0);
+    p = emit(p, OP_BIN, BIN_ALEATORIO, 0, 0);
+    p = emit(p, OP_PUSH, 0, 0, 0);
+    p = emit(p, OP_MOTOR, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    vm.semente = semente;              /* depois do vm_run, que semeia do relógio */
+    vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
+    int v = -1;
+    if (fake_trace_count() > 0) sscanf(fake_trace_get(0), "MOTOR %d,", &v);
+    return v;
+}
+
+/* Semente fixa, sequência conhecida. É a única asserção realmente objetiva das
+   quatro deste bloco, e é a que o dado velho não passava de jeito nenhum: com o
+   relógio parado ele devolvia sempre o mesmo número. Se o LCG mudar, este teste
+   quebra — e é para quebrar mesmo, porque a sequência é o contrato. */
+static void teste_aleatorio_e_reprodutivel(void) {
+    printf("teste_aleatorio_e_reprodutivel\n");
+    VM vm;
+    uint8_t prog[4 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 1, 0, 0);
+    p = emit(p, OP_PUSH, 100, 0, 0);
+    p = emit(p, OP_BIN, BIN_ALEATORIO, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+
+    int primeira[8], segunda[8];
+    for (int volta = 0; volta < 2; volta++) {
+        int *fora = volta == 0 ? primeira : segunda;
+        preparar(&vm, prog, sizeof(prog));
+        vm.semente = 12345u;
+        for (int k = 0; k < 8; k++) {
+            vm.pc = 0; vm.topo = 0; vm.rodando = 1;
+            vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
+            fora[k] = (int)vm.pilha[0];
+        }
+    }
+    for (int k = 0; k < 8; k++) CHECK(primeira[k] == segunda[k]);
+}
+
+/* Duas VMs com a mesma semente andam iguais, e uma não mexe na outra. Se a
+   semente voltasse a ser variável de arquivo, este é o teste que cairia. */
+static void teste_aleatorio_isolado_por_vm(void) {
+    printf("teste_aleatorio_isolado_por_vm\n");
+    VM a, b;
+    uint8_t prog[4 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 1, 0, 0);
+    p = emit(p, OP_PUSH, 1000, 0, 0);
+    p = emit(p, OP_BIN, BIN_ALEATORIO, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&a, prog, sizeof(prog));
+    preparar(&b, prog, sizeof(prog));
+    a.semente = b.semente = 777u;
+    /* A anda três sorteios sozinha; B continua onde estava. */
+    for (int k = 0; k < 3; k++) {
+        a.pc = 0; a.topo = 0; a.rodando = 1;
+        vm_tick(&a); vm_tick(&a); vm_tick(&a);
+    }
+    vm_tick(&b); vm_tick(&b); vm_tick(&b);
+    /* O primeiro sorteio de B tem que ser o primeiro de A, não o quarto. */
+    VM c;
+    preparar(&c, prog, sizeof(prog));
+    c.semente = 777u;
+    vm_tick(&c); vm_tick(&c); vm_tick(&c);
+    CHECK(b.pilha[0] == c.pilha[0]);
+}
+
+/* Com o relógio parado, uma amostra não sai toda igual — que é exatamente o
+   sintoma que o dado velho tinha. Sobre a amostra, e não sobre dois sorteios
+   seguidos: um dado de verdade repete, e "dois seguidos diferentes" falharia
+   por acaso. */
+static void teste_aleatorio_nao_e_constante(void) {
+    printf("teste_aleatorio_nao_e_constante\n");
+    VM vm;
+    uint8_t prog[4 * INSTR_BYTES], *p = prog;
+    p = emit(p, OP_PUSH, 1, 0, 0);
+    p = emit(p, OP_PUSH, 5, 0, 0);
+    p = emit(p, OP_BIN, BIN_ALEATORIO, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    preparar(&vm, prog, sizeof(prog));
+    vm.semente = 2024u;
+    int visto[6] = { 0, 0, 0, 0, 0, 0 };
+    for (int k = 0; k < 200; k++) {
+        vm.pc = 0; vm.topo = 0; vm.rodando = 1;
+        vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
+        int v = (int)vm.pilha[0];
+        CHECK(v >= 1 && v <= 5);          /* faixa, na mesma passada */
+        visto[v] = 1;
+    }
+    for (int v = 1; v <= 5; v++) CHECK(visto[v]);   /* os cinco apareceram */
+}
+
+/* Sementes diferentes, sequências diferentes. */
+static void teste_aleatorio_semente_muda_o_sorteio(void) {
+    printf("teste_aleatorio_semente_muda_o_sorteio\n");
+    int diferentes = 0;
+    for (uint32_t s = 1; s <= 20; s++) {
+        if (sorteio(s, 1, 1000) != sorteio(s + 1000, 1, 1000)) diferentes++;
+    }
+    CHECK(diferentes >= 18);   /* colisão ocasional é legítima; vinte iguais não */
+}
+
 /* O sensor vira valor. É o bloco que carrega a lição do ciclo. */
 static void teste_sensor_como_valor(void) {
     printf("teste_sensor_como_valor\n");
@@ -677,6 +785,10 @@ int main(void) {
     teste_comparacoes_e_booleanos();
     teste_nao_inverte();
     teste_aleatorio_respeita_a_faixa();
+    teste_aleatorio_e_reprodutivel();
+    teste_aleatorio_isolado_por_vm();
+    teste_aleatorio_nao_e_constante();
+    teste_aleatorio_semente_muda_o_sorteio();
     teste_sensor_como_valor();
     teste_jmp_false_salta_quando_falso();
     teste_pilha_vazia_depois_de_cada_comando();

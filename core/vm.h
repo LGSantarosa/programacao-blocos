@@ -24,6 +24,10 @@ typedef struct {
     uint8_t  parar_ao_fim;
     uint8_t  rodando;
     uint32_t ultimo_tick;
+    /* A semente do 🎲, campo e não variável de arquivo: duas VMs com a mesma
+       semente têm que andar iguais sem uma mexer na outra, senão um teste
+       passa a depender da ordem em que os testes rodam. */
+    uint32_t semente;
 } VM;
 
 #ifdef __cplusplus

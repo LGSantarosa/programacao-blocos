@@ -27,6 +27,24 @@ int vm_load(VM *vm, const uint8_t *bytes, uint16_t n_bytes) {
     return 1;
 }
 
+/* O sorteio do 🎲, e por que ele não é mais o relógio.
+
+   Era `hal_millis() % faixa`. O relógio é monotônico e o laço executa até 256
+   instruções no mesmo quadro, todas dentro do mesmo milissegundo: dentro de um
+   `repetir`, o dado dava sempre o mesmo número, e `aleatório + aleatório` caía
+   com os dois dados iguais quase toda vez. Um dado que depende do escalonador
+   em vez do sorteio não é um dado.
+
+   LCG de Numerical Recipes, e os 16 bits de cima porque os de baixo de um LCG
+   alternam de um jeito visível — e num dado de 1 a 2 isso apareceria. Semeado
+   no vm_run com o relógio, que é a única fonte de imprevisibilidade que a placa
+   tem: o programa fica diferente a cada PLAY, e igual dentro do mesmo PLAY se
+   alguém fixar a semente, que é o que os testes fazem. */
+static uint32_t sortear(VM *vm) {
+    vm->semente = vm->semente * 1103515245u + 12345u;
+    return vm->semente >> 16;
+}
+
 void vm_run(VM *vm) {
     vm->pc           = 0;
     vm->esperar_ate  = 0;
@@ -34,6 +52,7 @@ void vm_run(VM *vm) {
     vm->rodando      = 1;
     vm->ultimo_tick  = hal_millis();
     vm->topo         = 0;
+    vm->semente      = hal_millis();
     memset(vm->reg, 0, sizeof(vm->reg));
 }
 
@@ -139,7 +158,7 @@ void vm_tick(VM *vm) {
         case BIN_OU:      r = (a || b); break;
         case BIN_ALEATORIO: {
             int32_t lo = (a < b) ? a : b, hi = (a < b) ? b : a;
-            r = lo + (int32_t)(hal_millis() % (uint32_t)(hi - lo + 1));
+            r = lo + (int32_t)(sortear(vm) % (uint32_t)(hi - lo + 1));
             break;
         }
         default: vm_stop(vm); return;

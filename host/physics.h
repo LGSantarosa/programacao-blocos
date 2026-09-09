@@ -4,9 +4,25 @@
 #include <stdint.h>
 
 /* Derivados da calibração da VM — ver o spec. Mexer aqui exige recalcular
-   MS_POR_GRAU em core/vm.h. */
-#define V_MAX        0.30   /* m/s com PWM 255       */
-#define ENTRE_EIXOS  0.12   /* m                     */
+   MS_POR_GRAU em core/vm.h.
+
+   O ENTRE_EIXOS não é uma medida do chassi: é o número que faz a velocidade
+   angular do simulador bater com o MS_POR_GRAU do robô de verdade. A conta,
+   por inteiro, para quem precisar refazê-la:
+
+       v     = VEL_GIRO / 255 * V_MAX          cada roda, em sentido oposto
+       ω     = 2 * v / ENTRE_EIXOS             rad/s girando no lugar
+       t(90) = 90 * MS_POR_GRAU / 1000         o que o opcode TURN espera
+       exige-se  ω * t(90) = π/2
+
+   Era 0.12, arredondado, e com ele um `girar 90` dava 91,0° — 1° de sobra por
+   curva. Passou anos escondido porque a física andava ~3% devagar e os dois
+   erros se cancelavam; quando o laço passou a usar o tempo de verdade
+   (host/laco.c), o giro ficou exposto e o gabarito do labirinto começou a
+   errar a estrela por 1 cm. Medido: com 0.12, um `girar 180` dava 182,6°.
+   Com este valor dá 179,6°. */
+#define V_MAX        0.30       /* m/s com PWM 255 */
+#define ENTRE_EIXOS  0.121332   /* m — ver a conta acima */
 #define RAIO_ROBO    0.08   /* m                     */
 #define ARENA_LADO   2.00   /* m                     */
 

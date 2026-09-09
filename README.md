@@ -411,10 +411,27 @@ instrução e volta.
 ### Calibração
 
 Em `core/vm.h`: `VEL_FRENTE 200`, `VEL_GIRO 180`, `MS_POR_GRAU 5`,
-`WATCHDOG_MS 500`. A física do simulador (`V_MAX 0.30`, `ENTRE_EIXOS 0.12`) é
-**derivada** desses valores — juntos eles determinam a velocidade angular do
+`WATCHDOG_MS 500`. A física do simulador (`V_MAX 0.30`, `ENTRE_EIXOS 0.121332`)
+é **derivada** desses valores — juntos eles determinam a velocidade angular do
 giro, e é ela que precisa bater com `MS_POR_GRAU`. Mexer num exige recalcular
-os outros.
+os outros:
+
+```
+v     = VEL_GIRO / 255 * V_MAX      cada roda, em sentido oposto
+ω     = 2 * v / ENTRE_EIXOS         rad/s girando no lugar
+t(90) = 90 * MS_POR_GRAU / 1000     o que o opcode TURN espera
+exige-se  ω * t(90) = π/2
+```
+
+O `ENTRE_EIXOS` não é uma medida do chassi: é o número que fecha essa conta.
+Era `0.12`, arredondado, e com ele um `girar 90` do simulador dava 91,0° — um
+grau de sobra por curva. Ficou anos invisível porque o laço do robô virtual
+andava ~3% devagar e os dois erros se cancelavam. Quando o laço passou a usar o
+tempo de verdade, o giro ficou exposto: um `girar 180` dava 182,6°, e o
+gabarito do labirinto passou a errar a estrela por 1 cm em metade das
+execuções. Com o valor certo, o mesmo gabarito chega a 9 cm da estrela em 10
+de 10 — e `tests/physics_test.c` agora exige o giro entre 89,9° e 90,1°, para
+a promessa deste parágrafo virar contrato.
 
 #### As três velocidades, medidas no robô
 

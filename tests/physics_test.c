@@ -39,11 +39,17 @@ static void teste_giro_bate_com_a_calibracao(void) {
     avancar(0.450);                     /* 90 * MS_POR_GRAU ms         */
     double x, y, th;
     fis_pose(&x, &y, &th);
-    /* Gira no lugar, sentido horário, ~91 graus (1% de erro é o esperado). */
+    /* Gira no lugar, sentido horário, NOVENTA graus — não "uns noventa".
+
+       A tolerância era de 88 a 94, e o comentário dizia que 1% de erro era
+       esperado. Não era: o ENTRE_EIXOS estava arredondado, e aquele 1° por
+       curva custou o gabarito do labirinto quando o resto da física ficou
+       exato. O README promete que a física é DERIVADA da calibração; esta
+       margem estreita é o que transforma a promessa em contrato. */
     CHECK(fabs(x - 1.0) < 0.005);
     CHECK(fabs(y - 1.0) < 0.005);
     double graus = -th * 180.0 / M_PI;
-    CHECK(graus > 88.0 && graus < 94.0);
+    CHECK(graus > 89.9 && graus < 90.1);
 }
 
 static void teste_sensor_ve_o_obstaculo(void) {

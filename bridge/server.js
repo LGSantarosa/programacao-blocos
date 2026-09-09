@@ -46,8 +46,21 @@ const servidor = http.createServer((req, res) => {
      diretório web/ — 404 em algo que existe. */
   const semQuery = req.url.split('?')[0];
   const caminho = (semQuery === '/' || semQuery === '') ? '/index.html' : semQuery;
-  const arquivo = path.join(RAIZ_WEB, path.normalize(decodeURIComponent(caminho)));
-  if (!arquivo.startsWith(RAIZ_WEB)) {
+  /* O decodeURIComponent lança em URL malformada — um "%" solto basta — e a
+     exceção subia até o topo e matava o processo. Numa sala de aula isso é o
+     tablet de uma criança com um caractere estranho na barra de endereço
+     tirando o robô virtual de todo mundo do ar. */
+  let decodificado;
+  try {
+    decodificado = decodeURIComponent(caminho);
+  } catch (_) {
+    res.writeHead(400).end('endereço inválido');
+    return;
+  }
+  const arquivo = path.join(RAIZ_WEB, path.normalize(decodificado));
+  /* Com o separador no fim: sem ele, um diretório irmão chamado "web-outro"
+     começa com o mesmo texto que "web" e passaria pela guarda. */
+  if (arquivo !== RAIZ_WEB && !arquivo.startsWith(RAIZ_WEB + path.sep)) {
     res.writeHead(403).end('proibido');
     return;
   }

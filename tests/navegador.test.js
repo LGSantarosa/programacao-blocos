@@ -1721,3 +1721,116 @@ test('a trilha mostra em que fase a criança está, e deixa voltar',
 
     cdp.fechar();
   });
+
+test('a página que some sem avisar grava antes de ir',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* A gravação espera um segundo de silêncio de propósito — o Blockly dispara
+       um evento por pixel de arrasto. Mas há três jeitos de a página sumir
+       dentro desse segundo: a aba fechando, o aparelho dormindo, e o botão
+       "voltar" do Android matando a Activity. Nos três, o que estiver pendente
+       tem que ir para o disco agora ou não vai nunca. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 9) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-sair-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 9}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 9}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 9}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const abrir = async () => {
+      await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 9}/` });
+      const ate = Date.now() + 30000;
+      let pronta = false;
+      while (Date.now() < ate && !pronta) {
+        pronta = await aval(`document.readyState === 'complete'
+          && typeof Blockly !== 'undefined'
+          && !!Blockly.getMainWorkspace()`).catch(() => false);
+        if (!pronta) await espera(250);
+      }
+      assert.ok(pronta, 'a página não ficou pronta em 30 s');
+      await espera(600);
+    };
+
+    await abrir();
+    await aval(`localStorage.removeItem('robo_programa'); Niveis.definir('medio')`);
+    await abrir();
+
+    const dentroDaRaiz = `(() => {
+      const raiz = Blockly.getMainWorkspace()
+        .getBlocksByType('quando_play', false)[0];
+      const fora = [];
+      let b = raiz && raiz.getInputTargetBlock('CORPO');
+      while (b) { fora.push(b.type); b = b.getNextBlock(); }
+      return JSON.stringify(fora);
+    })()`;
+
+    /* O que está no disco ANTES: a página já gravou o programa vazio ao abrir,
+       então o que prova a espera é o conteúdo não ter mudado, e não a chave
+       estar ausente. Foi o que a primeira versão deste teste errou. */
+    const guardadoAntes = await aval(`localStorage.getItem('robo_programa')`);
+    assert.ok(guardadoAntes, 'esperava a gravação da abertura');
+
+    /* Monta e sai NA HORA — sem esperar o segundo. É o caso que se perdia. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const raiz = ws.getBlocksByType('quando_play', false)[0];
+      const b = Blockly.serialization.blocks.append(
+        { type: 'mover_frente', fields: { VEL: '200' },
+          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 2 } } } } }, ws);
+      b.previousConnection.connect(raiz.getInput('CORPO').connection);
+      return 1;
+    })()`);
+    await espera(120);
+    assert.deepStrictEqual(JSON.parse(await aval(dentroDaRaiz)), ['mover_frente']);
+
+    /* Ainda dentro do segundo de espera: o bloco novo não chegou ao disco. */
+    assert.strictEqual(
+      await aval(`localStorage.getItem('robo_programa')`), guardadoAntes,
+      'o teste precisa correr contra a espera, e ela já tinha passado');
+
+    /* O aparelho dormindo, ou o app indo para segundo plano. */
+    await aval(`(() => {
+      window.dispatchEvent(new Event('pagehide'));
+      return 1;
+    })()`);
+    await espera(200);
+
+    assert.notStrictEqual(
+      await aval(`localStorage.getItem('robo_programa')`), guardadoAntes,
+      'a página sumiu sem gravar o que a criança tinha acabado de montar');
+
+    await abrir();
+    assert.deepStrictEqual(JSON.parse(await aval(dentroDaRaiz)), ['mover_frente'],
+      'o programa não voltou depois da saída apressada');
+
+    /* A ponte que o Kotlin chama no botão "voltar" existe e faz a mesma coisa —
+       o app precisa dela porque a Activity pode morrer antes de o evento de
+       visibilidade dar a volta. Ver MainActivity.sairGuardando(). */
+    assert.strictEqual(await aval(`typeof App.gravarAgora`), 'function',
+      'o Kotlin chama App.gravarAgora() e ela não existe mais');
+
+    cdp.fechar();
+  });

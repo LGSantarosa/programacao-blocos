@@ -134,6 +134,33 @@
     }, 1000);
   }
 
+  /* Gravar agora, sem esperar o segundo de silêncio. A espera existe para não
+     serializar o workspace a cada pixel de arrasto, mas quando a página está
+     indo embora não há próximo evento: o que estiver pendente tem que ir para o
+     disco agora ou não vai nunca.
+
+     São os três jeitos de a página sumir sem avisar direito: a aba fechando, o
+     iPad dormindo e o Safari descartando a página, e — dentro do app Android —
+     o botão "voltar" matando a Activity. Nos três o navegador dispara um destes
+     dois eventos antes de soltar a página, e é a última chance que temos. */
+  function gravarAgora() {
+    if (tempoGravar) { clearTimeout(tempoGravar); tempoGravar = null; }
+    gravarPrograma();
+  }
+
+  window.addEventListener('pagehide', gravarAgora);
+  /* pagehide não existe em tudo, e o visibilitychange chega antes dele quando o
+     aparelho vai dormir ou o app vai para segundo plano. Os dois, de propósito:
+     gravar duas vezes o mesmo estado não custa nada, e perder o programa da
+     criança custa a tarde dela. */
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') gravarAgora();
+  });
+  /* O unload é o último recurso, para o navegador velho que não tem nenhum dos
+     dois — é o caso do Safari do iOS 9, que é justamente o tablet onde a página
+     mais some sozinha. */
+  window.addEventListener('unload', gravarAgora);
+
   function restaurarPrograma() {
     var salvo = Guardar.ler(nivel);
     if (!salvo) return false;
@@ -956,6 +983,10 @@
      recarregar — recarregar apagaria o programa que a criança montou. */
   window.App = {
     alvo: function () { return alvo; },
+    /* O Kotlin chama isto antes de deixar o "voltar" fechar o app: a Activity
+       morre com o WebView dentro, e pode chegar dentro do segundo de espera da
+       gravação. Ver MainActivity.sairGuardando(). */
+    gravarAgora: function () { gravarAgora(); },
     irPara: function (host) {
       alvo = host || null;
       /* Trocar de robô apaga a leitura do anterior: o fechar() desliga o

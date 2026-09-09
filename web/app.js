@@ -21,6 +21,8 @@
   var tituloConfirma = document.getElementById('confirma-titulo');
   var btConfirmaNao = document.getElementById('confirma-nao');
   var btConfirmaSim = document.getElementById('confirma-sim');
+  var btDesfazer = document.getElementById('desfazer');
+  var btRefazer = document.getElementById('refazer');
   var btCodigo = document.getElementById('codigo');
   var caixaCodigo = document.getElementById('painel-codigo');
   var preCodigo = document.getElementById('codigo-texto');
@@ -151,13 +153,54 @@
 
   restaurarPrograma();
 
+  /* ---------- desfazer e refazer ---------- */
+
+  /* A pilha é do Blockly; estes botões só a mostram. O menu de toque longo
+     continua funcionando — não trocamos um caminho pelo outro, demos ao que
+     já existia uma porta que dá para ver. */
+
+  /* O tamanho das pilhas não tem API pública no Blockly 8, e ler campo interno
+     é aposta: se um dia o nome mudar, `tamanhoDaPilha` devolve null e os botões
+     ficam sempre ligados. Apertar um botão sem nada para desfazer não faz mal
+     nenhum — o Blockly ignora —, então a falha desta leitura custa um botão
+     acinzentado a menos, e nunca uma tela quebrada. */
+  function tamanhoDaPilha(nome) {
+    var p = workspace[nome];
+    return (p && typeof p.length === 'number') ? p.length : null;
+  }
+
+  function atualizarHistorico() {
+    var d = tamanhoDaPilha('undoStack_');
+    var r = tamanhoDaPilha('redoStack_');
+    btDesfazer.disabled = (d === 0);
+    btRefazer.disabled = (r === 0);
+  }
+
+  btDesfazer.addEventListener('click', function () {
+    workspace.undo(false);
+    /* O nível de novo depois de desfazer: o que voltou à tela pode ter voltado
+       vestido do jeito que estava guardado no evento, e não do jeito que este
+       nível desenha. */
+    aplicarNivel();
+    atualizarHistorico();
+  });
+
+  btRefazer.addEventListener('click', function () {
+    workspace.undo(true);
+    aplicarNivel();
+    atualizarHistorico();
+  });
+
   workspace.addChangeListener(function (e) {
     /* Eventos de interface — rolar, dar zoom, selecionar — não mudam o
        programa, e gravar por causa deles gastaria bateria sem guardar nada
        novo. */
     if (e.isUiEvent) return;
     agendarGravacao();
+    atualizarHistorico();
   });
+
+  atualizarHistorico();
 
   /* A caixa de blocos é um workspace à parte do principal, e é reconstruída
      toda vez que a criança abre uma categoria. Sem reaplicar o nível ali, a
@@ -497,20 +540,42 @@
 
   function esconderBolha() {
     divBolha.hidden = true;
+    marcarClasse(divBolha, 'erro', false);
     if (tempoBolha) { clearTimeout(tempoBolha); tempoBolha = null; }
   }
 
   /* Sobre a peça, e um pouco acima dela. A medida sai do SVG do próprio
      bloco, que é quem sabe onde ele está depois de qualquer zoom ou
      rolagem. */
-  function mostrarBolha(bloco, texto) {
+  function mostrarBolha(bloco, texto, ehErro) {
     var r = bloco.getSvgRoot().getBoundingClientRect();
     divBolha.textContent = texto;
+    marcarClasse(divBolha, 'erro', !!ehErro);
     divBolha.hidden = false;
     divBolha.style.left = Math.round(r.left) + 'px';
-    divBolha.style.top = Math.round(r.top - 38) + 'px';
+    /* Erro sobe um pouco mais: a bolha é mais alta que a de um número, e
+       colada demais ela taparia o próprio bloco que está apontando. */
+    divBolha.style.top = Math.round(r.top - (ehErro ? 60 : 38)) + 'px';
     if (tempoBolha) clearTimeout(tempoBolha);
-    tempoBolha = setTimeout(esconderBolha, 4000);
+    /* Uma frase leva mais tempo para ser lida que um número — e por quem ainda
+       está aprendendo a ler, muito mais. */
+    tempoBolha = setTimeout(esconderBolha, ehErro ? 7000 : 4000);
+  }
+
+  /* Onde o erro aparece. A frase ia para um <span> de 14px no cabeçalho, longe
+     de onde a criança estava olhando e longe da peça que a causou — e é ali que
+     caem as três coisas mais importantes que o compilador tem a dizer.
+
+     Quando o erro sabe de qual bloco veio, ele sobe numa bolha em cima dele. O
+     cabeçalho continua recebendo a frase: é o que sobra quando a culpa não tem
+     endereço, e é o que um adulto olhando de longe consegue ler. */
+  function mostrarErro(e) {
+    spErro.textContent = e.message;
+    var bloco = e.blockId ? workspace.getBlockById(e.blockId) : null;
+    if (bloco && bloco.getSvgRoot) {
+      mostrarBolha(bloco, e.message, true);
+      Som.tocar('batida');
+    }
   }
 
   /* ---------- estado ---------- */
@@ -630,7 +695,7 @@
     try {
       compilado = Compilador.compilar(ast);
     } catch (e) {
-      spErro.textContent = e.message;
+      mostrarErro(e);
       return;
     }
     contarTentativa = ehPrograma;
@@ -664,7 +729,7 @@
       try {
         perg = Compilador.compilarValor(no);
       } catch (err) {
-        spErro.textContent = err.message;
+        mostrarErro(err);
         return;
       }
       esconderBolha();

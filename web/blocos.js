@@ -562,6 +562,18 @@
     return raiz;
   }
 
+  /* Refixa a âncora que já existe. Existe porque carregar um workspace do JSON
+     — o gabarito faz isso — traz um "quando_play" novo em folha, e o JSON não
+     carrega deletable nem movable: os dois voltam ao padrão, que é verdadeiro.
+     Quem chama criarRaiz não precisa disto; quem chama load, precisa. */
+  function fixarRaiz(workspace) {
+    var raizes = workspace.getBlocksByType('quando_play', false);
+    if (!raizes.length) return criarRaiz(workspace);
+    raizes[0].setDeletable(false);
+    raizes[0].setMovable(false);
+    return raizes[0];
+  }
+
   /* Tem alguma coisa além da raiz fixa? Conta bloco solto também: um bloco
      arrastado para o canto e nunca encaixado continua sendo trabalho dela, e
      apagá-lo sem avisar seria a mesma perda. */
@@ -584,7 +596,8 @@
               pilhaDoBloco: pilhaDoBloco,
               valorDoBloco: valorDoBloco,
               valorDe: valorDe,
-              criarRaiz: criarRaiz, temTrabalho: temTrabalho, limpar: limpar,
+              criarRaiz: criarRaiz, fixarRaiz: fixarRaiz,
+              temTrabalho: temTrabalho, limpar: limpar,
               CAIXA_XML: CAIXA_XML };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Blocos = api;

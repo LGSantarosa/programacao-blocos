@@ -258,6 +258,13 @@
   btGabarito.addEventListener('click', function () {
     Blockly.serialization.workspaces.load(
       Gabarito.montar(missao.gabarito || [], nivel, Missoes.PASSO_S), workspace);
+    /* O load troca o workspace inteiro, e a âncora que nasce dele vem do JSON
+       do gabarito — sem deletable nem movable, que por padrão são os dois
+       verdadeiros. Sem esta linha, pedir o gabarito destravava o
+       "▶ quando apertar PLAY": ele passava a poder ser arrastado e apagado,
+       e sem ele o PLAY não tem por onde começar. Justo para quem já falhou
+       três vezes, que é quem aperta este botão. */
+    Blocos.fixarRaiz(workspace);
     aplicarNivel();
     Som.tocar('play');
   });
@@ -374,10 +381,23 @@
     }
   }
 
+  /* A limpeza da tela inteira era feita a cada quadro, mesmo sem confete
+     nenhum na lista — e sem confete é 99% do tempo. Um clearRect do tamanho da
+     janela sessenta vezes por segundo para não desenhar pixel algum é caro num
+     iPad 2. Agora sai antes, e a última limpeza acontece uma vez só, quando o
+     último confete morre. */
+  var confeteSujo = false;
+
   function desenharConfete() {
+    if (confetes.length === 0) {
+      if (!confeteSujo) return;
+      confeteSujo = false;
+      confete.getContext('2d').clearRect(0, 0, confete.width, confete.height);
+      return;
+    }
+    confeteSujo = true;
     var c = confete.getContext('2d');
     c.clearRect(0, 0, confete.width, confete.height);
-    if (confetes.length === 0) return;
     var vivos = 0;
     for (var p of confetes) {
       p.vy += 0.35;                    /* gravidade */

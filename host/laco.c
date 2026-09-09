@@ -30,6 +30,10 @@ static uint16_t pc_enviado   = 0xFFFF;
 static uint32_t pc_ultimo_ms = 0;
 static uint8_t  rodando_ant  = 0;
 static uint32_t telem_ultimo = 0;
+/* O instante do passo anterior. É daqui que sai o dt da física — ver
+   laco_passo. Inicializado no laco_init: começando em zero, o primeiro passo
+   receberia o tempo desde que a máquina ligou. */
+static uint32_t fis_ultimo  = 0;
 
 static char fila[MAX_SAIDA][TAM_LINHA];
 static int  fila_ini, fila_n;
@@ -142,12 +146,36 @@ void laco_init(void) {
     pc_ultimo_ms = 0;
     rodando_ant  = 0;
     telem_ultimo = 0;
+    fis_ultimo   = hal_millis();
     vm_init(&vm);
     fis_init();
 }
 
 void laco_passo(void) {
     uint32_t agora = hal_millis();
+
+    /* A física ANTES da VM, e com o tempo que passou de verdade.
+
+       Duas correções numa linha só, e as duas mediam erro no mesmo sentido:
+
+       1. O dt era fixo em LACO_FRAME_MS enquanto a VM media espera pelo
+          relógio de verdade. Cada volta gastava 5 ms de relógio MAIS o
+          trabalho, e creditava só 5 ms de mundo: num `andar frente 1 s` o robô
+          virtual percorria 227 a 231 mm onde a calibração manda 235 — 1,8% a
+          3,5% curto, medido. E a calibração é justamente o contrato que faz o
+          ensaio valer para o robô de verdade.
+
+       2. O vm_tick é quem chama hal_motors, e ele rodava primeiro: o intervalo
+          que acabou de passar era creditado ao estado NOVO dos motores. Com dt
+          fixo e pequeno isso era invisível; com dt variável vira erro
+          mensurável, e no sentido contrário ao que se está consertando. A
+          física consome o intervalo com os motores que valeram DURANTE ele.
+
+       O fis_passo fatia sozinho, então um intervalo grande — a máquina
+       carregada, o processo voltando do segundo plano — não teletransporta o
+       robô por cima de uma parede. */
+    fis_passo((double)(uint32_t)(agora - fis_ultimo) / 1000.0);
+    fis_ultimo = agora;
 
     /* vm_tick precisa ser chamada mesmo durante um WAIT: ela já devolve sem
        executar instrução, mas é ela que alimenta o ultimo_tick do watchdog.
@@ -163,7 +191,6 @@ void laco_passo(void) {
     }
     emitir_pc(agora);
 
-    fis_passo(LACO_FRAME_MS / 1000.0);
     vm_watchdog_check(&vm, agora);
 
     if (vm.rodando != rodando_ant) {

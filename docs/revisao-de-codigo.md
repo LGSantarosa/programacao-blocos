@@ -5,16 +5,26 @@ Varredura do projeto inteiro (`core/`, `host/`, `bridge/`, `web/`, `firmware/`,
 atrito que atrapalha quem mexe no código.
 
 Conferida contra o commit `0728410` («Alinha a numeração do relatório…»). Cada
-item foi revalidado nesse código — a primeira passagem foi escrita contra o
-`1591fd1` e alguns achados já tinham sido consertados no meio do caminho; eles
-estão no fim, na seção **G**, para não voltarem à lista por engano.
+achado foi revalidado nesse código — a primeira passagem foi escrita contra o
+`1591fd1` e alguns já tinham sido consertados no meio do caminho; eles estão no
+fim, na seção **G**, para não voltarem à lista por engano.
 
 Cada item traz **onde**, **como reproduzir** e **o que fazer**. Ordenado por
 prioridade, não por arquivo. O que foi provado rodando está marcado
 **(provado)**; o que saiu da leitura está marcado **(por leitura)**.
 
-Números: 257 testes JS + os quatro binários em C passam. A suíte inteira leva
-~5 minutos, quase toda em `tests/gabaritos.test.js` (292 s medidos).
+Números: 280 testes JS + os quatro binários em C passam. A suíte leva 293 s, dos
+quais 292,65 s são o `tests/gabaritos.test.js` sozinho.
+
+> **Segunda passagem.** Este documento levou uma auditoria depois de escrito, e
+> ela achou seis coisas: uma correção proposta que abria um defeito pior (B1),
+> um limite recomendado que quebraria o giro e ainda assim não protegia o
+> bytecode (A1), uma descrição errada do sintoma do dado (A2), um «não dá para
+> desfazer» que era «não dá para descobrir» (C2), uma cobertura de teste
+> exagerada (E5), e a contagem de testes carregada da passagem anterior sem
+> refazer a conta. Os seis estão corrigidos abaixo, e o que foi corrigido está
+> marcado no lugar. As correções valem a leitura por si: são o tipo de erro que
+> passa quando se lê código sem rodá-lo.
 
 ---
 
@@ -46,23 +56,41 @@ justamente para a criança conseguir digitar 6 no lugar de encaixar `2 × 3`, e 
 não tem limite de algarismos (`apertar()`, linha 124: `texto = texto + tecla`,
 sem teto). Quem ganhou o teclado ganhou também o caminho curto para 100.
 
-**O que fazer — três metades, e as três valem:**
+**O que fazer — e aqui a primeira versão desta revisão errou duas vezes.**
 
-1. **Barrar na origem.** Dar `min`/`max` ao bloco `numero`: 0 a 30 serve para
-   segundos e centímetros; o `numero_bolinhas` já tem 1..100 e o `numero` que
-   mora no encaixe `N` deveria ter a mesma faixa. O Blockly recusa antes do
-   PLAY, que é o melhor momento para recusar — mesma regra que os tipos dos
-   encaixes já seguem.
-2. **Barrar no teclado.** Um teto de algarismos no `apertar()` (quatro já é
-   folgado) faz a tecla simplesmente não responder, que é o «não cabe» mais
-   suave que existe para quem tem quatro anos.
-3. **Barrar na saída.** No `emitir` (`compilador.js:51`), recusar operando fora
-   de −32768..32767 com a mesma frase gentil do `conferirProfundidade`:
-   *«Esse número é grande demais para o robô.»* Um `PUSH` que não cabe é defeito
-   de compilador, e compilador que trunca em silêncio é o que nos trouxe aqui.
+Ela recomendava `min=0, max=30` no bloco `numero` e um teto de quatro algarismos
+no teclado. As duas estão erradas, e a auditoria pegou as duas:
 
-Vale um teste em `tests/compilador.test.js` para cada limite, e um em
-`tests/teclado.test.js` para o teto de algarismos.
+- **O `numero` é um bloco só, compartilhado.** Ele mora no `SEG`, no `CM`, no
+  `N`, no `GRAUS` e dentro de toda conta do Gigante (`web/niveis.js:38-55`).
+  `max=30` mataria o giro de 90°, e `min=0` mataria o giro à esquerda — que a
+  caixa do Pequeno entrega pronto com `-90` (`niveis.js:138-140`). Um limite no
+  bloco é um limite em todos os encaixes ao mesmo tempo, e eles não querem a
+  mesma faixa.
+- **Quatro algarismos não protegem nada.** Provado: `esperar 9999 s` →
+  `PUSH -28008`. O estouro não é de dígitos, é de milissegundos — o `msDe`
+  multiplica por 1000, então qualquer coisa acima de 32,7 s estoura, e 33 já
+  basta (`esperar 33 s` → `PUSH -32536`).
+
+O que vale, então:
+
+1. **A guarda obrigatória é no compilador, e ela é a única que não pode
+   faltar.** No `emitir` (`compilador.js:51`), recusar operando fora de
+   −32768..32767 com a mesma frase gentil do `conferirProfundidade`: *«Esse
+   número é grande demais para o robô.»* Um `PUSH` que não cabe é defeito de
+   compilador, e compilador que trunca em silêncio é o que nos trouxe aqui.
+   Esta sozinha já transforma «o robô não anda» em «o robô explica».
+2. **O limite amigável, se houver, é por encaixe e não por bloco.** O
+   `web/campos.js` já sabe de qual encaixe o número veio — é exatamente o que o
+   `tituloDoCampo()` faz para escolher entre «Quantos segundos?» e «Quantos
+   graus?». A mesma tabela pode carregar a faixa: `SEG` 0..30, `CM` 0..400,
+   `GRAUS` −360..360, `N` 1..100. O teclado consulta a faixa do encaixe que
+   abriu e recusa a tecla que passaria dela — que é o «não cabe» mais suave que
+   existe para quem tem quatro anos.
+
+Testes: um em `tests/compilador.test.js` para o operando fora de faixa (com
+`esperar 33` e `esperar 9999`, que são os dois casos provados aqui), e um em
+`tests/teclado.test.js` por encaixe se a faixa contextual for feita.
 
 ### A2. O `🎲 aleatório` não é aleatório — (por leitura, mecanismo claro)
 
@@ -72,10 +100,16 @@ Vale um teste em `tests/compilador.test.js` para cada limite, e um em
 r = lo + (int32_t)(hal_millis() % (uint32_t)(hi - lo + 1));
 ```
 
-`hal_millis()` é monotônico. Dentro de um `repetir`, sorteios consecutivos saem
-**em sequência** — `de 1 a 5` dá 1, 2, 3, 4, 5, 1, 2… E dois sorteios no mesmo
-milissegundo dão o mesmo número, o que quebra `aleatorio(1,6) + aleatorio(1,6)`:
-os dois dados sempre caem iguais.
+`hal_millis()` é monotônico, e o sintoma real é pior do que a primeira versão
+desta revisão descreveu. Ela dizia que os sorteios saem «em sequência»
+(1, 2, 3, 4, 5…). Saem, sim, mas só quando estão separados por um `esperar` ou
+um `andar` que deixe o relógio andar. **Num laço apertado eles saem
+constantes**: o `host/laco.c:155` executa até 256 instruções no mesmo quadro,
+todas dentro do mesmo milissegundo, então o `%` devolve sempre o mesmo número.
+Duzentos sorteios seguidos de `aleatorio(1,5)` deram o mesmo valor, todos.
+
+Pelo mesmo motivo, `aleatorio(1,6) + aleatorio(1,6)` tem os dois dados sempre
+caindo iguais: os dois `BIN` acontecem no mesmo milissegundo.
 
 Ironia registrada: o `.ino` gerado faz certo (`randomSeed(micros())`,
 `web/arduino.js`). O robô de blocos é o que sorteia mal.
@@ -89,8 +123,18 @@ static uint32_t proximo(void) { semente = semente * 1103515245u + 12345u; return
 ```
 
 Determinístico por semente — o que mantém `tests/vm_test.c` possível — e
-aleatório o bastante para um dado. Um teste que sorteia 200 vezes e confere que
-saiu mais de um valor já pega a regressão.
+aleatório o bastante para um dado.
+
+**O teste precisa de três coisas, e «saiu mais de um valor» não é nenhuma
+delas** — esse critério passa por acidente assim que dois sorteios calham de cair
+em milissegundos diferentes, que é justamente o caso que já funciona hoje. Com o
+relógio falso do `tests/` na mão, dá para exigir o que importa:
+
+1. com o relógio **parado**, dois sorteios seguidos dão valores independentes —
+   é este que falha contra a VM de hoje, e é o teste que prova o conserto;
+2. a mesma semente produz a mesma sequência, byte a byte — é o que mantém o
+   resto da suíte determinístico;
+3. sementes diferentes produzem sequências diferentes.
 
 ### A3. Pedir o gabarito destrava o bloco `▶ quando apertar PLAY` — (por leitura)
 
@@ -222,18 +266,48 @@ Hoje o desvio está escondido pela folga do `RAIO = 0.16` das missões, que é p
 onde `tests/gabaritos.test.js` passa. Mas é a mesma família de erro que o README
 descreve nos vãos do labirinto: no papel cabe, na prática raspa.
 
-**O que fazer:** medir o tempo decorrido e passá-lo à física:
+**O que fazer — e aqui a primeira versão desta revisão propôs uma correção que
+abria um defeito pior que o que fechava.** Ela era isto:
 
 ```c
-static uint32_t anterior;
+static uint32_t anterior;              /* ERRADO: ver abaixo */
 uint32_t agora = hal_millis();
 fis_passo((agora - anterior) / 1000.0);
 anterior = agora;
 ```
 
-Cuidado: `tests/laco_test.c` usa relógio falso, então isso passa a exigir que o
-falso avance — o que é uma melhora, porque hoje ele testa a física com um `dt`
-que não tem relação com o relógio que a VM lê. E `ServidorLocal.kt`
+Dois furos, os dois confirmados:
+
+- **O robô atravessa parede.** O `host/physics.c:89` testa a colisão só na
+  posição **final** do passo: `if (!colide(nx, ny))`. Com `dt` grande — uma
+  máquina carregada, o app em segundo plano, um `nanosleep` que dormiu demais —
+  o salto passa por cima do obstáculo inteiro e a chegada é do outro lado.
+  Reproduzido com `dt = 5.5`: o robô atravessou a parede de `y = 1,40..1,60`,
+  parou em `y = 1,694` e relatou `colidiu = 0`. Trocar um erro de 5% de distância
+  por um robô que atravessa o labirinto é péssimo negócio.
+- **O primeiro passo depende do tempo desde o boot.** `anterior` começa em zero
+  e `hal_millis()` não, então o primeiro `fis_passo` recebe o *uptime* inteiro.
+  Precisa ser inicializado no `laco_init()`, junto com o resto do estado.
+
+A correção certa tem três partes:
+
+1. inicializar `anterior = hal_millis()` no `laco_init()`;
+2. **limitar** o `dt` a um teto (uns 20 ms) — um quadro perdido não é motivo
+   para teletransportar o robô, e prender o tempo simulado é mais honesto que
+   inventar movimento que ninguém viu;
+3. **subdividir** o passo: `fis_passo` avança em fatias de no máximo
+   `LACO_FRAME_MS`, testando colisão em cada uma. Isso conserta o furo do
+   `dt` grande *e* o furo que já existe hoje — a 0,30 m/s um passo de 5 ms anda
+   1,5 mm, folgado contra o raio de 8 cm, mas nada no código garante isso, e o
+   próximo aumento de `V_MAX` o gastaria em silêncio.
+
+O item 3 vale por si, independente do resto de B1: é uma guarda que hoje não
+existe, e o `tests/physics_test.c` é o lugar dela — um caso que manda o robô
+contra a parede com `dt` grande e exige `colidiu = 1`.
+
+Cuidado com o resto: `tests/laco_test.c` usa relógio falso, então isso passa a
+exigir que o falso avance — o que é uma melhora, porque hoje ele testa a física
+com um `dt` que não tem relação com o relógio que a VM lê. E `ServidorLocal.kt`
 (`Thread.sleep(Vm.FRAME_MS)`) herda a correção de graça, porque ela mora no
 `laco.c` que os dois usam.
 
@@ -259,12 +333,24 @@ Android matar o app, o «voltar» do A6: em todos, o trabalho some.
 nível junto, e ignorar o programa salvo se o nível gravado não for o atual, que
 é a mesma regra que a troca de nível já aplica.
 
-### C2. Não há como desfazer com o dedo
+### C2. Desfazer existe, mas nenhuma criança vai encontrar
 
-O Blockly tem pilha de desfazer, mas o único gesto que a alcança é `Ctrl+Z`. Num
-tablet não existe teclado, e apagar um bloco sem querer é irreversível. Dois
-botões `↶ ↷` chamando `workspace.undo(false)` e `workspace.undo(true)` custam
-quatro linhas e mudam a sensação da tela: dá para experimentar sem medo.
+A primeira versão desta revisão dizia que apagar um bloco é irreversível no
+tablet. **Não é** — a auditoria mostrou o caminho: o Blockly traz «Desfazer» e
+«Refazer» no menu do workspace (estão traduzidos em `web/vendor/pt-br.js`), e
+num aparelho de toque esse menu abre com um toque longo de 750 ms
+(`LONGPRESS=750` no `blockly_compressed.js`).
+
+O problema é outro, e continua valendo: **um gesto que só existe se você já
+souber que existe não protege ninguém.** Segurar o dedo por três quartos de
+segundo em cima do nada, para ler duas palavras num menu cinza, não é uma coisa
+que uma criança de seis anos descubra — nem que um adulto pense em ensinar antes
+de o bloco já ter sumido.
+
+Dois botões `↶ ↷` no cabeçalho chamando `workspace.undo(false)` e
+`workspace.undo(true)` custam quatro linhas, não inventam mecânica nenhuma (a
+pilha já está lá, e o menu continua funcionando) e mudam a sensação da tela: dá
+para experimentar sem medo.
 
 ### C3. A criança não sabe em que fase está nem quantas faltam
 
@@ -428,8 +514,16 @@ Para o revisor seguinte não gastar tempo checando de novo:
   originais e falha se divergirem. O contrato do README se sustenta.
 - **A tradução do protocolo tem três implementações** (`bridge/server.js`,
   `Traducao.kt`, `firmware/src/main.cpp`) e as três batem. Duplicação assumida e
-  justificada — três linguagens, um protocolo — coberta por `bridge.test.js` e
-  `TraducaoTest.kt`.
+  justificada — três linguagens, um protocolo.
+
+  Mas **conferi lendo, não rodando, e a diferença importa**: o `bridge.test.js`
+  cobre a do Node e o `TraducaoTest.kt` cobre a do Kotlin; a terceira, que é a
+  que roda na placa, não tem teste nenhum. O `T_DIST` que o firmware emite é
+  exercitado só do lado do JavaScript que o lê (`tests/rede.test.js`). Se a
+  ordem dos bytes na placa saísse trocada, nada na suíte notaria — só um olho
+  humano na frente do robô. É um buraco de cobertura real, e o
+  `tests/quadros_test.c` já prova que dá para testar código do firmware na mesa:
+  a tradução podia sair do `main.cpp` para um arquivo C puro pelo mesmo caminho.
 - **O 0x85 novo foi introduzido do jeito certo:** número próprio em vez de
   reusar o 0x83, comentado dos dois lados explicando por que a placa não manda
   pose. É a mesma disciplina do opcode 7 vago.
@@ -460,18 +554,24 @@ decoradas.
 
 ### F3. Uma falha intermitente na suíte completa
 
-Rodando `node --test tests/` a suíte deu **1 falha em 257**. Rodando arquivo por
-arquivo, tudo passa — inclusive `gabaritos.test.js` sozinho. As portas não
-colidem (8097/9331 contra 8099-8101/9333-9335), então o suspeito é tempo: o
-`node --test` roda os arquivos em paralelo, dois Chromium sobem juntos, e algum
-dos `esperarPorta` / `espera(1200)` fixos não é generoso o bastante numa máquina
-carregada. Com o `teclado.test.js` novo entrando no mesmo pente, a pressão só
-aumentou.
+Numa das execuções de `node --test tests/`, a suíte deu **1 falha**. Rodando
+arquivo por arquivo, tudo passa — inclusive o `gabaritos.test.js` sozinho. E a
+auditoria rodou a suíte inteira depois e teve **280/280 verdes**. Ou seja: é
+intermitente, e não reprodutível sob demanda.
 
-Vale confirmar antes de mexer — corrige-se com `--test-concurrency=1` para os
-testes de navegador, ou trocando as esperas fixas por espera-até-condição. Um
-teste que falha uma vez a cada tantas é pior que teste nenhum, porque ensina a
-ignorar vermelho.
+As portas não colidem (8097/9331 contra 8099-8101/9333-9335), então o suspeito é
+tempo: o `node --test` roda os arquivos em paralelo, dois Chromium sobem juntos,
+e algum dos `esperarPorta` / `espera(1200)` fixos não é generoso o bastante numa
+máquina carregada. Com o `teclado.test.js` novo entrando no mesmo pente, a
+pressão só aumentou.
+
+**Não mexa antes de reproduzir.** O jeito de reproduzir é rodar a suíte umas
+vinte vezes seguidas, de preferência com a máquina ocupada, guardando a saída de
+cada uma — sem isso não dá para saber se um conserto consertou. Quando o teste
+que falha tiver nome, o remédio provável é `--test-concurrency=1` para os dois
+de navegador, ou trocar as esperas fixas por espera-até-condição. Um teste que
+falha uma vez a cada tantas é pior que teste nenhum, porque ensina a ignorar
+vermelho.
 
 ---
 
@@ -499,13 +599,30 @@ porque as soluções são boas.
 
 ## Sugestão de ordem
 
-**Primeiro, porque a criança encontra:** A1 (número grande — e a chegada do
-teclado deixou o caminho mais curto), A3 (âncora destravada), A4 (servidor cai),
-A2 (o dado viciado).
+**Primeiro, porque a criança encontra:** A1 (número grande — só a guarda do
+compilador, que é a que não pode faltar; a chegada do teclado deixou o caminho
+até o estouro mais curto), A3 (âncora destravada), A4 (servidor cai), A2 (o dado
+viciado).
 
 **Depois, porque é barato e melhora muito:** A5 (`%VERSAO%` na placa), C1
-(guardar o programa), C2 (desfazer), C4 (erro na bolha), D1 (confete), A8
-(a trava de reentrada).
+(guardar o programa), C2 (botões de desfazer), C4 (erro na bolha), D1 (confete),
+A8 (a trava de reentrada).
 
-**Quando der:** A6+A7 (Android), B1 (o tempo do ensaio), C3 (a trilha de fases),
-C5+C6 (cabeçalho e leitor de tela), E1-E4 (limpeza), F1-F3 (a suíte).
+**Quando der:** a subdivisão do passo da física (parte 3 do B1 — vale sozinha,
+mesmo sem tocar no `dt`, porque é uma guarda que hoje não existe), A6+A7
+(Android), o resto do B1 (o tempo do ensaio), C3 (a trilha de fases), C5+C6
+(cabeçalho e leitor de tela), E1-E4 (limpeza), F1-F3 (a suíte).
+
+---
+
+## Como ler esta revisão
+
+Metade dela foi provada rodando, metade saiu de leitura de código — e está
+marcado em cada item qual é qual. A auditoria que veio depois mostrou onde essa
+diferença dói: **das seis correções que ela trouxe, quatro estavam em itens
+lidos e não rodados**, e duas delas eram receitas que teriam introduzido defeito
+(o `dt` sem teto do B1, o `max=30` do A1).
+
+Isso não invalida os achados lidos — A3, A6 e B1 continuam corretos no
+diagnóstico. Mas vale a regra que sai daí, para quem for aplicar: **o defeito
+pode ser encontrado lendo; a correção precisa ser provada rodando.**

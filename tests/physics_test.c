@@ -182,6 +182,72 @@ static void arena_padrao(void) {
     fis_definir_arena(1.0, 0.40, M_PI / 2, &um, 1);
 }
 
+/* Um salto grande de uma vez só. Acontece de verdade: a máquina carregada, o
+   processo voltando do segundo plano, o relógio dando um pulo. A colisão é
+   testada na posição de chegada, então sem fatiar o robô passa por cima da
+   parede inteira e chega do outro lado — livre, e sem nunca ter colidido.
+
+   A parede aqui é FINA de propósito, 2 cm. A borda da arena não serve para
+   este teste: ela é um semiespaço — depois dela ainda é "fora" — então um
+   salto por cima dela colide na chegada de qualquer jeito, e o teste passaria
+   mesmo com o defeito no lugar. Só um obstáculo com o outro lado livre prova
+   que o caminho foi olhado. */
+static void teste_passo_grande_nao_atravessa_parede_fina(void) {
+    printf("teste_passo_grande_nao_atravessa_parede_fina\n");
+    FisRect fina = { 0.60, 1.49, 1.40, 1.51 };   /* 2 cm de espessura */
+    fis_definir_arena(1.0, 1.0, M_PI / 2, &fina, 1);
+    fis_init();
+    fis_set_pose(1.0, 1.0, M_PI / 2);
+    fis_set_motores(255, 255);
+    /* Dois segundos são 60 cm: de 1,00 a 1,60, do outro lado da parede fina. */
+    fis_passo(2.0);
+    double x, y, th;
+    fis_pose(&x, &y, &th);
+    CHECK(y < 1.49);                 /* parou antes dela, não depois */
+    CHECK(fis_colidiu() == 1);
+}
+
+static void teste_passo_grande_nao_atravessa_obstaculo(void) {
+    printf("teste_passo_grande_nao_atravessa_obstaculo\n");
+    /* A parede do meio, a mesma da fase 1: de y = 1,40 a 1,60. */
+    FisRect bloco = { 0.80, 1.40, 1.20, 1.60 };
+    fis_definir_arena(1.0, 1.0, M_PI / 2, &bloco, 1);
+    fis_init();
+    fis_set_pose(1.0, 1.0, M_PI / 2);
+    fis_set_motores(255, 255);
+    /* Três segundos de uma vez são 90 cm: passaria dos 1,40 aos 1,90, do outro
+       lado do bloco, sem tocar nele. */
+    fis_passo(3.0);
+    double x, y, th;
+    fis_pose(&x, &y, &th);
+    CHECK(y < 1.40 - RAIO_ROBO + 0.01);
+    CHECK(fis_colidiu() == 1);
+}
+
+/* Fatiar não pode mudar o quanto o robô anda: a distância é o contrato com a
+   calibração, e é ela que faz o ensaio valer para o robô de verdade. */
+static void teste_passo_grande_anda_o_mesmo_que_passos_pequenos(void) {
+    printf("teste_passo_grande_anda_o_mesmo_que_passos_pequenos\n");
+    fis_definir_arena(1.0, 0.4, M_PI / 2, NULL, 0);
+
+    fis_init();
+    fis_set_pose(1.0, 0.4, M_PI / 2);
+    fis_set_motores(255, 255);
+    avancar(1.0);
+    double x1, y1, t1;
+    fis_pose(&x1, &y1, &t1);
+
+    fis_init();
+    fis_set_pose(1.0, 0.4, M_PI / 2);
+    fis_set_motores(255, 255);
+    fis_passo(1.0);                       /* o segundo inteiro de uma vez */
+    double x2, y2, t2;
+    fis_pose(&x2, &y2, &t2);
+
+    CHECK(fabs(y2 - y1) < 1e-9);
+    CHECK(fabs(x2 - x1) < 1e-9);
+}
+
 int main(void) {
     teste_anda_reto();
     teste_giro_bate_com_a_calibracao();
@@ -195,6 +261,9 @@ int main(void) {
     teste_arena_trocavel();
     teste_arena_vazia_so_tem_paredes();
     teste_arena_nao_estoura_o_limite();
+    teste_passo_grande_nao_atravessa_parede_fina();
+    teste_passo_grande_nao_atravessa_obstaculo();
+    teste_passo_grande_anda_o_mesmo_que_passos_pequenos();
     arena_padrao();
     if (falhas == 0) { printf("\ntodos os testes passaram\n"); return 0; }
     printf("\n%d verificacao(oes) falharam\n", falhas);

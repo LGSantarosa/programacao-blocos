@@ -76,7 +76,9 @@ static int colide(double x, double y) {
     return 0;
 }
 
-void fis_passo(double dt) {
+/* Uma fatia. A colisão é testada só na chegada, e é por isso que quem chama
+   nunca deve dar um salto maior que FIS_PASSO_MAX_S — ver fis_passo(). */
+static void uma_fatia(double dt) {
     double vE = (mot_esq / 255.0) * V_MAX;
     double vD = (mot_dir / 255.0) * V_MAX;
     double v     = (vE + vD) / 2.0;
@@ -92,6 +94,32 @@ void fis_passo(double dt) {
        encostado numa parede. */
     if (!colide(nx, ny)) { pos_x = nx; pos_y = ny; bateu = 0; }
     else                 { bateu = 1; }
+}
+
+/* O intervalo inteiro, em fatias que a colisão consegue enxergar.
+
+   Sem isto, um dt grande — a máquina carregada, o app voltando do segundo
+   plano — colocava o robô do outro lado da parede: a posição de chegada estava
+   livre, e o caminho até ela nunca era olhado. A 5 ms de laço a folga era de
+   cinquenta vezes, mas nada no código a garantia, e o próximo V_MAX maior a
+   gastaria em silêncio.
+
+   O bateu que fica é o da última fatia: quem consultar depois quer saber se o
+   robô está encostado agora, e não se raspou no meio do caminho. */
+void fis_passo(double dt) {
+    if (!(dt > 0.0)) return;
+    /* Fatias iguais, e não "tira FIS_PASSO_MAX_S até sobrar": o resto de uma
+       divisão em ponto flutuante sai quase zero, e uma fatia de tamanho zero
+       não colide com nada — ela apagava o bateu que as fatias anteriores tinham
+       acabado de levantar. O robô parava na parede e dizia que não tinha
+       batido.
+
+       Com n fatias iguais, dt = 1,0 dá exatamente as mesmas 200 fatias de 5 ms
+       que o laço daria uma a uma, e o resultado é idêntico ao bit. */
+    int n = (int)ceil(dt / FIS_PASSO_MAX_S);
+    if (n < 1) n = 1;
+    double fatia = dt / n;
+    for (int i = 0; i < n; i++) uma_fatia(fatia);
 }
 
 /* Um raio a partir da frente do robô, marchando de 5 em 5 mm. Simples e

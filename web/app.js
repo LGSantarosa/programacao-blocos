@@ -99,6 +99,66 @@
      cópias da mesma regra é como elas divergem. */
   Blocos.criarRaiz(workspace);
 
+  /* ---------- o programa da criança volta como ela deixou ---------- */
+
+  /* Enquanto isto está ligado, nada é gravado: carregar o programa dispara os
+     mesmos eventos que montá-lo, e sem a trava a restauração ficaria gravando
+     por cima de si mesma no meio do caminho. */
+  var restaurando = false;
+  var tempoGravar = null;
+
+  function gravarPrograma() {
+    if (restaurando) return;
+    Guardar.gravar(Blockly.serialization.workspaces.save(workspace), nivel);
+  }
+
+  /* Um segundo de silêncio antes de gravar. O Blockly dispara um evento por
+     pixel de arrasto; gravar em cada um seria serializar o workspace inteiro
+     dezenas de vezes por segundo num iPad de 2011, e para nada — o que importa
+     é o estado em que a mão parou. */
+  function agendarGravacao() {
+    if (restaurando) return;
+    if (tempoGravar) clearTimeout(tempoGravar);
+    tempoGravar = setTimeout(function () {
+      tempoGravar = null;
+      gravarPrograma();
+    }, 1000);
+  }
+
+  function restaurarPrograma() {
+    var salvo = Guardar.ler(nivel);
+    if (!salvo) return false;
+    restaurando = true;
+    try {
+      Blockly.serialization.workspaces.load(salvo, workspace);
+      /* Mesma razão do gabarito: o load traz uma âncora nova, vinda de um JSON
+         que não carrega deletable nem movable. Sem isto, quem fechasse e
+         reabrisse a página ganharia um "▶ quando apertar PLAY" que dá para
+         apagar. */
+      Blocos.fixarRaiz(workspace);
+    } catch (e) {
+      /* Um programa guardado por uma versão anterior pode citar um bloco que
+         não existe mais. Melhor começar do zero e esquecer o que não abre do
+         que deixar a criança olhando uma tela quebrada para sempre. */
+      Guardar.esquecer();
+      Blocos.limpar(workspace);
+      restaurando = false;
+      return false;
+    }
+    restaurando = false;
+    return true;
+  }
+
+  restaurarPrograma();
+
+  workspace.addChangeListener(function (e) {
+    /* Eventos de interface — rolar, dar zoom, selecionar — não mudam o
+       programa, e gravar por causa deles gastaria bateria sem guardar nada
+       novo. */
+    if (e.isUiEvent) return;
+    agendarGravacao();
+  });
+
   /* A caixa de blocos é um workspace à parte do principal, e é reconstruída
      toda vez que a criança abre uma categoria. Sem reaplicar o nível ali, a
      paleta mostra número e texto mesmo no Pequeno: a criança escolhe a peça

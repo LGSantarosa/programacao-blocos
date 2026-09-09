@@ -1287,3 +1287,142 @@ test('pedir o gabarito não destrava a âncora do PLAY',
 
     cdp.fechar();
   });
+
+test('o programa da criança volta depois de recarregar a página',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* O nível já ficava, o mudo já ficava, a fase já ficava. O trabalho dela
+       era a única coisa da tela que se perdia — e é a única que ela fez com as
+       próprias mãos.
+
+       Este teste só existe em navegador porque a metade difícil não é guardar,
+       é voltar: o load traz uma âncora nova, os eventos do Blockly são
+       assíncronos, e a gravação é adiada em um segundo. O tests/guardar.test.js
+       cobre o armazenamento; aqui se prova o caminho inteiro. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 6) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-guardar-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 6}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 6}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 6}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+
+    const abrir = async () => {
+      await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 6}/` });
+      const ate = Date.now() + 30000;
+      let pronta = false;
+      while (Date.now() < ate && !pronta) {
+        pronta = await aval(`document.readyState === 'complete'
+          && typeof Blockly !== 'undefined'
+          && !!Blockly.getMainWorkspace()
+          && !!document.getElementById('play')`).catch(() => false);
+        if (!pronta) await espera(250);
+      }
+      assert.ok(pronta, 'a página não ficou pronta em 30 s');
+      await espera(600);
+    };
+
+    /* Quantos blocos de cada tipo, e o número que está dentro deles: é o
+       retrato do trabalho da criança, e é ele que tem que sobreviver. */
+    const retrato = `(() => {
+      const ws = Blockly.getMainWorkspace();
+      const raiz = ws.getBlocksByType('quando_play', false)[0];
+      const dentro = [];
+      let b = raiz && raiz.getInputTargetBlock('CORPO');
+      while (b) {
+        const enc = b.getInputTargetBlock('SEG') || b.getInputTargetBlock('GRAUS');
+        dentro.push(b.type + ':' + (enc ? enc.getFieldValue('NUM') : '-'));
+        b = b.getNextBlock();
+      }
+      return JSON.stringify({ nivel: Niveis.atual(), dentro: dentro,
+        apagavel: raiz ? raiz.isDeletable() : null,
+        movivel: raiz ? raiz.isMovable() : null });
+    })()`;
+
+    await abrir();
+    /* Nível fixado no Médio: o retrato tem que voltar no mesmo nível em que
+       foi tirado, e deixar isso ao acaso do que ficou guardado antes tornaria o
+       teste dependente da ordem em que ele roda. */
+    await aval(`Niveis.definir('medio')`);
+    await abrir();
+
+    /* A criança monta: dois passos e um giro, com números que ela escolheu. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const raiz = ws.getBlocksByType('quando_play', false)[0];
+      const frente = (s) => ({ type: 'mover_frente', fields: { VEL: '200' },
+        inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: s } } } } });
+      Blockly.serialization.blocks.append(
+        Object.assign(frente(3), { next: { block: Object.assign(
+          { type: 'girar', fields: { DIR: '90' },
+            inputs: { GRAUS: { shadow: { type: 'numero', fields: { NUM: 90 } } } } },
+          { next: { block: frente(2) } }) } }),
+        ws).previousConnection.connect(raiz.getInput('CORPO').connection);
+      return 1;
+    })()`);
+
+    /* A gravação é adiada em um segundo de propósito — o Blockly dispara um
+       evento por pixel de arrasto. Esperar mais que isso é o teste respeitando
+       a regra, e não contornando-a. */
+    await espera(1800);
+
+    const antes = JSON.parse(await aval(retrato));
+    assert.deepStrictEqual(antes.dentro,
+      ['mover_frente:3', 'girar:90', 'mover_frente:2'],
+      'o programa não foi montado como o teste pensa');
+
+    /* Ficou mesmo guardado, e no nível certo? */
+    assert.ok(await aval(`!!localStorage.getItem('robo_programa')`),
+      'nada foi para o localStorage');
+
+    /* E agora o que importa: fechar e abrir de novo. */
+    await abrir();
+
+    const depois = JSON.parse(await aval(retrato));
+    assert.deepStrictEqual(depois.dentro, antes.dentro,
+      'o programa não voltou como estava');
+    assert.strictEqual(depois.nivel, 'medio');
+    /* A âncora tem que voltar presa: o load traz uma nova, e JSON não carrega
+       deletable nem movable. Mesma armadilha do gabarito. */
+    assert.strictEqual(depois.apagavel, false,
+      'depois de recarregar, a âncora do PLAY ficou apagável');
+    assert.strictEqual(depois.movivel, false,
+      'depois de recarregar, a âncora do PLAY ficou arrastável');
+
+    /* Trocar de nível apaga o programa — e o que volta depois de recarregar
+       tem que ser a mesa limpa, não o programa do nível anterior. */
+    await aval(`document.querySelector('#niveis button[data-nivel="grande"]').click()`);
+    await espera(300);
+    await aval(`document.getElementById('confirma-sim').click()`);
+    await espera(1800);
+    await abrir();
+    const noGrande = JSON.parse(await aval(retrato));
+    assert.strictEqual(noGrande.nivel, 'grande');
+    assert.deepStrictEqual(noGrande.dentro, [],
+      'o programa do Médio ressuscitou dentro do Grande');
+
+    cdp.fechar();
+  });

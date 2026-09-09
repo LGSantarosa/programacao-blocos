@@ -1200,3 +1200,90 @@ test('o dedo que abre o teclado não aperta tecla nenhuma',
 
     cdp.fechar();
   });
+
+test('pedir o gabarito não destrava a âncora do PLAY',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* O botão "me mostra como faz" carrega o gabarito com
+       Blockly.serialization.workspaces.load, que troca o workspace inteiro. O
+       "▶ quando apertar PLAY" que nasce daí vem do JSON do gabarito, e JSON não
+       carrega deletable nem movable: os dois voltam ao padrão, que é
+       verdadeiro. Sem refixar, a criança passava a poder arrastar e apagar a
+       âncora — e sem ela o PLAY não tem por onde começar.
+
+       Quem aperta este botão é justamente quem já falhou três vezes. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 5) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-gabarito-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 5}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 5}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 5}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 5}/` });
+
+    const prontaEm = Date.now() + 30000;
+    let pronta = false;
+    while (Date.now() < prontaEm && !pronta) {
+      pronta = await aval(`document.readyState === 'complete'
+        && typeof Blockly !== 'undefined'
+        && !!Blockly.getMainWorkspace()
+        && !!document.getElementById('gabarito')`).catch(() => false);
+      if (!pronta) await espera(250);
+    }
+    assert.ok(pronta, 'a página não ficou pronta em 30 s');
+
+    const estadoDaAncora = `(() => {
+      const r = Blockly.getMainWorkspace().getBlocksByType('quando_play', false);
+      if (r.length !== 1) return JSON.stringify({ quantas: r.length });
+      return JSON.stringify({ quantas: 1,
+        apagavel: r[0].isDeletable(), movivel: r[0].isMovable() });
+    })()`;
+
+    /* Antes: a âncora nasce fixa. Se isto falhar, o teste seguinte não prova
+       nada — estaria comparando com um estado que já estava errado. */
+    const antes = JSON.parse(await aval(estadoDaAncora));
+    assert.deepStrictEqual(antes, { quantas: 1, apagavel: false, movivel: false },
+      'a âncora já nasceu destravada');
+
+    /* O botão só aparece depois de algumas tentativas, mas o .click() dispara o
+       mesmo tratador que o dedo dispararia — e é o tratador que está sob
+       teste, não a regra que revela o botão. */
+    await aval(`document.getElementById('gabarito').click()`);
+    await espera(1200);
+
+    /* O gabarito realmente montou alguma coisa? Sem isto, uma falha silenciosa
+       no load faria o teste passar por não ter mexido em nada. */
+    const pecas = await aval(
+      `Blockly.getMainWorkspace().getAllBlocks(false).length`);
+    assert.ok(pecas > 1, 'o gabarito não montou peça nenhuma (' + pecas + ')');
+
+    const depois = JSON.parse(await aval(estadoDaAncora));
+    assert.deepStrictEqual(depois, { quantas: 1, apagavel: false, movivel: false },
+      'depois do gabarito a âncora do PLAY ficou apagável ou arrastável');
+
+    cdp.fechar();
+  });

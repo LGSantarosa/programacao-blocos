@@ -106,6 +106,10 @@
 
   #niveis { display: flex; background: #002080; padding: 4px;
             border-radius: 15px; }
+  /* Dentro do painel ele ocupa a largura toda: são quatro alvos de toque, e
+     apertados eles voltam a ser difíceis de acertar. */
+  #painel-ajustes #niveis { width: 100%; }
+  #painel-ajustes #niveis button { flex: 1; padding: 12px 6px; }
   #niveis button {
     font-size: 16px; font-weight: 800; padding: 10px 16px;
     background: transparent; color: #93b4f5; border-radius: 11px;
@@ -140,6 +144,56 @@
   #estado { font-size: 14px; font-weight: 700; color: #b9d3ff; white-space: nowrap; }
   #versao { font-size: 11px; color: #7fa4f0; font-family: monospace; }
   #erro { color: #ffe08a; font-size: 14px; font-weight: 700; max-width: 260px; }
+
+  /* ---------- o painel de ajustes ---------- */
+
+  /* O cabeçalho tinha doze coisas: marca, erro, quatro níveis, desfazer,
+     refazer, ver código, mudo, PLAY, PARAR, procurar robô, estado e versão. Num
+     tablet em pé isso já quebrava em duas faixas, e cada botão novo empurrava
+     mais.
+
+     O corte não é por tamanho, é por dono. Fica à vista o que a CRIANÇA usa o
+     tempo todo — PLAY, PARAR e as duas setas de desfazer, que são o que a deixa
+     experimentar sem medo. Vai para trás do ⚙ o que é de quem ACOMPANHA: o
+     nível, que um adulto escolhe uma vez por sessão; o som; o código Arduino,
+     que já é o degrau seguinte; procurar o robô; e a versão, que existe para
+     responder "é cache?".
+
+     Um toque a mais para o adulto vale a tela inteira para a criança. */
+  #ajustes { background: #002080; box-shadow: 0 5px 0 #00185f;
+             font-size: 22px; padding: 13px 17px; line-height: 1; }
+  #ajustes:active:not(:disabled) { box-shadow: 0 1px 0 rgba(0,0,0,.25); }
+
+  #painel-ajustes {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 200;
+    background: rgba(0, 32, 128, .55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  /* Obrigatório, mesmo motivo do #confirma: o display:flex acima vence o
+     [hidden] do navegador, e sem esta linha o painel nasce visível. */
+  #painel-ajustes[hidden] { display: none; }
+
+  #ajustes-caixa {
+    background: #fff; border-radius: 22px; padding: 22px 24px;
+    max-width: 460px; width: 100%; box-sizing: border-box;
+    box-shadow: 0 10px 0 rgba(0, 32, 128, .25);
+    max-height: 92%; overflow: auto;
+  }
+  #ajustes-titulo { margin: 0 0 16px; font-size: 24px; font-weight: 800;
+                    color: #002080; text-align: center; }
+  .ajustes-rotulo { margin: 0 0 8px; font-size: 15px; font-weight: 800;
+                    color: #4a6fc4; }
+  #ajustes-botoes { display: flex; flex-wrap: wrap; justify-content: center;
+                    margin-top: 16px; }
+  #ajustes-botoes > * { margin: 5px; }
+  #ajustes-rodape { display: flex; align-items: center;
+                    justify-content: space-between; margin-top: 18px; }
+  #ajustes-fechar { background: #002080; box-shadow: 0 5px 0 #00185f;
+                    font-size: 16px; padding: 12px 20px; }
+  /* Dentro do painel branco a versão precisa de outra cor: no cabeçalho ela
+     era clara sobre azul. */
+  #painel-ajustes #versao { display: inline; color: #7f9fe8; }
 
   /* ---------- diálogo de confirmação ---------- */
   /* Sem <dialog>: não existe no Safari do iOS 9. Um div com position:fixed e
@@ -409,7 +463,6 @@
     #niveis button { font-size: 15px; padding: 10px 13px; }
     #painel { width: 230px; }
     #arena { max-width: 206px; height: 206px; }
-    #versao { display: none; }
   }
 
   /* Tela estreita de verdade: o painel vai para baixo. */
@@ -460,11 +513,9 @@
     h1 { font-size: 15px; }
     h1 .marca { height: 26px; }
     #erro { max-width: none; }
-    #niveis { width: 100%; }
     #historico { width: 100%; }
     #historico button { flex: 1; }
     #niveis button { flex: 1; font-size: 14px; padding: 10px 4px; }
-    #codigo { width: 100%; }
     #play, #parar { flex: 1; font-size: 17px; padding: 13px 10px; }
     #estado { width: 100%; text-align: center; }
 
@@ -564,23 +615,15 @@
     <h1><img class="marca" src="img/foguete.png" alt="Educação Criativa">Programação Criativa</h1>
     <span id="erro" role="status" aria-live="polite"></span>
     <span class="espaco"></span>
-    <div id="niveis" role="group" aria-label="nível">
-      <button type="button" data-nivel="pequeno" aria-pressed="false">Pequeno</button>
-      <button type="button" data-nivel="medio"   aria-pressed="true">Médio</button>
-      <button type="button" data-nivel="grande"  aria-pressed="false">Grande</button>
-      <button type="button" data-nivel="gigante" aria-pressed="false">Gigante</button>
-    </div>
     <div id="historico" role="group" aria-label="desfazer e refazer">
       <button id="desfazer" type="button" title="desfazer" aria-label="desfazer" disabled>↶</button>
       <button id="refazer" type="button" title="refazer" aria-label="refazer" disabled>↷</button>
     </div>
-    <button id="codigo" type="button" hidden>{ } ver código</button>
-    <button id="mudo" title="ligar e desligar o som">🔊</button>
     <button id="play">▶ PLAY</button>
     <button id="parar" disabled>■ PARAR</button>
-    <button id="procurar" type="button" hidden>🤖 procurar o robô</button>
+    <button id="ajustes" type="button" title="ajustes" aria-label="ajustes"
+            aria-haspopup="dialog">⚙</button>
     <span id="estado" role="status" aria-live="polite">conectando…</span>
-    <span id="versao" title="versão servida — se não mudar após uma atualização, é cache">%VERSAO%</span>
   </header>
   <main>
     <div id="editor"></div>
@@ -632,6 +675,32 @@
       <div id="teclado-botoes">
         <button id="teclado-nao" type="button">Deixa</button>
         <button id="teclado-sim" type="button">Pronto</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="painel-ajustes" hidden>
+    <div id="ajustes-caixa" role="dialog" aria-modal="true"
+         aria-labelledby="ajustes-titulo">
+      <h2 id="ajustes-titulo">Ajustes</h2>
+
+      <p class="ajustes-rotulo" id="rotulo-nivel">Nível</p>
+      <div id="niveis" role="group" aria-labelledby="rotulo-nivel">
+        <button type="button" data-nivel="pequeno" aria-pressed="false">Pequeno</button>
+        <button type="button" data-nivel="medio"   aria-pressed="true">Médio</button>
+        <button type="button" data-nivel="grande"  aria-pressed="false">Grande</button>
+        <button type="button" data-nivel="gigante" aria-pressed="false">Gigante</button>
+      </div>
+
+      <div id="ajustes-botoes">
+        <button id="mudo" type="button" title="ligar e desligar o som">🔊</button>
+        <button id="codigo" type="button" hidden>{ } ver código</button>
+        <button id="procurar" type="button" hidden>🤖 procurar o robô</button>
+      </div>
+
+      <div id="ajustes-rodape">
+        <span id="versao" title="versão servida — se não mudar após uma atualização, é cache">%VERSAO%</span>
+        <button id="ajustes-fechar" type="button">fechar</button>
       </div>
     </div>
   </div>

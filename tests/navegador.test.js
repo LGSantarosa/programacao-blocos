@@ -542,20 +542,55 @@ test('nada escapa pela lateral num celular nem num tablet em pé',
         `${apelido}: a página tem ${rola}px de largura numa tela de ${larg} — ` +
         'alguma coisa está empurrando o resto para fora');
 
-      /* Um a um, porque saber QUAL escapou é metade do conserto. */
-      for (const id of ['play', 'parar', 'mudo', 'niveis', 'missao', 'arena']) {
-        const fora = await aval(`(function () {
-          var e = document.getElementById('${id}');
-          if (!e) return 'sumiu';
-          var c = e.getBoundingClientRect();
-          if (c.width === 0 && c.height === 0) return 'sem tamanho';
-          var larg = document.documentElement.clientWidth;
-          return (c.left >= -1 && c.right <= larg + 1) ? '' :
-            'esq=' + Math.round(c.left) + ' dir=' + Math.round(c.right);
-        })()`);
+      const naTela = (id) => aval(`(function () {
+        var e = document.getElementById('${id}');
+        if (!e) return 'sumiu';
+        var c = e.getBoundingClientRect();
+        if (c.width === 0 && c.height === 0) return 'sem tamanho';
+        var larg = document.documentElement.clientWidth;
+        return (c.left >= -1 && c.right <= larg + 1) ? '' :
+          'esq=' + Math.round(c.left) + ' dir=' + Math.round(c.right);
+      })()`);
+
+      /* Um a um, porque saber QUAL escapou é metade do conserto.
+
+         Esta lista é o cabeçalho depois do corte: fica à vista o que a criança
+         usa o tempo todo. O nível, o som, o código e a versão passaram para
+         trás do ⚙ — são de quem acompanha, e são conferidos logo abaixo, com o
+         painel aberto. */
+      for (const id of ['play', 'parar', 'desfazer', 'refazer', 'ajustes',
+                        'missao', 'arena']) {
+        const fora = await naTela(id);
         assert.strictEqual(fora, '',
           `${apelido}: #${id} está fora da tela (${fora})`);
       }
+
+      /* O que foi para trás do ⚙ continua alcançável, e continua cabendo. Um
+         controle escondido atrás de um botão que abre um painel torto não é
+         melhor que um controle fora da tela. */
+      assert.strictEqual(await aval(`document.getElementById('painel-ajustes').hidden`),
+        true, `${apelido}: o painel de ajustes nasceu aberto`);
+      await aval(`document.getElementById('ajustes').click()`);
+      await espera(300);
+      for (const id of ['niveis', 'mudo', 'versao', 'ajustes-fechar']) {
+        const fora = await naTela(id);
+        assert.strictEqual(fora, '',
+          `${apelido}: #${id} está fora da tela dentro do painel (${fora})`);
+      }
+      /* Os quatro níveis continuam sendo quatro alvos de toque de verdade. */
+      const menorNivel = await aval(`(function () {
+        var bs = document.querySelectorAll('#niveis button'), m = 1e9;
+        for (var i = 0; i < bs.length; i++) {
+          m = Math.min(m, bs[i].getBoundingClientRect().width);
+        }
+        return Math.round(m);
+      })()`);
+      assert.ok(menorNivel >= 44,
+        `${apelido}: botão de nível com ${menorNivel}px, estreito demais para um dedo`);
+      await aval(`document.getElementById('ajustes-fechar').click()`);
+      await espera(200);
+      assert.strictEqual(await aval(`document.getElementById('painel-ajustes').hidden`),
+        true, `${apelido}: o painel de ajustes não fechou`);
 
       /* Sem telemetria ainda precisa haver personagem. O centro do robô na
          primeira missão é (1,00 m; 0,40 m), isto é, (200, 320) no canvas de

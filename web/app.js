@@ -30,6 +30,9 @@
   var btConfirmaSim = document.getElementById('confirma-sim');
   var btDesfazer = document.getElementById('desfazer');
   var btRefazer = document.getElementById('refazer');
+  var btAjustes = document.getElementById('ajustes');
+  var caixaAjustes = document.getElementById('painel-ajustes');
+  var btAjustesFechar = document.getElementById('ajustes-fechar');
   var btCodigo = document.getElementById('codigo');
   var caixaCodigo = document.getElementById('painel-codigo');
   var preCodigo = document.getElementById('codigo-texto');
@@ -863,6 +866,9 @@
   }
 
   function aplicarTroca(novo) {
+    /* Escolheu, acabou: deixar o painel aberto por cima do trabalho novo faria
+       a criança ter de fechá-lo para ver o que mudou. */
+    fecharAjustes();
     /* Trocar de nível no meio de uma execução deixaria o robô andando na arena
        com um programa que não existe mais na tela. */
     if (rodando && robo && robo.parar) robo.parar();
@@ -902,6 +908,22 @@
     perguntarTroca(novo);
   }
 
+  /* ---------- o painel de ajustes ---------- */
+
+  function fecharAjustes() { caixaAjustes.hidden = true; }
+
+  btAjustes.addEventListener('click', function () {
+    caixaAjustes.hidden = false;
+    /* O foco vai para o "fechar", como no painel do código: quem chegou aqui
+       por teclado tem a saída debaixo do dedo, e não precisa atravessar quatro
+       botões de nível para desistir. */
+    btAjustesFechar.focus();
+  });
+  btAjustesFechar.addEventListener('click', fecharAjustes);
+  caixaAjustes.addEventListener('click', function (e) {
+    if (e.target === caixaAjustes) fecharAjustes();
+  });
+
   btConfirmaNao.addEventListener('click', fecharConfirma);
   btConfirmaSim.addEventListener('click', function () {
     var novo = nivelPendente;
@@ -917,6 +939,7 @@
     if (!(e.key === 'Escape' || e.keyCode === 27)) return;
     if (!caixaConfirma.hidden) fecharConfirma();
     else if (!caixaCodigo.hidden) fecharCodigo();
+    else if (!caixaAjustes.hidden) fecharAjustes();
   });
 
   /* forEach, e não for: com var o laço não cria escopo, e todos os botões

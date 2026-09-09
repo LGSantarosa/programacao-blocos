@@ -48,7 +48,31 @@
     var instrucoes = [];
     var profundidade = 0;
 
+    /* Os três operandos da instrução são int16 no bytecode (ver bytecode.h), e
+       era aqui que um número grande demais sumia em silêncio: o `dv.setInt16`
+       lá embaixo truncava, e `andar frente 100 s` virava uma espera de -31072
+       ms — que a VM lê como zero. A criança pedia cem segundos e o robô não
+       saía do lugar, sem uma palavra na tela.
+
+       A conferência vem ANTES do `| 0`, e não depois, porque o `| 0` já é a
+       conversão que perde a informação: `NaN | 0` é zero, e todo múltiplo de
+       2³² também — `4294967296 | 0` é zero. Conferir o resultado dele
+       aprovaria justamente os casos que se quer barrar. */
+    function cabeNaInstrucao(v) {
+      return typeof v === 'number' && isFinite(v) &&
+             Math.floor(v) === v && v >= -32768 && v <= 32767;
+    }
+
     function emitir(op, a, b, c, blockId) {
+      if (!cabeNaInstrucao(a) || !cabeNaInstrucao(b) || !cabeNaInstrucao(c)) {
+        /* Duas frases, porque são duas coisas diferentes para quem lê: um
+           número que não cabe é escolha da criança e ela pode escolher outro;
+           um campo sem número é um bloco pela metade. */
+        var ehNumero = isFinite(a) && isFinite(b) && isFinite(c);
+        throw new Error(ehNumero
+          ? 'Esse número é grande demais para o robô. Tente um menor.'
+          : 'Faltou um número em algum bloco.');
+      }
       instrucoes.push({ op: op, a: a | 0, b: b | 0, c: c | 0,
                         blockId: blockId || null });
     }

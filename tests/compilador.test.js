@@ -505,3 +505,44 @@ test('o REPORT não aparece no programa normal', () => {
   ]);
   assert.ok(!opcodesDe(bytes).includes(OP.REPORT));
 });
+
+/* O operando da instrução é int16, e era aqui que um número grande sumia em
+   silêncio: o setInt16 truncava e a criança via o robô não sair do lugar.
+   Recusar com uma frase é a diferença entre "o robô não anda" e "o robô
+   explica". */
+
+test('um tempo que não cabe no int16 é recusado, não truncado', () => {
+  /* 33 s são 33000 ms, e o teto do int16 é 32767. É o menor valor inteiro de
+     segundos que estoura — antes deste guarda, virava PUSH -32536. */
+  assert.throws(() => compilar([{ op: 'esperar', segundos: 33, blockId: 'a' }]),
+    /grande demais/);
+  assert.throws(
+    () => compilar([{ op: 'frente', segundos: 100, velocidade: 200, blockId: 'a' }]),
+    /grande demais/);
+});
+
+test('32 segundos ainda passam: o corte é no que não cabe, não no que assusta', () => {
+  assert.ok(compilar([{ op: 'esperar', segundos: 32, blockId: 'a' }]).bytes.length > 0);
+  assert.ok(compilar([{ op: 'frente', segundos: 30, velocidade: 200, blockId: 'a' }])
+    .bytes.length > 0);
+  /* Meio segundo é o passo do nível Pequeno: não pode virar vítima do guarda. */
+  assert.ok(compilar([{ op: 'frente', segundos: 0.5, velocidade: 200, blockId: 'a' }])
+    .bytes.length > 0);
+});
+
+test('um repetir que não cabe é recusado', () => {
+  assert.throws(() => compilar([{ op: 'repetir', vezes: 50000, corpo: [], blockId: 'a' }]),
+    /grande demais/);
+  assert.ok(compilar([{ op: 'repetir', vezes: 100, corpo: [], blockId: 'a' }])
+    .bytes.length > 0);
+});
+
+test('a conferência vem antes do | 0, senão não pega nada', () => {
+  /* Estes dois são exatamente o que um teste feito DEPOIS do `| 0` deixaria
+     passar: `NaN | 0` é zero, e todo múltiplo de 2^32 também — o `| 0` corta em
+     32 bits. Os dois virariam um PUSH 0 silencioso. */
+  assert.throws(() => compilar([{ op: 'esperar', segundos: NaN, blockId: 'a' }]),
+    /Faltou um número/);
+  assert.throws(() => compilar([{ op: 'girar', graus: 4294967296, blockId: 'a' }]),
+    /grande demais/);
+});

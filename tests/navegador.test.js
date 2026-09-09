@@ -1601,3 +1601,123 @@ test('desfazer traz o bloco de volta, e o erro aparece em cima da peça culpada'
 
     cdp.fechar();
   });
+
+test('a trilha mostra em que fase a criança está, e deixa voltar',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* Missoes.quantas() existia, era exportado, e ninguém chamava: a criança
+       via o texto de uma fase e mais nada — nem em qual estava, nem quantas
+       faltavam, nem como voltar para uma que quisesse refazer. Seis missões
+       soltas em vez de uma trilha com fim à vista. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 8) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-fases-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 8}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 8}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 8}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 8}/` });
+    const ate = Date.now() + 30000;
+    let pronta = false;
+    while (Date.now() < ate && !pronta) {
+      pronta = await aval(`document.readyState === 'complete'
+        && typeof Missoes !== 'undefined'
+        && !!document.getElementById('fases')`).catch(() => false);
+      if (!pronta) await espera(250);
+    }
+    assert.ok(pronta, 'a página não ficou pronta em 30 s');
+    /* Fase 0: a fase fica guardada entre visitas, e sem fixar aqui este teste
+       dependeria da ordem em que roda. */
+    await aval(`Missoes.definir(0)`);
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 8}/` });
+    await espera(2500);
+
+    const total = await aval('Missoes.quantas()');
+    assert.ok(total >= 2, 'o projeto precisa de mais de uma fase para isto valer');
+
+    /* Uma bolinha por fase, nem mais nem menos. */
+    assert.strictEqual(
+      await aval(`document.querySelectorAll('#fases button').length`), total,
+      'a trilha não tem uma bolinha por fase');
+
+    const acesa = `(() => {
+      const bs = document.querySelectorAll('#fases button');
+      for (let i = 0; i < bs.length; i++) {
+        if (bs[i].getAttribute('aria-pressed') === 'true') return i;
+      }
+      return -1;
+    })()`;
+    assert.strictEqual(await aval(acesa), 0, 'nenhuma bolinha, ou a errada, acesa');
+
+    /* O número está no rótulo: a bolinha diz "quantas" para quem não lê, o
+       aria-label diz "qual" para quem ouve a tela. */
+    assert.match(
+      await aval(`document.querySelectorAll('#fases button')[1].getAttribute('aria-label')`),
+      /fase 2 de/);
+
+    /* Tocar numa bolinha vai para aquela fase, e o texto da missão acompanha. */
+    const textoDe = (i) => aval(`Missoes.daVez(${i}).texto`);
+    await aval(`document.querySelectorAll('#fases button')[2].click()`);
+    await espera(500);
+    assert.strictEqual(await aval(acesa), 2, 'a bolinha tocada não acendeu');
+    assert.strictEqual(await aval('Missoes.atual()'), 2);
+    assert.strictEqual(
+      await aval(`document.getElementById('missao-texto').textContent`),
+      await textoDe(2), 'o texto da missão não acompanhou a bolinha');
+
+    /* E dá para VOLTAR, que é a metade que não existia: só havia "próxima". */
+    await aval(`document.querySelectorAll('#fases button')[0].click()`);
+    await espera(500);
+    assert.strictEqual(await aval('Missoes.atual()'), 0, 'não deu para voltar');
+
+    /* Trocar de fase não desmonta o programa: só muda a planta da arena. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const raiz = ws.getBlocksByType('quando_play', false)[0];
+      const b = Blockly.serialization.blocks.append(
+        { type: 'mover_frente', fields: { VEL: '200' },
+          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 2 } } } } }, ws);
+      b.previousConnection.connect(raiz.getInput('CORPO').connection);
+      return 1;
+    })()`);
+    await espera(400);
+    const antes = await aval(`Blockly.getMainWorkspace().getAllBlocks(false).length`);
+    await aval(`document.querySelectorAll('#fases button')[1].click()`);
+    await espera(500);
+    assert.strictEqual(
+      await aval(`Blockly.getMainWorkspace().getAllBlocks(false).length`), antes,
+      'trocar de fase desmontou o programa da criança');
+
+    /* O "próxima" e a trilha contam a mesma história — duas fontes de verdade
+       aqui dariam uma bolinha acesa numa fase e a arena de outra. */
+    await aval(`document.getElementById('proxima').click()`);
+    await espera(500);
+    assert.strictEqual(await aval(acesa), await aval('Missoes.atual()'),
+      'depois do "próxima" a bolinha acesa não é a da fase');
+
+    cdp.fechar();
+  });

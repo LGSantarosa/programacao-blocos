@@ -17,6 +17,13 @@
   var txtMissao = document.getElementById('missao-texto');
   var btProxima = document.getElementById('proxima');
   var btGabarito = document.getElementById('gabarito');
+  var caixaFases = document.getElementById('fases');
+  /* Aqui em cima, e não junto do montarFases lá embaixo: o `var` iça a
+     declaração mas não o valor, e o montarFases() é chamado antes daquela
+     linha. Declarado lá, ele rodava com botoesFase indefinido e a página
+     inteira morria na entrada — o window.onerror do index.html pegou e
+     escreveu "não abriu", que é exatamente o trabalho dele. */
+  var botoesFase = [];
   var caixaConfirma = document.getElementById('confirma');
   var tituloConfirma = document.getElementById('confirma-titulo');
   var btConfirmaNao = document.getElementById('confirma-nao');
@@ -312,9 +319,51 @@
   }
 
   atualizarMudo();
+  montarFases();
   mostrarMissao();
 
   /* ---------- missão ---------- */
+
+  /* ---------- a trilha de fases ---------- */
+
+  function montarFases() {
+    var total = Missoes.quantas();
+    for (var i = 0; i < total; i++) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      /* O número mora aqui e no title: a bolinha diz "quantas" para quem não
+         lê, e o rótulo diz "qual" para quem lê ou para quem ouve a tela. */
+      b.setAttribute('aria-label', 'fase ' + (i + 1) + ' de ' + total);
+      b.title = 'fase ' + (i + 1);
+      b.setAttribute('data-fase', String(i));
+      caixaFases.appendChild(b);
+      botoesFase.push(b);
+    }
+    caixaFases.addEventListener('click', function (e) {
+      var qual = e.target && e.target.getAttribute
+        ? e.target.getAttribute('data-fase') : null;
+      if (qual === null) return;
+      irParaFase(Number(qual));
+    });
+  }
+
+  function marcarFases() {
+    var atual = Missoes.atual();
+    for (var i = 0; i < botoesFase.length; i++) {
+      botoesFase[i].setAttribute('aria-pressed', String(i === atual));
+    }
+  }
+
+  /* Voltar para uma fase já vencida é coisa que a criança quer fazer — refazer
+     o labirinto é metade da graça. O programa montado não se perde: só muda a
+     planta da arena, como no "próxima". */
+  function irParaFase(i) {
+    if (i === Missoes.atual() && !cumpriu) return;
+    missao = Missoes.daVez(Missoes.definir(i));
+    cumpriu = false;
+    tentativas = 0;
+    mostrarMissao();
+  }
 
   function mostrarMissao() {
     /* A ESP32 não manda posição: nesse caso o desenho continua sendo a planta
@@ -326,6 +375,7 @@
     caixaMissao.className = '';
     btProxima.hidden = true;
     btGabarito.hidden = tentativas < Missoes.TENTATIVAS_ATE_AJUDA;
+    marcarFases();
     enviarArena();
   }
 

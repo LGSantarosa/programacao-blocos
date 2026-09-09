@@ -291,6 +291,28 @@
     padding: 10px 12px; text-align: center; font-weight: 800; font-size: 16px;
   }
   #missao.cumprida { background: #37c26b; }
+
+  /* ---------- a trilha de fases ---------- */
+  /* Uma bolinha por fase, a de agora cheia. Sem isto a criança não sabia em que
+     ponto estava nem quantas faltavam — seis missões soltas em vez de uma
+     trilha com fim à vista. E não havia como voltar para uma que ela quisesse
+     refazer: só existia o "próxima".
+
+     Bolinhas, e não "Fase 3 de 6", pelo mesmo motivo do repetir no nível
+     Pequeno: quem ainda não lê algarismo enxerga quantidade num desenho. Quem
+     lê tem o número no aria-label e no título. */
+  #fases { display: flex; justify-content: center; flex-wrap: wrap;
+           margin-top: 8px; }
+  #fases button {
+    width: 26px; height: 26px; padding: 0; margin: 3px;
+    border-radius: 50%; font-size: 0; line-height: 0;
+    background: rgba(255, 255, 255, .32); box-shadow: none;
+  }
+  #fases button:active:not(:disabled) { -webkit-transform: none; transform: none; }
+  #fases button[aria-pressed="true"] { background: #fff; }
+  /* Na fase cumprida a caixa fica verde, e branco sobre verde continua lendo. */
+  #missao.cumprida #fases button { background: rgba(255, 255, 255, .38); }
+  #missao.cumprida #fases button[aria-pressed="true"] { background: #fff; }
   #proxima {
     display: block; width: 100%; margin-top: 8px; font-size: 16px;
     padding: 10px 14px; background: #fff; color: #0050f0; box-shadow: 0 4px 0 #cfe0ee;
@@ -540,7 +562,7 @@
 <body>
   <header>
     <h1><img class="marca" src="img/foguete.png" alt="Educação Criativa">Programação Criativa</h1>
-    <span id="erro"></span>
+    <span id="erro" role="status" aria-live="polite"></span>
     <span class="espaco"></span>
     <div id="niveis" role="group" aria-label="nível">
       <button type="button" data-nivel="pequeno" aria-pressed="false">Pequeno</button>
@@ -557,7 +579,7 @@
     <button id="play">▶ PLAY</button>
     <button id="parar" disabled>■ PARAR</button>
     <button id="procurar" type="button" hidden>🤖 procurar o robô</button>
-    <span id="estado">conectando…</span>
+    <span id="estado" role="status" aria-live="polite">conectando…</span>
     <span id="versao" title="versão servida — se não mudar após uma atualização, é cache">%VERSAO%</span>
   </header>
   <main>
@@ -567,9 +589,10 @@
         <span id="missao-texto">…</span>
         <button id="proxima" type="button" hidden>próxima ▸</button>
         <button id="gabarito" type="button" hidden>me mostra como faz</button>
+        <div id="fases" role="group" aria-label="fases"></div>
       </div>
       <canvas id="arena" width="400" height="400"></canvas>
-      <div id="leitura">distância: —</div>
+      <div id="leitura" role="status" aria-live="polite">distância: —</div>
     </aside>
   </main>
   <canvas id="confete"></canvas>

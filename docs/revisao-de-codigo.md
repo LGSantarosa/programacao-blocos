@@ -97,11 +97,13 @@ O que vale, então:
 
    **E ela tem que vir antes do `| 0`, não depois.** A assinatura de hoje é
    `instrucoes.push({ op: op, a: a | 0, ... })`: o `| 0` já é uma conversão que
-   perde informação, e conferir o resultado dela não pega nada. `NaN | 0` é
-   zero — um campo vazio ou lixo viraria um `PUSH 0` silencioso, aprovado pela
-   guarda. E `1e10 | 0` é `1410065408`, que também passaria por qualquer teste
-   feito depois. A conferência é sobre o valor cru que chegou, e precisa exigir
-   as três coisas: **finito, inteiro e dentro da faixa**.
+   perde informação, e conferir o resultado dela não pega o que ela já
+   estragou. `NaN | 0` é zero — um campo vazio ou lixo viraria um `PUSH 0`
+   silencioso, aprovado por qualquer guarda posterior. `4294967296 | 0` também
+   é zero, pelo mesmo motivo: o `| 0` corta em 32 bits, então todo múltiplo de
+   2³² entra como zero e sai aprovado. A conferência é sobre o valor cru que
+   chegou, e precisa exigir as três coisas: **finito, inteiro e dentro da
+   faixa**.
 2. **O limite amigável, se houver, é por encaixe e não por bloco.** O
    `web/campos.js` já sabe de qual encaixe o número veio — é exatamente o que o
    `tituloDoCampo()` faz para escolher entre «Quantos segundos?» e «Quantos
@@ -130,8 +132,11 @@ constantes**: o `host/laco.c:155` executa até 256 instruções no mesmo quadro,
 todas dentro do mesmo milissegundo, então o `%` devolve sempre o mesmo número.
 Duzentos sorteios seguidos de `aleatorio(1,5)` deram o mesmo valor, todos.
 
-Pelo mesmo motivo, `aleatorio(1,6) + aleatorio(1,6)` tem os dois dados sempre
-caindo iguais: os dois `BIN` acontecem no mesmo milissegundo.
+Pelo mesmo motivo, `aleatorio(1,6) + aleatorio(1,6)` tende a ter os dois dados
+caindo iguais: os dois `BIN` acontecem quase sempre no mesmo milissegundo. Não é
+garantido — o milissegundo pode virar entre os dois, ou o sistema pode tirar o
+processo do ar bem ali — e é justamente essa dependência do acaso do
+escalonador, e não do sorteio, que faz o comportamento ser indefensável.
 
 Ironia registrada: o `.ino` gerado faz certo (`randomSeed(micros())`,
 `web/arduino.js`). O robô de blocos é o que sorteia mal.
@@ -303,7 +308,8 @@ concluir coisa alguma. Os números acima esperam 300 ms depois do fim do
 programa, com os motores já em zero.
 
 Isso importa mais agora que as velocidades foram medidas no robô de verdade: um
-ensaio 5% curto é 5% de erro que não vem do robô, vem do laço.
+ensaio até 3,5% curto é erro que não vem do robô, vem do laço — e vai ser
+descontado da conta errada quando alguém for calibrar de novo.
 
 Hoje o desvio está escondido pela folga do `RAIO = 0.16` das missões, que é por
 onde `tests/gabaritos.test.js` passa. Mas é a mesma família de erro que o README
@@ -643,9 +649,12 @@ carregada. (Uma frase anterior daqui culpava o `teclado.test.js` novo por
 aumentar a pressão; ele não sobe navegador nenhum e dura milissegundos.)
 
 **Não mexa antes de reproduzir — e não reproduza rodando a suíte inteira.**
-Vinte execuções completas custam cerca de 98 minutos, quase todos gastos no
-gabarito, que não é o suspeito. O caro é rodar **só os dois de navegador,
-concorrentes**, vinte ou trinta vezes, guardando a saída de cada uma:
+Vinte execuções completas custam cerca de 98 minutos, e quase todo esse tempo é
+o gabarito — cuja **lógica** não é suspeita, mas cuja **carga** faz parte da
+reprodução: é o Chromium dele, rodando junto, que provavelmente atrasa as
+esperas fixas do outro. Por isso ele fica no laço e o resto da suíte sai. Rodar
+**só os dois de navegador, concorrentes**, vinte ou trinta vezes, guardando a
+saída de cada uma:
 
 ```bash
 for i in $(seq 30); do

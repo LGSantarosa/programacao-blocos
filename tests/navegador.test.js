@@ -1426,3 +1426,178 @@ test('o programa da criança volta depois de recarregar a página',
 
     cdp.fechar();
   });
+
+test('desfazer traz o bloco de volta, e o erro aparece em cima da peça culpada',
+  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  async (t) => {
+    /* Dois consertos, um navegador só: subir Chromium custa uns vinte segundos
+       e os dois exercitam a mesma tela.
+
+       O desfazer já existia no Blockly, escondido atrás de um toque longo de
+       750 ms sobre o fundo. Um gesto que só existe para quem já sabe que ele
+       existe não protege ninguém — o que está sob teste aqui é a porta, não a
+       pilha.
+
+       O erro já existia também, num <span> de 14px no cabeçalho, longe de onde
+       a criança estava olhando. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 7) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-desfazer-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 7}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 7}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 7}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const clicar = (id) => aval(`document.getElementById('${id}').click()`);
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+    const arrastar = async (de, para) => {
+      await mouse('mousePressed', de.x, de.y);
+      for (let k = 1; k <= 12; k++) {
+        await mouse('mouseMoved', de.x + (para.x - de.x) * k / 12,
+                                  de.y + (para.y - de.y) * k / 12);
+        await espera(30);
+      }
+      await mouse('mouseReleased', para.x, para.y);
+      await espera(500);
+    };
+    const quantos = () => aval(
+      `Blockly.getMainWorkspace().getAllBlocks(false).length`);
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 7}/` });
+    const ate = Date.now() + 30000;
+    let pronta = false;
+    while (Date.now() < ate && !pronta) {
+      pronta = await aval(`document.readyState === 'complete'
+        && typeof Blockly !== 'undefined'
+        && !!Blockly.getMainWorkspace()
+        && !!document.getElementById('desfazer')`).catch(() => false);
+      if (!pronta) await espera(250);
+    }
+    assert.ok(pronta, 'a página não ficou pronta em 30 s');
+    /* Mesa limpa: o programa guardado de outra rodada tornaria a contagem
+       de blocos deste teste dependente da ordem em que ele roda. */
+    await aval(`localStorage.removeItem('robo_programa')`);
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 7}/` });
+    await espera(2500);
+
+    /* Sem nada feito, não há o que desfazer — e o botão diz isso apagado, em
+       vez de existir e não fazer nada. */
+    assert.strictEqual(await aval(`document.getElementById('desfazer').disabled`),
+      true, 'o desfazer nasceu ligado sem haver o que desfazer');
+
+    const soARaiz = await quantos();
+
+    /* Arrastando da caixa, com o mouse — e não por serialization.blocks.append,
+       que foi a primeira tentativa e não servia: sondei, e o append NÃO entra na
+       pilha de desfazer (undoStack fica em 0). O gesto da criança entra. Um
+       teste que criasse o bloco pelo caminho programático mediria uma coisa que
+       ninguém faz e daria o desfazer por quebrado sem ele estar. */
+    await aval(`(() => {
+      const tb = Blockly.getMainWorkspace().getToolbox();
+      tb.setSelectedItem(tb.getToolboxItems()[0]);
+      return 1;
+    })()`);
+    await espera(700);
+
+    const daCaixa = JSON.parse(await aval(`(() => {
+      const f = Blockly.getMainWorkspace().getFlyout();
+      const b = f.getWorkspace().getBlocksByType('mover_frente', false)[0];
+      const r = b.getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ x: r.left + 12, y: r.top + r.height / 2 });
+    })()`));
+    await arrastar(daCaixa, { x: 700, y: 500 });
+    await espera(700);
+
+    const comOBloco = await quantos();
+    assert.ok(comOBloco > soARaiz, 'o bloco não foi criado');
+    assert.strictEqual(await aval(`document.getElementById('desfazer').disabled`),
+      false, 'depois de montar, o desfazer continuou apagado');
+
+    await clicar('desfazer');
+    await espera(600);
+    assert.strictEqual(await quantos(), soARaiz,
+      'o desfazer não tirou o bloco');
+
+    await clicar('refazer');
+    await espera(600);
+    assert.strictEqual(await quantos(), comOBloco,
+      'o refazer não trouxe o bloco de volta');
+
+    /* Desfazer não pode destravar a âncora: ela entra e sai da pilha como
+       qualquer outro bloco. */
+    assert.strictEqual(await aval(`(() => {
+      const r = Blockly.getMainWorkspace().getBlocksByType('quando_play', false)[0];
+      return r.isDeletable();
+    })()`), false, 'depois de desfazer, a âncora do PLAY ficou apagável');
+
+    /* ---- e agora o erro ---- */
+
+    /* Cem segundos não cabem no int16 da instrução. Antes isso virava uma
+       espera negativa e o robô não saía do lugar, calado. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const raiz = ws.getBlocksByType('quando_play', false)[0];
+      const b = Blockly.serialization.blocks.append(
+        { type: 'mover_frente', fields: { VEL: '200' },
+          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 100 } } } } },
+        ws);
+      b.previousConnection.connect(raiz.getInput('CORPO').connection);
+      window.__culpado = b.id;
+      return 1;
+    })()`);
+    await espera(500);
+
+    await clicar('play');
+    await espera(700);
+
+    const bolha = JSON.parse(await aval(`(() => {
+      const d = document.getElementById('bolha');
+      const b = Blockly.getMainWorkspace().getBlockById(window.__culpado);
+      const r = b.getSvgRoot().getBoundingClientRect();
+      const c = d.getBoundingClientRect();
+      return JSON.stringify({
+        visivel: !d.hidden,
+        vermelha: (d.getAttribute('class') || '').indexOf('erro') >= 0,
+        texto: d.textContent,
+        /* Em cima da peça: a bolha tem que nascer perto dela, não num canto. */
+        perto: Math.abs(c.left - r.left) < 40 && c.top < r.top && r.top - c.top < 130,
+      });
+    })()`));
+
+    assert.ok(bolha.visivel, 'o erro não apareceu na bolha');
+    assert.ok(bolha.vermelha, 'a bolha do erro não veio vermelha');
+    assert.match(bolha.texto, /grande demais/);
+    assert.ok(bolha.perto, 'a bolha não nasceu em cima do bloco culpado');
+
+    /* O cabeçalho continua recebendo a frase: é o que um adulto olhando de
+       longe consegue ler, e é o que sobra quando a culpa não tem endereço. */
+    assert.match(await aval(`document.getElementById('erro').textContent`),
+      /grande demais/);
+
+    cdp.fechar();
+  });

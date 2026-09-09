@@ -29,6 +29,10 @@ android {
             isMinifyEnabled = false
         }
     }
+    /* O AGP 8 não gera o BuildConfig sem pedir, e é dele que sai o
+       BuildConfig.DEBUG que separa a depuração do WebView do APK que sai da
+       mão. */
+    buildFeatures { buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

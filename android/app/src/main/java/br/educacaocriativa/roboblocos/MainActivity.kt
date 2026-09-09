@@ -7,6 +7,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 
@@ -45,7 +46,11 @@ class MainActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
-        WebView.setWebContentsDebuggingEnabled(true)
+        /* Só no build de depuração. Ligado sempre, isto abre o console do
+           WebView para qualquer um com o aparelho na mão e o cabo — ótimo
+           enquanto se prova o app na bancada, e coisa que não deve sair junto
+           num APK entregue a uma escola. */
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         webView.addJavascriptInterface(PonteJs(this), "Android")
         /* Sem um WebChromeClient, um alert/confirm/prompt do JavaScript não
            abre nada e devolve null na mesma hora — sem erro, sem aviso. Foi
@@ -70,6 +75,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.loadUrl("http://appassets.androidplatform.net/index.html")
+
+        onBackPressedDispatcher.addCallback(this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() = sairGuardando()
+            })
     }
 
     fun irPara(host: String) {
@@ -99,6 +109,33 @@ class MainActivity : AppCompatActivity() {
         redeDoRobo.soltar()
         irPara(alvoEnsaio)
         webView.evaluateJavascript("App.aoTrocarDeRobo('ensaio')", null)
+    }
+
+    /* O "voltar" mata a Activity, e com ela o WebView. Antes de C1 isso jogava
+       fora o programa montado — a mesma perda que o App.irPara() foi escrito
+       para evitar quando troca de robô.
+
+       Hoje a página guarda sozinha, um segundo depois da última mudança, e
+       grava na hora quando fica escondida. Mas o "voltar" pode chegar dentro
+       desse segundo, e a Activity morre antes de o evento de visibilidade dar
+       a volta pela ponte. Então pedimos a gravação e só saímos depois que ela
+       responde.
+
+       O limite existe porque um pedido que não volta não pode prender a
+       criança dentro do app: se em meio segundo o JavaScript não responder, a
+       gente sai assim mesmo. */
+    private fun sairGuardando() {
+        var jaSaiu = false
+        val sair = {
+            if (!jaSaiu) {
+                jaSaiu = true
+                finish()
+            }
+        }
+        webView.postDelayed({ runOnUiThread(sair) }, 500)
+        webView.evaluateJavascript(
+            "(function(){ try { App.gravarAgora(); } catch (e) {} return 1; })()"
+        ) { runOnUiThread(sair) }
     }
 
     override fun onDestroy() {

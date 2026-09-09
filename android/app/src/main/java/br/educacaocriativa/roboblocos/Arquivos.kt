@@ -2,6 +2,7 @@ package br.educacaocriativa.roboblocos
 
 import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
 
@@ -19,6 +20,22 @@ object Arquivos {
         ctx.contentResolver.openOutputStream(destino)?.use {
             it.write(texto.toByteArray(Charsets.UTF_8))
         } ?: return ""
-        return nome
+        /* O nome de volta é o que o MediaStore ficou usando, e não o que
+           pedimos: quando já existe um robo.ino, ele grava "robo (1).ino" sem
+           avisar. Devolver o nome pedido faria a tela dizer "salvo em
+           Downloads/robo.ino" apontando para um arquivo velho — e a criança
+           procuraria o programa dela dentro do arquivo errado. */
+        return nomeGravado(ctx, destino) ?: nome
+    }
+
+    private fun nomeGravado(ctx: Context, destino: Uri): String? {
+        val colunas = arrayOf(MediaStore.Downloads.DISPLAY_NAME)
+        ctx.contentResolver.query(destino, colunas, null, null, null)?.use { c ->
+            if (c.moveToFirst()) {
+                val i = c.getColumnIndex(MediaStore.Downloads.DISPLAY_NAME)
+                if (i >= 0) return c.getString(i)
+            }
+        }
+        return null
     }
 }

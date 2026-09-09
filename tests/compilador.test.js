@@ -546,3 +546,48 @@ test('a conferência vem antes do | 0, senão não pega nada', () => {
   assert.throws(() => compilar([{ op: 'girar', graus: 4294967296, blockId: 'a' }]),
     /grande demais/);
 });
+
+/* O erro precisa saber de qual peça nasceu: é o que permite ao app.js mostrá-lo
+   numa bolha em cima do bloco culpado, em vez de num canto do cabeçalho onde a
+   criança não está olhando. */
+
+/* assert.throws não devolve o erro, e é o erro que interessa aqui. */
+function erroDe(fn) {
+  try {
+    fn();
+  } catch (e) {
+    return e;
+  }
+  assert.fail('esperava um erro, e não veio nenhum');
+}
+
+test('o número que não cabe aponta o bloco que o contém', () => {
+  assert.strictEqual(
+    erroDe(() => compilar([{ op: 'esperar', segundos: 33, blockId: 'B7' }])).blockId,
+    'B7');
+});
+
+test('o repetir aninhado demais aponta o repetir de dentro', () => {
+  /* O de dentro, e não o de fora: é o que a criança acabou de soltar, e é o
+     que ela precisa tirar dali. */
+  const aninhar = (n, id) => (n === 0 ? [] :
+    [{ op: 'repetir', vezes: 2, blockId: id + n, corpo: aninhar(n - 1, id) }]);
+  assert.strictEqual(erroDe(() => compilar(aninhar(5, 'r'))).blockId, 'r1');
+});
+
+test('a conta funda demais aponta a conta, não o bloco de cima', () => {
+  /* Aninhado à direita: é o lado que cresce a pilha. O esquerdo fica guardado
+     num lugar só enquanto o direito é calculado — ver profundidadeDe. */
+  let conta = 1;
+  for (let k = 0; k < 20; k++) conta = { op: 'mais', a: 1, b: conta, blockId: 'c' + k };
+  const e = erroDe(() => compilar([{ op: 'esperar', segundos: conta, blockId: 'fora' }]));
+  assert.match(e.message, /complicada demais/);
+  assert.ok(e.blockId && e.blockId !== 'fora',
+    `esperava a conta, veio ${e.blockId}`);
+});
+
+test('um erro sem dono não inventa um: blockId fica null', () => {
+  /* O app.js decide entre a bolha e o cabeçalho olhando este campo. Um id
+     inventado acenderia a bolha em cima de um bloco inocente. */
+  assert.strictEqual(erroDe(() => compilar([{ op: 'nao_existe' }])).blockId, null);
+});

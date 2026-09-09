@@ -38,6 +38,17 @@
      confere se a conta cabe nela é este arquivo. */
   var PILHA_MAX = 16;
 
+  /* Um erro que sabe de qual peça nasceu. A frase sozinha caía num <span> de
+     14px no cabeçalho, longe de onde a criança estava olhando; com o blockId
+     ela sobe numa bolha em cima do bloco culpado, que é onde a mão dela
+     acabou de estar. Quem desenha a bolha é o app.js — aqui só se anota de
+     quem é a culpa. */
+  function erroNoBloco(mensagem, blockId) {
+    var e = new Error(mensagem);
+    e.blockId = blockId || null;
+    return e;
+  }
+
   /* opcoes.reportar, quando vem, é um nó de valor: compila-se a subárvore
      dele e relata-se o resultado, em vez de gerar o programa. É o mesmo
      compilador de propósito — o navegador não calcula nada por conta
@@ -69,9 +80,9 @@
            número que não cabe é escolha da criança e ela pode escolher outro;
            um campo sem número é um bloco pela metade. */
         var ehNumero = isFinite(a) && isFinite(b) && isFinite(c);
-        throw new Error(ehNumero
+        throw erroNoBloco(ehNumero
           ? 'Esse número é grande demais para o robô. Tente um menor.'
-          : 'Faltou um número em algum bloco.');
+          : 'Faltou um número em algum bloco.', blockId);
       }
       instrucoes.push({ op: op, a: a | 0, b: b | 0, c: c | 0,
                         blockId: blockId || null });
@@ -90,7 +101,12 @@
        execução. */
     function msDe(segundos) {
       if (typeof segundos === 'number') return Math.round(segundos * 1000);
-      return { op: 'vezes', a: segundos, b: 1000 };
+      /* O × 1000 é nosso, não da criança: ela nunca soltou este bloco. Ele
+         herda o blockId da conta que embrulha, senão um erro nascido aqui
+         apontaria o bloco de cima — e a bolha acenderia em cima do
+         "andar frente" quando quem não cabe é a conta lá dentro. */
+      return { op: 'vezes', a: segundos, b: 1000,
+               blockId: segundos ? segundos.blockId : null };
     }
 
     /* Zero viraria laço infinito no DEC_JNZ. Com número dá para resolver aqui;
@@ -115,17 +131,18 @@
     /* ">=" e não ">": o MOTOR calcula o valor da direita com o da esquerda já
        na pilha, então sempre pode haver um a mais em cima do que a conta
        sozinha pede. Um lugar de folga cobre isso. */
-    function conferirProfundidade(v) {
+    function conferirProfundidade(v, blockId) {
       if (profundidadeDe(v) >= PILHA_MAX) {
-        throw new Error('Essa conta ficou complicada demais para o robô. ' +
-                        'Tente quebrá-la em partes menores.');
+        throw erroNoBloco('Essa conta ficou complicada demais para o robô. ' +
+                          'Tente quebrá-la em partes menores.',
+                          (v && v.blockId) || blockId);
       }
     }
 
     /* Um valor é um número ou um nó de conta. Sempre deixa exatamente um valor
        na pilha. */
     function gerarValor(v, blockId) {
-      conferirProfundidade(v);
+      conferirProfundidade(v, blockId);
       gerarValorInterno(v, blockId);
     }
 
@@ -149,7 +166,7 @@
         return;
       }
       var sel = BINARIOS[v.op];
-      if (sel === undefined) throw new Error('Conta desconhecida: ' + v.op);
+      if (sel === undefined) throw erroNoBloco('Conta desconhecida: ' + v.op, id);
       gerarValorInterno(v.a, id);
       gerarValorInterno(v.b, id);
       emitir(OP.BIN, sel, 0, 0, id);
@@ -236,8 +253,9 @@
 
           case 'repetir': {
             if (profundidade >= N_REGS) {
-              throw new Error(
-                'Tem blocos "repetir" aninhados demais — o máximo é ' + N_REGS + '.');
+              throw erroNoBloco(
+                'Tem blocos "repetir" aninhados demais — o máximo é ' + N_REGS + '.',
+                no.blockId);
             }
             var registrador = profundidade++;
             gerarValor(vezesDe(no.vezes), no.blockId);
@@ -286,7 +304,7 @@
           }
 
           default:
-            throw new Error('Bloco desconhecido: ' + no.op);
+            throw erroNoBloco('Bloco desconhecido: ' + no.op, no.blockId);
         }
       }
     }

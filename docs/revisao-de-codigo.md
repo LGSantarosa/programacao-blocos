@@ -25,6 +25,20 @@ quais 292,65 s são o `tests/gabaritos.test.js` sozinho.
 > refazer a conta. Os seis estão corrigidos abaixo, e o que foi corrigido está
 > marcado no lugar. As correções valem a leitura por si: são o tipo de erro que
 > passa quando se lê código sem rodá-lo.
+>
+> **Terceira passagem.** Uma segunda auditoria, sobre o texto já corrigido,
+> achou mais cinco: a guarda do A1 precisava vir **antes** do `| 0` e conferir
+> finito, inteiro e faixa; o B1 continuava sem política de relógio e com a
+> ordem VM/física errada, e por isso **não está pronto para virar código**; o
+> «erro de 5%» do B1 nunca tinha sido medido (é 1,8% a 3,5%, medido agora); a
+> asserção «dois sorteios seguidos dão valores diferentes» do A2 não é objetiva,
+> porque um dado de verdade repete; e o `teclado.test.js` não pesa no F3, porque
+> não sobe navegador.
+>
+> **Como usar este documento:** as seções A, C, D, E e F servem como
+> diagnóstico e como plano. A seção **B1 é só diagnóstico** — o defeito é real,
+> mas a correção ainda tem duas decisões em aberto, e só a subdivisão do passo
+> da física está pronta para ser feita.
 
 ---
 
@@ -80,6 +94,14 @@ O que vale, então:
    número é grande demais para o robô.»* Um `PUSH` que não cabe é defeito de
    compilador, e compilador que trunca em silêncio é o que nos trouxe aqui.
    Esta sozinha já transforma «o robô não anda» em «o robô explica».
+
+   **E ela tem que vir antes do `| 0`, não depois.** A assinatura de hoje é
+   `instrucoes.push({ op: op, a: a | 0, ... })`: o `| 0` já é uma conversão que
+   perde informação, e conferir o resultado dela não pega nada. `NaN | 0` é
+   zero — um campo vazio ou lixo viraria um `PUSH 0` silencioso, aprovado pela
+   guarda. E `1e10 | 0` é `1410065408`, que também passaria por qualquer teste
+   feito depois. A conferência é sobre o valor cru que chegou, e precisa exigir
+   as três coisas: **finito, inteiro e dentro da faixa**.
 2. **O limite amigável, se houver, é por encaixe e não por bloco.** O
    `web/campos.js` já sabe de qual encaixe o número veio — é exatamente o que o
    `tituloDoCampo()` faz para escolher entre «Quantos segundos?» e «Quantos
@@ -130,11 +152,23 @@ delas** — esse critério passa por acidente assim que dois sorteios calham de 
 em milissegundos diferentes, que é justamente o caso que já funciona hoje. Com o
 relógio falso do `tests/` na mão, dá para exigir o que importa:
 
-1. com o relógio **parado**, dois sorteios seguidos dão valores independentes —
-   é este que falha contra a VM de hoje, e é o teste que prova o conserto;
-2. a mesma semente produz a mesma sequência, byte a byte — é o que mantém o
-   resto da suíte determinístico;
-3. sementes diferentes produzem sequências diferentes.
+1. **semente fixa produz uma sequência conhecida**, escrita no teste. É a única
+   asserção realmente objetiva das quatro, e é ela que prova o conserto: a VM de
+   hoje não passa nela de jeito nenhum;
+2. **faixa**: 10 000 sorteios de `aleatorio(1,5)` caem todos em 1..5, e os cinco
+   valores aparecem;
+3. **ausência de constância numa amostra**: com o relógio parado, uma amostra de
+   200 sorteios não é toda igual — que é exatamente o sintoma de hoje;
+4. **isolamento por instância**: duas VMs criadas com a mesma semente andam
+   iguais, e o estado de uma não vaza para a outra (hoje o `static` que eu
+   proponho seria global, e isso precisa virar campo do `VM` ou o teste anterior
+   fica dependente da ordem em que os testes rodam).
+
+**O que não serve como asserção:** «dois sorteios seguidos dão valores
+diferentes». Um dado de verdade repete — sair 3 e 3 é legítimo — então esse
+teste falharia por acaso e ensinaria a gente a reexecutar até passar, que é o
+pior hábito que um teste pode criar. A não-constância só vira asserção honesta
+sobre uma amostra grande, como no item 3.
 
 ### A3. Pedir o gabarito destrava o bloco `▶ quando apertar PLAY` — (por leitura)
 
@@ -253,11 +287,20 @@ Dois relógios convivem no robô virtual e não estão de acordo:
   (`host/laco.c:166`, `fis_passo(LACO_FRAME_MS / 1000.0)`);
 - e o laço dorme 5 ms **além** do trabalho que fez (`host/main.c:46`).
 
-Cada volta gasta 5 ms + trabalho de relógio, mas só 5 ms de mundo. Num
-`andar frente 1 s`, a VM solta os motores depois de 1000 ms reais enquanto a
-física andou o equivalente a uns 950. O robô virtual percorre sistematicamente
-**menos** do que a calibração diz — e a calibração é justamente o contrato que
-faz o ensaio valer para o robô real.
+Cada volta gasta 5 ms + trabalho de relógio, mas só 5 ms de mundo. O robô
+virtual percorre sistematicamente **menos** do que a calibração diz — e a
+calibração é justamente o contrato que faz o ensaio valer para o robô real.
+
+**Quanto menos, medido.** Um `andar frente 1 s` a velocidade 200 deveria andar
+`V_MAX × (200/255) × 1 s = 235,3 mm`. Dez execuções deram **227 a 231 mm — 1,8%
+a 3,5% curto.** (A primeira versão desta revisão dizia «uns 5%»; era estimativa
+minha escrita como se fosse medida, e não era.)
+
+Nota de método, porque ela quase me enganou: a telemetria sai a cada 50 ms, e a
+50 ms o robô anda ~12 mm. Medir pelo último pacote antes do `E 0` mistura essa
+quantização com o efeito e devolve 220 a 232 mm, uma faixa larga demais para
+concluir coisa alguma. Os números acima esperam 300 ms depois do fim do
+programa, com os motores já em zero.
 
 Isso importa mais agora que as velocidades foram medidas no robô de verdade: um
 ensaio 5% curto é 5% de erro que não vem do robô, vem do laço.
@@ -289,27 +332,60 @@ Dois furos, os dois confirmados:
   e `hal_millis()` não, então o primeiro `fis_passo` recebe o *uptime* inteiro.
   Precisa ser inicializado no `laco_init()`, junto com o resto do estado.
 
-A correção certa tem três partes:
+**Este item ainda não está pronto para virar código.** Duas decisões precisam
+ser tomadas antes, e nenhuma delas é detalhe de implementação:
 
-1. inicializar `anterior = hal_millis()` no `laco_init()`;
-2. **limitar** o `dt` a um teto (uns 20 ms) — um quadro perdido não é motivo
-   para teletransportar o robô, e prender o tempo simulado é mais honesto que
-   inventar movimento que ninguém viu;
-3. **subdividir** o passo: `fis_passo` avança em fatias de no máximo
-   `LACO_FRAME_MS`, testando colisão em cada uma. Isso conserta o furo do
-   `dt` grande *e* o furo que já existe hoje — a 0,30 m/s um passo de 5 ms anda
-   1,5 mm, folgado contra o raio de 8 cm, mas nada no código garante isso, e o
-   próximo aumento de `V_MAX` o gastaria em silêncio.
+**1. Qual relógio manda.** Limitar o `dt` a 20 ms enquanto a VM continua lendo
+`hal_millis()` não resolve — só troca o desvio contínuo por um desvio que se
+acumula em degraus a cada travada. Depois de uma pausa de 300 ms, a física
+prendeu 20 ms e a VM viu 300: os dois relógios ficam permanentemente separados,
+e a espera do `WAIT` passa a não corresponder a distância nenhuma. São dois
+caminhos, e é preciso escolher um:
 
-O item 3 vale por si, independente do resto de B1: é uma guarda que hoje não
-existe, e o `tests/physics_test.c` é o lugar dela — um caso que manda o robô
-contra a parede com `dt` grande e exige `colidiu = 1`.
+- **tempo real manda:** a física recebe o intervalo verdadeiro e o `fis_passo`
+  o consome inteiro, subdividido (ver abaixo). Nada é limitado, nada é perdido,
+  e uma travada faz o robô virtual andar o que andaria de verdade. É o que
+  imita melhor a placa.
+- **tempo simulado manda:** existe um relógio do mundo que avança
+  `LACO_FRAME_MS` por volta, e a **VM lê esse relógio** em vez do
+  `CLOCK_MONOTONIC` — um `hal_millis()` do simulador. Aí os dois nunca divergem,
+  o ensaio vira reprodutível byte a byte, e travar a máquina só faz o robô andar
+  em câmera lenta. É o que torna `tests/laco_test.c` e `gabaritos.test.js`
+  determinísticos de verdade.
 
-Cuidado com o resto: `tests/laco_test.c` usa relógio falso, então isso passa a
-exigir que o falso avance — o que é uma melhora, porque hoje ele testa a física
-com um `dt` que não tem relação com o relógio que a VM lê. E `ServidorLocal.kt`
-(`Thread.sleep(Vm.FRAME_MS)`) herda a correção de graça, porque ela mora no
-`laco.c` que os dois usam.
+O segundo é mais atraente para este projeto — reprodutibilidade vale muito aqui,
+e o `relogio.c` já foi separado num arquivo só dele exatamente para poder ser
+trocado. Mas é uma mudança de contrato, não um conserto, e merece decisão
+consciente.
+
+**2. A ordem entre a VM e a física.** Hoje o `laco_passo` roda o laço de
+`vm_tick` (`host/laco.c:155-163`) e **depois** chama `fis_passo`
+(linha 166). Como o `vm_tick` é quem chama `hal_motors`, o intervalo que acabou
+de passar é atribuído ao estado **novo** dos motores. Num passo de 5 ms isso é
+invisível; assim que o `dt` virar variável, esse meio-passo vira erro
+mensurável, e no sentido contrário ao que se está tentando consertar. A física
+tem que consumir o intervalo com os motores que valiam **durante** ele — o que
+significa `fis_passo` antes do `vm_tick`, ou guardar o estado anterior.
+
+**A parte que dá para fazer já, sem decidir nada disso:**
+
+**Subdividir o passo.** `fis_passo` avança em fatias de no máximo
+`LACO_FRAME_MS`, testando colisão em cada uma. Isso é uma guarda que hoje
+simplesmente não existe: a 0,30 m/s um passo de 5 ms anda 1,5 mm, folgado contra
+o raio de 8 cm, mas nada no código garante essa relação, e o próximo aumento de
+`V_MAX` — ou o primeiro `dt` variável — a gastaria em silêncio. O
+`tests/physics_test.c` é o lugar do teste: um caso que manda o robô contra a
+parede com `dt` grande e exige `colidiu = 1`.
+
+Vale fazer isso primeiro, sozinho, justamente porque não depende de nenhuma das
+duas decisões acima — e porque é o que transforma o resto de B1 numa mudança
+segura de tentar.
+
+Quando chegar a vez do resto: `tests/laco_test.c` usa relógio falso, então
+passará a exigir que o falso avance — o que é melhoria, porque hoje ele testa a
+física com um `dt` sem relação com o relógio que a VM lê. E `ServidorLocal.kt`
+(`Thread.sleep(Vm.FRAME_MS)`) herda tudo de graça, porque mora no `laco.c` que
+os dois usam.
 
 ---
 
@@ -560,18 +636,28 @@ auditoria rodou a suíte inteira depois e teve **280/280 verdes**. Ou seja: é
 intermitente, e não reprodutível sob demanda.
 
 As portas não colidem (8097/9331 contra 8099-8101/9333-9335), então o suspeito é
-tempo: o `node --test` roda os arquivos em paralelo, dois Chromium sobem juntos,
-e algum dos `esperarPorta` / `espera(1200)` fixos não é generoso o bastante numa
-máquina carregada. Com o `teclado.test.js` novo entrando no mesmo pente, a
-pressão só aumentou.
+tempo: o `node --test` roda os arquivos em paralelo, os dois arquivos que sobem
+Chromium — `gabaritos.test.js` e `navegador.test.js` — rodam juntos, e algum dos
+`esperarPorta` / `espera(1200)` fixos não é generoso o bastante numa máquina
+carregada. (Uma frase anterior daqui culpava o `teclado.test.js` novo por
+aumentar a pressão; ele não sobe navegador nenhum e dura milissegundos.)
 
-**Não mexa antes de reproduzir.** O jeito de reproduzir é rodar a suíte umas
-vinte vezes seguidas, de preferência com a máquina ocupada, guardando a saída de
-cada uma — sem isso não dá para saber se um conserto consertou. Quando o teste
-que falha tiver nome, o remédio provável é `--test-concurrency=1` para os dois
-de navegador, ou trocar as esperas fixas por espera-até-condição. Um teste que
-falha uma vez a cada tantas é pior que teste nenhum, porque ensina a ignorar
-vermelho.
+**Não mexa antes de reproduzir — e não reproduza rodando a suíte inteira.**
+Vinte execuções completas custam cerca de 98 minutos, quase todos gastos no
+gabarito, que não é o suspeito. O caro é rodar **só os dois de navegador,
+concorrentes**, vinte ou trinta vezes, guardando a saída de cada uma:
+
+```bash
+for i in $(seq 30); do
+  node --test tests/gabaritos.test.js tests/navegador.test.js > /tmp/suite-$i.log 2>&1
+  echo "$i: $?"
+done
+```
+
+Quando o teste que falha tiver nome e um log, o remédio provável é
+`--test-concurrency=1` para esses dois, ou trocar as esperas fixas por
+espera-até-condição. Um teste que falha uma vez a cada tantas é pior que teste
+nenhum, porque ensina a ignorar vermelho.
 
 ---
 
@@ -623,6 +709,17 @@ diferença dói: **das seis correções que ela trouxe, quatro estavam em itens
 lidos e não rodados**, e duas delas eram receitas que teriam introduzido defeito
 (o `dt` sem teto do B1, o `max=30` do A1).
 
+A segunda auditoria fechou o argumento: das cinco coisas que ela achou, **duas
+eram números que eu tinha escrito sem medir** — os «5%» do B1 e a culpa do
+`teclado.test.js` no F3 — e o resto eram correções que pareciam completas na
+página e não sobreviviam ao contato com o código em volta (a guarda depois do
+`| 0`, a ordem VM/física, o dado que pode repetir).
+
 Isso não invalida os achados lidos — A3, A6 e B1 continuam corretos no
-diagnóstico. Mas vale a regra que sai daí, para quem for aplicar: **o defeito
-pode ser encontrado lendo; a correção precisa ser provada rodando.**
+diagnóstico. Mas valem as duas regras que saem daí, para quem for aplicar:
+
+- **o defeito pode ser encontrado lendo; a correção precisa ser provada
+  rodando**;
+- **número não estimado é número não escrito** — se não deu para medir, o texto
+  diz «curto» e não «5%». Foi a estimativa disfarçada de medida que custou mais
+  credibilidade aqui, e ela era a parte mais fácil de evitar.

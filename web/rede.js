@@ -12,8 +12,21 @@
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = function () { if (manipuladores.aoConectar) manipuladores.aoConectar(); };
-    ws.onclose = function () { if (manipuladores.aoDesconectar) manipuladores.aoDesconectar(); };
-    ws.onerror = function () { if (manipuladores.aoDesconectar) manipuladores.aoDesconectar(); };
+
+    /* Uma conexão que falha dispara "error" E DEPOIS "close" — é o que o padrão
+       manda. Sem esta trava, o aoDesconectar rodava duas vezes por queda: dois
+       agendamentos de reconexão, a tela mexida duas vezes. A geração da conexão
+       lá no app.js já impedia a avalanche, mas ela mora no chamador, e o
+       contrato desta casa é mais simples de cumprir aqui: cai uma vez, avisa
+       uma vez. */
+    var jaAvisou = false;
+    function avisarQueda() {
+      if (jaAvisou) return;
+      jaAvisou = true;
+      if (manipuladores.aoDesconectar) manipuladores.aoDesconectar();
+    }
+    ws.onclose = avisarQueda;
+    ws.onerror = avisarQueda;
 
     ws.onmessage = function (ev) {
       var d = new DataView(ev.data);

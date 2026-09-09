@@ -74,3 +74,33 @@ test('quem não escuta distância não quebra quando ela chega', () => {
   Rede.conectar('ws://192.168.4.1/', {});
   assert.doesNotThrow(() => ws.onmessage(quadro([0x85, 0x2c, 0x01])));
 });
+
+test('uma queda avisa uma vez, mesmo com error e close juntos', () => {
+  /* Um soquete que falha dispara "error" E DEPOIS "close" — é o que o padrão
+     manda. Sem trava, o aoDesconectar rodava duas vezes por queda: dois
+     agendamentos de reconexão para a mesma queda. */
+  const ws = soqueteFalso();
+  let quedas = 0;
+  Rede.conectar('ws://localhost:8080/', { aoDesconectar: () => { quedas++; } });
+  ws.onerror();
+  ws.onclose();
+  assert.strictEqual(quedas, 1);
+});
+
+test('cada conexão tem a sua trava, e não a do vizinho', () => {
+  /* A trava é por soquete. Se fosse do módulo, a segunda conexão da vida da
+     página nunca mais conseguiria avisar que caiu — e a reconexão automática
+     morreria em silêncio na primeira queda. */
+  const a = soqueteFalso();
+  let quedasA = 0;
+  Rede.conectar('ws://localhost:8080/', { aoDesconectar: () => { quedasA++; } });
+  a.onclose();
+
+  const b = soqueteFalso();
+  let quedasB = 0;
+  Rede.conectar('ws://localhost:8080/', { aoDesconectar: () => { quedasB++; } });
+  b.onclose();
+
+  assert.strictEqual(quedasA, 1);
+  assert.strictEqual(quedasB, 1);
+});

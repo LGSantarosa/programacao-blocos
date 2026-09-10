@@ -328,6 +328,28 @@
 
   var paleta = workspace.getFlyout && workspace.getFlyout();
   if (paleta) {
+    /* A caixa é remontada toda vez que a criança abre uma categoria, e as
+       peças nascem no desenho cheio — "andar frente [1] s" com número e
+       palavras. Vesti-las pelo ouvinte de BLOCK_CREATE chega tarde: o Blockly
+       entrega evento por uma fila assíncrona, e entre o desenho e o ouvinte
+       cabe um quadro. A criança de quatro anos via, por um piscar, os blocos
+       do Grande na caixa do Pequeno.
+
+       O remédio é vestir dentro do próprio show(), antes de a página pintar:
+       o mesmo instante em que as peças acabaram de ser postas ali. O reflow
+       depois é obrigatório — esconder campos muda a largura das peças, e sem
+       recalcular a caixa fica larga como se o texto ainda estivesse lá. */
+    if (paleta.show) {
+      var mostrarCaixa = paleta.show;
+      paleta.show = function (def) {
+        mostrarCaixa.call(this, def);
+        Niveis.aplicar(this.getWorkspace(), nivel);
+        if (this.reflow) this.reflow();
+      };
+    }
+
+    /* Rede de segurança: se um dia o show() mudar de nome no Blockly, a caixa
+       volta a ficar certa um quadro depois, que é ruim mas não é errado. */
     paleta.getWorkspace().addChangeListener(function (e) {
       if (e.type === Blockly.Events.BLOCK_CREATE) aplicarNaPaleta();
     });

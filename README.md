@@ -647,7 +647,7 @@ O `Makefile` da raiz é só um atalho; por baixo são estas cinco linhas, e elas
 continuam valendo uma a uma:
 
 ```bash
-cd tests && make test && cd ..      # VM, física, laço e montador (C)
+cd tests && make test && cd ..      # VM, física, laço, montador e protocolo (C)
 ./tests/host_test.sh                # robô virtual de ponta a ponta
 node --test tests/                  # compilador, bridge, níveis, som, navegador
 cd firmware && pio run && cd ..     # o firmware compila
@@ -665,6 +665,13 @@ níveis. Vale o tempo. Um gabarito que não resolve é pior que gabarito nenhum,
 porque a criança que travou segue a resposta, não funciona, e conclui que o erro
 é dela. E isso não dá para conferir no papel: as duas primeiras versões que
 escrevi pareciam certas e raspavam na parede.
+
+O `tests/protocolo_test.c` e o `tests/protocolo.test.js` cobrem a tradução do
+protocolo **da placa**, que era a única das quatro sem teste — as outras três
+(bridge, página e app) já tinham. Se a ordem dos bytes do `T_DIST` saísse
+trocada no firmware, nada notava: o quadro só era exercitado do lado do
+JavaScript que o lê. O primeiro confere byte a byte, na mesa; o segundo confere
+que as quatro casas concordam sobre o número de cada tipo de quadro.
 
 O `tests/quadros_test.c` cobre o que nenhum outro alcança: a remontagem de uma
 mensagem WebSocket partida. O ESPAsyncWebServer entrega mensagem grande em

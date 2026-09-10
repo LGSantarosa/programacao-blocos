@@ -10,15 +10,12 @@ extern "C" {
 #include "vm.h"
 }
 #include "quadros.h"
+#include "protocolo.h"
 
 void hal_esp32_setup();
 
 static const char *NOME_REDE = "Robo-01";
 static const char *SENHA     = "robo1234";   /* mínimo 8 caracteres */
-
-static const uint8_t T_LOAD = 0x01, T_RUN = 0x02, T_STOP = 0x03;
-static const uint8_t T_PC = 0x81, T_STATE = 0x82, T_VALOR = 0x84,
-                     T_DIST = 0x85;
 
 static const int MAX_INSTR_LOOP = 256;
 static const uint32_t PC_MIN_MS = 30;
@@ -59,27 +56,24 @@ static void checar_vigia() {
     vm_watchdog_check(&vm, hal_millis());
 }
 
+/* Quem monta os bytes é o protocolo.h, que tem teste de mesa; esta casa só
+   sabe entregar. Ver firmware/src/protocolo.h. */
 static void enviar_pc(uint16_t pc) {
-    uint8_t q[3] = { T_PC, (uint8_t)(pc & 0xFF), (uint8_t)(pc >> 8) };
-    ws.binaryAll(q, sizeof(q));
+    uint8_t q[PROTOCOLO_MAX_QUADRO];
+    ws.binaryAll(q, protocolo_pc(q, pc));
 }
 
 static void enviar_estado(uint8_t estado) {
-    uint8_t q[2] = { T_STATE, estado };
-    ws.binaryAll(q, sizeof(q));
+    uint8_t q[PROTOCOLO_MAX_QUADRO];
+    ws.binaryAll(q, protocolo_estado(q, estado));
 }
 
-/* int32 e não int16: a pilha da VM é de 32 bits, e uma conta da criança chega
-   lá — 100 × 100 já não caberia. É o primeiro campo do protocolo com essa
-   largura, de propósito.
-
-   Mora aqui, e não no hal_esp32.cpp, porque relatar é ato de protocolo e não
-   de hardware: o ws é desta casa, ao lado de enviar_pc e enviar_estado. */
+/* Mora aqui, e não no hal_esp32.cpp, porque relatar é ato de protocolo e não
+   de hardware: o ws é desta casa, ao lado de enviar_pc e enviar_estado. A
+   largura do campo e o porquê dela estão no protocolo.h. */
 extern "C" void hal_report(int32_t valor) {
-    uint32_t v = (uint32_t)valor;
-    uint8_t q[5] = { T_VALOR, (uint8_t)(v & 0xFF), (uint8_t)((v >> 8) & 0xFF),
-                     (uint8_t)((v >> 16) & 0xFF), (uint8_t)((v >> 24) & 0xFF) };
-    ws.binaryAll(q, sizeof(q));
+    uint8_t q[PROTOCOLO_MAX_QUADRO];
+    ws.binaryAll(q, protocolo_valor(q, valor));
 }
 
 /* A distância no painel, sem ninguém tocar em bloco nenhum. Aqui não vai o
@@ -98,8 +92,8 @@ extern "C" void hal_report(int32_t valor) {
 static void enviar_distancia() {
     if (ws.count() == 0) return;
     uint16_t cm = hal_distancia_cm();
-    uint8_t q[3] = { T_DIST, (uint8_t)(cm & 0xFF), (uint8_t)(cm >> 8) };
-    ws.binaryAll(q, sizeof(q));
+    uint8_t q[PROTOCOLO_MAX_QUADRO];
+    ws.binaryAll(q, protocolo_dist(q, cm));
 }
 
 static void aoEvento(AsyncWebSocket *, AsyncWebSocketClient *cliente,
@@ -120,25 +114,21 @@ static void aoEvento(AsyncWebSocket *, AsyncWebSocketClient *cliente,
                                      info->final ? 1 : 0);
     if (n_msg == 0) return;   /* ainda falta pedaco, ou veio grande demais */
 
-    const uint8_t *msg = montador.buf;
-    switch (msg[0]) {
-    case T_LOAD: {
-        if (n_msg < 3) return;
-        uint16_t n = (uint16_t)(msg[1] | (msg[2] << 8));
-        if (n_msg != (uint32_t)(3 + n * INSTR_BYTES)) return;
-        vm_load(&vm, msg + 3, (uint16_t)(n * INSTR_BYTES));
+    Pedido pedido = protocolo_ler(montador.buf, n_msg);
+    switch (pedido.tipo) {
+    case PEDIDO_LOAD:
+        vm_load(&vm, pedido.programa, pedido.bytes);
         pc_enviado = 0xFFFF;
         break;
-    }
-    case T_RUN:
+    case PEDIDO_RUN:
         vm_run(&vm);
         pc_exec = 0;
         pc_enviado = 0xFFFF;
         break;
-    case T_STOP:
+    case PEDIDO_STOP:
         vm_stop(&vm);
         break;
-    default:
+    case PEDIDO_NADA:
         break;
     }
 }

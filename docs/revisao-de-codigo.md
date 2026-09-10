@@ -746,6 +746,14 @@ médio, e era contaminação — eu editava `web/` enquanto o Chromium recarrega
 página no meio dos cinco minutos. Vermelho assim não prova nada e ainda queima a
 amostra; foi por isso que o laço recomeçou do zero.
 
+**Também fechado, e não era da lista:** o buraco de cobertura que o **E5**
+registrou de passagem — a tradução do protocolo na placa, a única das quatro
+implementações sem teste nenhum. Ela saiu do `main.cpp` para o
+`firmware/src/protocolo.h` (C puro, sem Arduino, pelo caminho que o `quadros.h`
+já tinha aberto), com 17 verificações de bytes no `tests/protocolo_test.c` e um
+`tests/protocolo.test.js` que exige que firmware, bridge, página e app
+concordem sobre o número de cada tipo de quadro.
+
 Números do dia: a suíte saiu de 306 testes para **336**, e os 30 que entraram
 cobrem o que antes só o Chromium alcançava — arena (7), tentativas (10),
 reconexão (8), os padrões novos do guarda de ES5 e as tags de script da página.

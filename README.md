@@ -633,9 +633,15 @@ registradores, não do C++.
 ## Testes
 
 ```bash
-make test        # C, ponta a ponta e JS — o que dá para rodar em qualquer máquina
-make test-tudo   # o acima, mais o firmware (PlatformIO) e o app Android (SDK)
+make test        # oito segundos: C, ponta a ponta e o JS que não sobe navegador
+make test-lento  # os dois que dirigem Chromium: gabaritos e navegador (~5 min)
+make test-tudo   # tudo acima, mais o firmware (PlatformIO) e o app Android (SDK)
 ```
+
+O `make test` fica em segundos porque os dois testes que sobem Chromium só
+rodam quando pedidos — `TESTES_LENTOS=1` liga, e o `make test-lento` é o
+atalho. Quem mexeu numa cor não deveria esperar cinco minutos para saber;
+**mas rodar o `make test-lento` antes de commitar continua sendo a regra.**
 
 O `Makefile` da raiz é só um atalho; por baixo são estas cinco linhas, e elas
 continuam valendo uma a uma:

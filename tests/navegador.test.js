@@ -25,6 +25,16 @@ function acharChromium() {
 
 const CHROMIUM = acharChromium();
 
+/* Este arquivo só roda quando pedido. Ele sozinho leva uns cinco minutos, e
+   não deveria estar no caminho de quem acabou de mexer numa cor. Mesmo truque
+   do arduino.test.js, que se pula sem g++: `TESTES_LENTOS=1 node --test tests/`
+   liga, e o `make test-lento` da raiz é o atalho. Rodar tudo antes de commitar
+   continua sendo a regra. */
+const LENTOS = process.env.TESTES_LENTOS === '1';
+const PULAR = !LENTOS
+  ? 'teste lento: ligue com TESTES_LENTOS=1, ou rode make test-lento'
+  : (CHROMIUM ? false : 'sem Chromium nesta máquina');
+
 async function esperarPorta(url, limiteMs) {
   const fim = Date.now() + limiteMs;
   while (Date.now() < fim) {
@@ -34,7 +44,7 @@ async function esperarPorta(url, limiteMs) {
 }
 
 test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
 
@@ -478,7 +488,7 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
 /* ---------- a tela estreita ---------- */
 
 test('nada escapa pela lateral num celular nem num tablet em pé',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* O cabeçalho já teve dez itens numa faixa que não dobrava, somando 904px
        de conteúdo. Qualquer tela mais estreita que isso — um iPad em pé tem
@@ -609,7 +619,7 @@ test('nada escapa pela lateral num celular nem num tablet em pé',
 
 
 test('a peça já sai da caixa vestida do nível, antes de ser solta',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* No Pequeno as palavras somem e a peça de andar é só uma seta. Mas o
        nível era aplicado quando o arrasto terminava, então ela atravessava a
@@ -717,7 +727,7 @@ test('a peça já sai da caixa vestida do nível, antes de ser solta',
 /* ---------- o toque que roda ---------- */
 
 test('tocar no corpo da peça roda; tocar no número só abre o editor',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* As duas metades do mesmo gesto, e a segunda é a que mais importa: a
        criança toca no "1" para trocar o número dezenas de vezes por sessão, e
@@ -868,7 +878,7 @@ test('tocar no corpo da peça roda; tocar no número só abre o editor',
   });
 
 test('rodar uma pilha solta não gasta tentativa da missão',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* O botão "me mostra como faz" aparece sozinho depois de algumas
        execuções sem chegar na estrela, e existe para quem travou. Uma criança
@@ -947,7 +957,7 @@ test('rodar uma pilha solta não gasta tentativa da missão',
   });
 
 test('tocar num relator mostra o valor numa bolha',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* A metade do encanto que custou o opcode novo. O número não é calculado
        aqui: ele desce até a VM como qualquer outra coisa e volta de lá, para
@@ -1040,7 +1050,7 @@ test('tocar num relator mostra o valor numa bolha',
    teclado que nasce sem essa régua repete a história — com as teclas de baixo,
    o 0 e o apagar, fora da tela, e o "pronto" junto com elas. */
 test('o teclado cabe inteiro num celular deitado',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
 
@@ -1131,7 +1141,7 @@ test('o teclado cabe inteiro num celular deitado',
 
    Só o Chromium com toque de verdade pega isto. Com mouse não acontece. */
 test('o dedo que abre o teclado não aperta tecla nenhuma',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
 
@@ -1237,7 +1247,7 @@ test('o dedo que abre o teclado não aperta tecla nenhuma',
   });
 
 test('pedir o gabarito não destrava a âncora do PLAY',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* O botão "me mostra como faz" carrega o gabarito com
        Blockly.serialization.workspaces.load, que troca o workspace inteiro. O
@@ -1324,7 +1334,7 @@ test('pedir o gabarito não destrava a âncora do PLAY',
   });
 
 test('o programa da criança volta depois de recarregar a página',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* O nível já ficava, o mudo já ficava, a fase já ficava. O trabalho dela
        era a única coisa da tela que se perdia — e é a única que ela fez com as
@@ -1463,7 +1473,7 @@ test('o programa da criança volta depois de recarregar a página',
   });
 
 test('desfazer traz o bloco de volta, e o erro aparece em cima da peça culpada',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* Dois consertos, um navegador só: subir Chromium custa uns vinte segundos
        e os dois exercitam a mesma tela.
@@ -1638,7 +1648,7 @@ test('desfazer traz o bloco de volta, e o erro aparece em cima da peça culpada'
   });
 
 test('a trilha mostra em que fase a criança está, e deixa voltar',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* Missoes.quantas() existia, era exportado, e ninguém chamava: a criança
        via o texto de uma fase e mais nada — nem em qual estava, nem quantas
@@ -1758,7 +1768,7 @@ test('a trilha mostra em que fase a criança está, e deixa voltar',
   });
 
 test('a página que some sem avisar grava antes de ir',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 120000 },
+  { skip: PULAR, timeout: 120000 },
   async (t) => {
     /* A gravação espera um segundo de silêncio de propósito — o Blockly dispara
        um evento por pixel de arrasto. Mas há três jeitos de a página sumir

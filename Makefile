@@ -3,7 +3,8 @@
 #   make            compila o robô virtual
 #   make subir      compila e levanta o servidor em http://localhost:8080
 #   make test       o que roda em segundos: C, ponta a ponta e JS
-#   make test-tudo  o acima, mais o firmware e o app Android
+#   make test-lento os dois que sobem Chromium: gabaritos e navegador (~5 min)
+#   make test-tudo  tudo acima, mais o firmware e o app Android
 #   make limpar     joga fora os binários
 #
 # O firmware e o Android ficam fora do `make test` de propósito: um precisa do
@@ -12,7 +13,7 @@
 
 PORTA ?= 8080
 
-.PHONY: all subir test test-tudo test-firmware test-android limpar
+.PHONY: all subir test test-lento test-tudo test-firmware test-android limpar
 
 all:
 	$(MAKE) -C host
@@ -25,8 +26,14 @@ test: all
 	./tests/host_test.sh
 	node --test tests/
 
+# Os dois que sobem Chromium levam uns cinco minutos, quase todos do
+# gabaritos.test.js. Ficam fora do `make test` para quem mexeu numa cor não
+# esperar por eles — mas rodar isto antes de commitar continua sendo a regra.
+test-lento: all
+	TESTES_LENTOS=1 node --test tests/gabaritos.test.js tests/navegador.test.js
+
 # O `pio run` e o `gradlew` baixam mundo na primeira vez; por isso separados.
-test-tudo: test test-firmware test-android
+test-tudo: test test-lento test-firmware test-android
 
 test-firmware:
 	cd firmware && pio run

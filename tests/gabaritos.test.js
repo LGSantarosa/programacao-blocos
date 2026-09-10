@@ -31,6 +31,16 @@ function acharChromium() {
 }
 const CHROMIUM = acharChromium();
 
+/* Este arquivo só roda quando pedido. Ele sozinho leva uns cinco minutos, e
+   não deveria estar no caminho de quem acabou de mexer numa cor. Mesmo truque
+   do arduino.test.js, que se pula sem g++: `TESTES_LENTOS=1 node --test tests/`
+   liga, e o `make test-lento` da raiz é o atalho. Rodar tudo antes de commitar
+   continua sendo a regra. */
+const LENTOS = process.env.TESTES_LENTOS === '1';
+const PULAR = !LENTOS
+  ? 'teste lento: ligue com TESTES_LENTOS=1, ou rode make test-lento'
+  : (CHROMIUM ? false : 'sem Chromium nesta máquina');
+
 async function esperarPorta(url, limiteMs) {
   const fim = Date.now() + limiteMs;
   while (Date.now() < fim) {
@@ -117,7 +127,7 @@ async function conferir(cdp, nivel) {
 }
 
 test('todo gabarito resolve a própria missão, nos três níveis',
-  { skip: CHROMIUM ? false : 'sem Chromium nesta máquina', timeout: 900000 },
+  { skip: PULAR, timeout: 900000 },
   async (t) => {
     spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
     const bridge = spawn('node', ['bridge/server.js'],

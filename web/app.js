@@ -603,16 +603,36 @@
     /* Some ao ser pega: é a única confirmação que a criança vê no momento
        exato em que o robô encosta, antes mesmo de ler o painel. */
     Arena.desenhar(ctx, poseAtual, cumpriu ? null : missao, missao.obstaculos);
+    ultimaReacao = 'normal';
     if (poseAtual) {
-      var qual = Robo.reacao({
+      ultimaReacao = Robo.reacao({
         msDesdeColisao: agora - tColisao,
         msDesdeFim: agora - tFim,
         msParado: rodando ? 0 : agora - tParado,
       });
-      Robo.desenhar(ctx, poseAtual, qual, agora);
+      Robo.desenhar(ctx, poseAtual, ultimaReacao, agora);
     }
     desenharConfete();
-    requestAnimationFrame(quadro);
+    agendarQuadro();
+  }
+
+  /* Parado é o estado normal da tela: nenhum programa rodando e nenhum confete
+     caindo. Aí o que sobra de movimento é a animação ociosa do bichinho — o z
+     do «dormindo», o piscar — e dez quadros por segundo bastam para ela.
+     Sessenta quadros por segundo para mexer um z é bateria de tablet de sala
+     de aula indo embora. O setTimeout entrega ao requestAnimationFrame em vez
+     de desenhar direto, para a aba escondida continuar sem desenhar nada.
+
+     O «tonto» e o «feliz» ficam de fora do descanso: o pulo do feliz tem
+     período de uns 750 ms, e a dez quadros por segundo ele picota. O
+     «dormindo» pode descansar — o z sobe devagar de propósito. */
+  var MS_OCIOSO = 100;
+  var ultimaReacao = 'normal';
+
+  function agendarQuadro() {
+    var animando = ultimaReacao === 'tonto' || ultimaReacao === 'feliz';
+    if (rodando || confetes.length > 0 || animando) requestAnimationFrame(quadro);
+    else setTimeout(function () { requestAnimationFrame(quadro); }, MS_OCIOSO);
   }
   requestAnimationFrame(quadro);
 

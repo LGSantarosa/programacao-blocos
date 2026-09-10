@@ -4,12 +4,13 @@ LDLIBS  = -lm
 
 .PHONY: test clean
 
-test: vm_test physics_test quadros_test laco_test protocolo_test
+test: vm_test physics_test quadros_test laco_test protocolo_test tarefas_test
 	./vm_test
 	./physics_test
 	./quadros_test
 	./laco_test
 	./protocolo_test
+	./tarefas_test
 
 # Ver o comentário no host/Makefile: sem os .h aqui, um teste pode passar
 # contra o binário anterior à mudança que ele deveria estar provando.
@@ -33,6 +34,10 @@ quadros_test: quadros_test.c ../firmware/src/quadros.h
 protocolo_test: protocolo_test.c ../firmware/src/protocolo.h ../core/bytecode.h
 	$(CC) $(CFLAGS) -I../firmware/src -o $@ $(filter %.c,$^) $(LDLIBS)
 
+# Mais de um pc na VM: o rodízio entre tarefas e os avisos entre elas.
+tarefas_test: tarefas_test.c fake_hal.c ../core/vm.c $(CABECALHOS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDLIBS)
+
 # O laço do robô virtual sem a casca de stdio: física e VM de verdade, só o
 # relógio é falso.
 laco_test: laco_test.c relogio_falso.c ../host/laco.c ../host/hal_sim.c \
@@ -40,4 +45,4 @@ laco_test: laco_test.c relogio_falso.c ../host/laco.c ../host/hal_sim.c \
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^) $(LDLIBS)
 
 clean:
-	rm -f vm_test physics_test quadros_test laco_test protocolo_test
+	rm -f vm_test physics_test quadros_test laco_test protocolo_test tarefas_test

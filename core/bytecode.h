@@ -22,8 +22,26 @@ enum {
     /* Desempilha o topo e o entrega ao HAL. É o caminho de volta que faltava:
        sem ele a criança pode mandar uma conta para o robô, mas não pode
        perguntar quanto ela deu. */
-    OP_REPORT    = 13
+    OP_REPORT    = 13,
+    /* O cabeçalho de tarefas, e só ele: um TASK por pilha que roda sozinha.
+       Fica no começo do programa, antes de qualquer código, e o vm_run o lê
+       para saber quantos pc existem e onde cada um começa.
+
+       a = quando essa tarefa começa (TAREFA_NO_PLAY ou TAREFA_NO_AVISO)
+       b = a instrução onde o corpo dela começa
+       c = o número do aviso, quando a for TAREFA_NO_AVISO
+
+       Programa sem nenhum TASK continua valendo e roda como sempre: uma
+       tarefa só, começando em zero. É o que o compilador emitia até aqui, e
+       o que o .ino exportado continua sendo. */
+    OP_TASK      = 14,
+    /* Manda o aviso a = número. Toda tarefa que espera por ele recomeça do
+       princípio. Não empilha nem desempilha nada: aviso não é valor. */
+    OP_BROADCAST = 15
 };
+
+/* Quando uma tarefa começa. */
+enum { TAREFA_NO_PLAY = 0, TAREFA_NO_AVISO = 1 };
 
 /* Um opcode com seletor em vez de um por conta: o campo "a" já existe e está
    sobrando, e onze opcodes por onze contas engordariam a tabela sem ganhar
@@ -37,6 +55,11 @@ enum {
 enum { UN_NAO = 0 };
 
 #define PILHA_MAX 16
+
+/* Quantas pilhas podem rodar ao mesmo tempo. Seis porque é o que cabe na tela
+   de um tablet sem a criança perder de vista o que montou — e porque cada uma
+   custa 88 bytes de RAM na placa, que é barato mas não é de graça. */
+#define N_TAREFAS        6
 
 #define MAX_INSTR        1024
 #define INSTR_BYTES      7

@@ -513,9 +513,10 @@ static void teste_aleatorio_e_reprodutivel(void) {
         preparar(&vm, prog, sizeof(prog));
         vm.semente = 12345u;
         for (int k = 0; k < 8; k++) {
-            vm.pc = 0; vm.topo = 0; vm.rodando = 1;
+            vm.tarefa[0].pc = 0; vm.tarefa[0].topo = 0;
+            vm.tarefa[0].viva = 1; vm.rodando = 1;
             vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
-            fora[k] = (int)vm.pilha[0];
+            fora[k] = (int)vm.tarefa[0].pilha[0];
         }
     }
     for (int k = 0; k < 8; k++) CHECK(primeira[k] == segunda[k]);
@@ -536,7 +537,8 @@ static void teste_aleatorio_isolado_por_vm(void) {
     a.semente = b.semente = 777u;
     /* A anda três sorteios sozinha; B continua onde estava. */
     for (int k = 0; k < 3; k++) {
-        a.pc = 0; a.topo = 0; a.rodando = 1;
+        a.tarefa[0].pc = 0; a.tarefa[0].topo = 0;
+        a.tarefa[0].viva = 1; a.rodando = 1;
         vm_tick(&a); vm_tick(&a); vm_tick(&a);
     }
     vm_tick(&b); vm_tick(&b); vm_tick(&b);
@@ -545,7 +547,7 @@ static void teste_aleatorio_isolado_por_vm(void) {
     preparar(&c, prog, sizeof(prog));
     c.semente = 777u;
     vm_tick(&c); vm_tick(&c); vm_tick(&c);
-    CHECK(b.pilha[0] == c.pilha[0]);
+    CHECK(b.tarefa[0].pilha[0] == c.tarefa[0].pilha[0]);
 }
 
 /* Com o relógio parado, uma amostra não sai toda igual — que é exatamente o
@@ -564,9 +566,10 @@ static void teste_aleatorio_nao_e_constante(void) {
     vm.semente = 2024u;
     int visto[6] = { 0, 0, 0, 0, 0, 0 };
     for (int k = 0; k < 200; k++) {
-        vm.pc = 0; vm.topo = 0; vm.rodando = 1;
+        vm.tarefa[0].pc = 0; vm.tarefa[0].topo = 0;
+        vm.tarefa[0].viva = 1; vm.rodando = 1;
         vm_tick(&vm); vm_tick(&vm); vm_tick(&vm);
-        int v = (int)vm.pilha[0];
+        int v = (int)vm.tarefa[0].pilha[0];
         CHECK(v >= 1 && v <= 5);          /* faixa, na mesma passada */
         visto[v] = 1;
     }
@@ -616,7 +619,7 @@ static void teste_jmp_false_salta_quando_falso(void) {
     vm_tick(&vm);
     vm_tick(&vm);
     CHECK(vm.pc == 4);
-    CHECK(vm.topo == 0);
+    CHECK(vm.tarefa[0].topo == 0);
 }
 
 /* Nada pode ficar pendurado na pilha entre instruções que devolvem o controle
@@ -637,10 +640,10 @@ static void teste_pilha_vazia_depois_de_cada_comando(void) {
     preparar(&vm, prog, sizeof(prog));
     for (int k = 0; k < 200 && vm.rodando; k++) {
         vm_tick(&vm);
-        CHECK(vm.topo <= 2);
+        CHECK(vm.tarefa[0].topo <= 2);
         fake_clock_advance(10);
     }
-    CHECK(vm.topo == 0);
+    CHECK(vm.tarefa[0].topo == 0);
 }
 
 /* Pilha vazia não pode ler lixo de memória: para o programa, como já se faz

@@ -9,8 +9,8 @@
   /* A arena vem de fora, junto com a missão. Antes esta lista era constante e
      tinha uma gêmea no physics.c — duas cópias da mesma verdade, livres para
      divergirem em silêncio. Agora existe uma só, em missoes.js, e as duas
-     pontas a recebem. */
-  var OBSTACULOS = [];
+     pontas a recebem. Não há padrão aqui de propósito: toda missão declara
+     seus obstáculos, nem que seja uma lista vazia. */
 
   function desenhar(ctx, estado, alvo, obstaculos) {
     var px = ctx.canvas.width;
@@ -27,8 +27,7 @@
     ctx.strokeRect(2, 2, px - 4, px - 4);
 
     ctx.fillStyle = '#20b0f0';
-    var lista = obstaculos || OBSTACULOS;
-    for (var o of lista) {
+    for (var o of obstaculos) {
       ctx.fillRect(m(o.x0), my(o.y1), m(o.x1 - o.x0), m(o.y1 - o.y0));
     }
 
@@ -69,5 +68,9 @@
     ctx.stroke();
   }
 
-  raiz.Arena = { desenhar: desenhar };
+  /* desenharEstrela sai junto para poder ser provada em Node: é geometria
+     pura, e o teste de mesa é mais barato que subir Chromium para olhar. */
+  var api = { desenhar: desenhar, desenharEstrela: desenharEstrela };
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else raiz.Arena = api;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -391,22 +391,6 @@
     Blockly.defineBlocksWithJsonArray(defs);
   }
 
-  var CAIXA_XML =
-    '<xml id="caixa" style="display: none">' +
-    '  <category name="Movimento" colour="' + COR_MOVIMENTO + '">' +
-    '    <block type="mover_frente"></block>' +
-    '    <block type="mover_tras"></block>' +
-    '    <block type="girar"></block>' +
-    '    <block type="esperar"></block>' +
-    '  </category>' +
-    '  <category name="Repetir" colour="' + COR_LACO + '">' +
-    '    <block type="repetir"></block>' +
-    '  </category>' +
-    '  <category name="Sentidos" colour="' + COR_SENSOR + '">' +
-    '    <block type="se_obstaculo"></block>' +
-    '  </category>' +
-    '</xml>';
-
   /* O que está dentro de um encaixe: o número do shadow, ou a conta que a
      criança soltou em cima dele. Encaixe vazio vale zero — acontece quando ela
      arranca o shadow, e um programa que explode por isso seria pior. */
@@ -595,10 +579,8 @@
   var api = { definir: definir, workspaceParaAst: workspaceParaAst,
               pilhaDoBloco: pilhaDoBloco,
               valorDoBloco: valorDoBloco,
-              valorDe: valorDe,
               criarRaiz: criarRaiz, fixarRaiz: fixarRaiz,
-              temTrabalho: temTrabalho, limpar: limpar,
-              CAIXA_XML: CAIXA_XML };
+              temTrabalho: temTrabalho, limpar: limpar };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Blocos = api;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -199,8 +199,14 @@
   /* Sem <dialog>: não existe no Safari do iOS 9. Um div com position:fixed e
      top/right/bottom/left faz o mesmo e abre em tudo. */
 
+  /* Acima do #painel-ajustes (200), e não empatado com ele: os botões de
+     nível moram dentro dos ajustes desde que o cabeçalho foi limpo, então
+     este diálogo nasce SEMPRE por cima daquele painel. Empatados, quem
+     ganhava era a ordem do documento — e o painel-ajustes vem depois no
+     HTML, então a pergunta «isto vai apagar o programa» aparecia atrás de
+     quem a fez aparecer. */
   #confirma {
-    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 200;
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 220;
     background: rgba(0, 32, 128, .55);
     display: flex; align-items: center; justify-content: center;
     padding: 20px;

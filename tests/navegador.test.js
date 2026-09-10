@@ -1994,3 +1994,196 @@ test('as pilhas que rodam ao mesmo tempo chegam inteiras ao robô',
 
     cdp.fechar();
   });
+
+
+test('a pergunta de trocar de nível nasce na frente do painel de ajustes',
+  { skip: PULAR, timeout: 120000 },
+  async (t) => {
+    /* Os botões de nível moram dentro do engrenagem desde que o cabeçalho foi
+       limpo. Quem abre a pergunta «isto vai apagar o programa» é, portanto,
+       sempre o painel de ajustes — e ela aparecia ATRÁS dele: os dois estavam
+       empatados em z-index 200 e a ordem do documento decidia.
+
+       O que se afirma aqui não é o número do z-index, é o que o dedo alcança:
+       no meio da tela, quem recebe o toque tem de ser o diálogo. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 11) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-camadas-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 11}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 11}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 11}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const abrir = async () => {
+      await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 11}/` });
+      const ate = Date.now() + 30000;
+      let pronta = false;
+      while (Date.now() < ate && !pronta) {
+        pronta = await aval(`document.readyState === 'complete'
+          && typeof Blockly !== 'undefined'
+          && !!Blockly.getMainWorkspace()`).catch(() => false);
+        if (!pronta) await espera(250);
+      }
+      assert.ok(pronta, 'a página não ficou pronta em 30 s');
+      await espera(600);
+    };
+
+    await abrir();
+    await aval(`localStorage.removeItem('robo_programa'); Niveis.definir('medio')`);
+    await abrir();
+
+    /* Um bloco na tela: sem programa montado, trocar de nível não pergunta
+       nada — é justamente o caso em que o diálogo não apareceria. */
+    await aval(`(function () {
+      var ws = Blockly.getMainWorkspace();
+      var raiz = ws.getBlocksByType('quando_play', false)[0];
+      var andar = ws.newBlock('mover_frente');
+      andar.initSvg(); andar.render();
+      raiz.getInput('CORPO').connection.connect(andar.previousConnection);
+      return 1;
+    })()`);
+    await espera(300);
+
+    /* O caminho da criança: engrenagem, depois o botão de nível lá dentro. */
+    await aval(`document.getElementById('ajustes').click()`);
+    await espera(250);
+    assert.strictEqual(await aval(`document.getElementById('painel-ajustes').hidden`),
+      false, 'o painel de ajustes devia estar aberto');
+
+    await aval(`document.querySelector('#painel-ajustes #niveis button[data-nivel="grande"]').click()`);
+    await espera(300);
+    assert.strictEqual(await aval(`document.getElementById('confirma').hidden`),
+      false, 'a pergunta devia ter aparecido');
+
+    /* Quem está por cima no meio da tela? */
+    const quemRecebeOToque = await aval(`(function () {
+      var alvo = document.elementFromPoint(
+        Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2));
+      return alvo && alvo.closest('#confirma') ? 'confirma'
+           : alvo && alvo.closest('#painel-ajustes') ? 'ajustes'
+           : (alvo ? alvo.id || alvo.tagName : 'nada');
+    })()`);
+    assert.strictEqual(quemRecebeOToque, 'confirma',
+      'a pergunta ficou atrás do painel de ajustes');
+
+    cdp.fechar();
+  });
+
+
+test('a caixa de blocos já abre vestida do nível, sem piscar o desenho cheio',
+  { skip: PULAR, timeout: 120000 },
+  async (t) => {
+    /* A caixa é remontada a cada categoria aberta, e as peças nascem no
+       desenho do Grande. Vesti-las pelo ouvinte de BLOCK_CREATE deixava um
+       quadro no meio: o Blockly entrega evento por fila assíncrona, então a
+       página pintava "andar frente [1] s" antes de o Pequeno chegar.
+
+       A prova é o «no mesmo instante»: abrir a categoria e conferir os campos
+       DENTRO DA MESMA expressão, sem devolver o controle ao navegador. Se a
+       resposta certa só viesse um quadro depois, este teste falharia — que é
+       exatamente o que a criança via. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 12) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-caixa-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 12}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 12}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 12}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const abrir = async () => {
+      await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 12}/` });
+      const ate = Date.now() + 30000;
+      let pronta = false;
+      while (Date.now() < ate && !pronta) {
+        pronta = await aval(`document.readyState === 'complete'
+          && typeof Blockly !== 'undefined'
+          && !!Blockly.getMainWorkspace()`).catch(() => false);
+        if (!pronta) await espera(250);
+      }
+      assert.ok(pronta, 'a página não ficou pronta em 30 s');
+      await espera(600);
+    };
+
+    await abrir();
+    await aval(`localStorage.removeItem('robo_programa'); Niveis.definir('pequeno')`);
+    await abrir();
+
+    /* Abre a primeira categoria (Mover) e lê os campos na mesma tacada. */
+    const estado = JSON.parse(await aval(`(function () {
+      var ws = Blockly.getMainWorkspace();
+      ws.getToolbox().selectItemByPosition(0);
+      var peças = ws.getFlyout().getWorkspace().getTopBlocks(false);
+      var andar = null;
+      for (var i = 0; i < peças.length; i++) {
+        if (peças[i].type === 'mover_frente') { andar = peças[i]; break; }
+      }
+      if (!andar) return JSON.stringify({ achou: false });
+      var campo = function (nome) {
+        var c = andar.getField(nome);
+        return c ? c.isVisible() : null;
+      };
+      var encaixe = andar.getInput('SEG');
+      return JSON.stringify({
+        achou: true,
+        rotulo: campo('T1'),
+        unidade: campo('T2'),
+        icone: campo('ICONE'),
+        segundos: encaixe ? encaixe.isVisible() : null,
+      });
+    })()`));
+
+    assert.ok(estado.achou, 'a categoria Mover devia trazer o andar frente');
+    assert.strictEqual(estado.rotulo, false,
+      'no Pequeno a caixa abriu com o rótulo "andar frente" à mostra');
+    assert.strictEqual(estado.unidade, false,
+      'no Pequeno a caixa abriu com o "s" à mostra');
+    assert.strictEqual(estado.segundos, false,
+      'no Pequeno a caixa abriu com o encaixe de segundos à mostra');
+    assert.strictEqual(estado.icone, true, 'a seta tem de aparecer');
+
+    cdp.fechar();
+  });

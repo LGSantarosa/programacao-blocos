@@ -67,11 +67,12 @@ o próprio Blockly, e não um raio de arrasto nosso.
 > os algarismos. O `WebChromeClient` entrou junto, para o próximo diálogo que
 > aparecer falhar à vista e não em segredo.
 
-> **Um clique interrompe o que estiver rodando.** A VM tem um `pc` e um
-> programa só, então tocar em qualquer peça — inclusive no `👁 distância cm`
-> para espiar a leitura no meio de uma execução — para o que estava rodando e
-> começa o que foi tocado. Não é defeito: é o teto desta versão da VM, e é
-> exatamente o que o próximo ciclo, tarefas e eventos, existe para levantar.
+> **Um clique interrompe o que estiver rodando.** Tocar em qualquer peça —
+> inclusive no `👁 distância cm` para espiar a leitura no meio de uma execução —
+> carrega o que foi tocado no lugar do que estava rodando. A VM já sabe rodar
+> até seis pilhas ao mesmo tempo (ver **Ao mesmo tempo**, abaixo); o que ainda
+> não existe é acrescentar uma pilha a um programa em curso, porque carregar
+> troca o programa inteiro. Levantar isso é trabalho de outro dia.
 
 O seletor **nível** no cabeçalho troca entre Pequeno, Médio e Grande. Trocar de
 nível nunca desmonta o programa: os campos somem e voltam com os valores
@@ -528,6 +529,9 @@ como `andar frente [1] s`.
 | `se ( ) então` | — | — | — | sim |
 | `se ( ) senão` | — | — | — | sim |
 | `🔁` repetir até ( ) | — | — | — | sim |
+| `🔁` quando ( ) | — | — | — | pilha própria |
+| `📣` quando chegar o aviso | — | — | — | pilha própria |
+| `📣` avisar | — | — | — | sim |
 
 O Pequeno fica nos quatro primeiros de propósito: ele vale por ser pequeno, e
 cada peça nova é uma escolha a mais na frente de quem tem quatro anos. O Médio
@@ -548,7 +552,8 @@ no Pequeno ele quebra a trilha em corrente de `repetir` de até cinco, porque
 naquele nível o clique nas bolinhas volta a 1 depois de cinco — mostrar uma peça
 que a criança não consegue construir esvazia o sentido do botão.
 
-O Gigante é o Grande mais as contas, e existe porque o Grande virou teto. Até
+O Gigante é o Grande mais as contas e as pilhas que rodam juntas, e existe
+porque o Grande virou teto. Até
 ali todo número é uma constante que a criança digita; no Gigante um número pode
 ser **uma conta** — `andar frente (🎲 aleatório de 1 a 3) s`. Todo campo numérico
 virou encaixe: o desenho é o mesmo nos três níveis de baixo, e no Gigante ele
@@ -571,6 +576,37 @@ teto dos blocos. O arquivo roda o programa uma vez ao ligar, depois de três
 segundos de espera, porque na placa não existe botão PLAY: quem virou PLAY foi
 o RESET.
 
+### Ao mesmo tempo
+
+No Gigante aparece a categoria **Ao mesmo tempo**, com três peças que mudam o
+que a criança pode montar: até aqui havia uma pilha, e agora há até seis.
+
+- **`🔁 quando ( condição )`** — uma pilha que fica de olho. Sempre que a
+  condição der verdade, o corpo dela roda; depois ela volta a olhar. É o que
+  permite «quando chegar perto da parede, gire» sem enfiar isso dentro do
+  `repetir para sempre` do programa principal.
+- **`📣 quando chegar o aviso [n]`** — uma pilha que nasce dormindo e acorda
+  quando alguém manda o aviso `n`. Um aviso que chega enquanto ela roda a faz
+  recomeçar do princípio: é o que se espera de apertar de novo o que já está
+  tocando.
+- **`📣 avisar [n]`** — manda o aviso e segue em frente na mesma linha, sem
+  esperar resposta.
+
+O que as pilhas dividem é o hardware: **um motor só**. Duas pilhas mandando no
+motor ao mesmo tempo é a última que fala que vale, e isso não tem conserto — é
+o robô ter dois motores e não doze. Está afirmado em teste
+(`tests/tarefas_test.c`) para ninguém "consertar" por engano.
+
+Duas consequências que se veem na tela:
+
+1. **Uma tela com `quando` só para no PARAR.** O olho fica aberto enquanto o
+   programa roda; se ele fechasse no fim da pilha do PLAY, a condição deixaria
+   de valer justo quando a criança para de olhar.
+2. **O `{ } ver código` recusa exportar.** O `.ino` é um `setup()` e um
+   `loop()`, e não tem um segundo `pc` para dar a uma segunda pilha. Ele diz
+   isso em vez de exportar só a pilha do PLAY — código que sai pela metade sem
+   avisar só aparece com o robô montado na mesa.
+
 ### Como cada bloco vira bytecode
 
 Todo valor passa pela pilha: um número vira `PUSH`, uma conta vira a subárvore
@@ -590,6 +626,9 @@ pilha quando precisa, e duas regras por bloco é o dobro de jeitos de errar.
 | `repetir para sempre { c }`  | `início:` corpo ; `JMP início`                     |
 | `( a ) + ( b )`              | a ; b ; `BIN +`                                    |
 | `👁 distância cm`            | `SENSOR 0`                                         |
+| `📣 avisar [n]`              | `BROADCAST n`                                      |
+| `🔁 quando ( cond ) { c }`   | tarefa própria: `início:` cond ; `JMP_FALSE início` ; corpo ; `JMP início` |
+| `📣 quando chegar o aviso [n]` | tarefa própria, nascida dormindo, acordada pelo `BROADCAST n` |
 
 **Os três blocos de sensor do Grande não têm opcode próprio.** O `se obstáculo a
 menos de [20] cm` é `SENSOR 0` ; `PUSH 20` ; `BIN <` ; `JMP_FALSE` — exatamente o
@@ -665,6 +704,14 @@ níveis. Vale o tempo. Um gabarito que não resolve é pior que gabarito nenhum,
 porque a criança que travou segue a resposta, não funciona, e conclui que o erro
 é dela. E isso não dá para conferir no papel: as duas primeiras versões que
 escrevi pareciam certas e raspavam na parede.
+
+O `tests/tarefas_test.c`, o `tests/tarefas.test.js` e o
+`tests/tarefas_ponta_a_ponta.test.js` são três camadas do mesmo assunto, e cada
+uma pega o que a outra não pega: a VM com bytecode montado à mão, o compilador
+lendo os bytes que gerou, e — o único que atravessa a fronteira — o compilador
+de verdade alimentando o robô virtual de verdade pela porta do bridge. Um
+número de opcode que divergisse entre o C e o JavaScript passaria nos dois
+primeiros e só cairia no terceiro.
 
 O `tests/protocolo_test.c` e o `tests/protocolo.test.js` cobrem a tradução do
 protocolo **da placa**, que era a única das quatro sem teste — as outras três
@@ -839,7 +886,5 @@ verificação pega isso.
 - **Salvar e carregar projetos da criança.**
 - **Caixas com nome** — variáveis, com a UI do Blockly. A VM já tem pilha; falta
   o par `PUSH_VAR`/`STORE_VAR` e o `mudar _ por _`.
-- **Tarefas e eventos** — `quando começar`, `quando <condição>`, avisos entre
-  pedaços do programa. Precisa de mais de um `pc` na VM.
 - **Blocos que ela inventa** — funções do usuário.
 - **Listas e texto** — o menos urgente para um robô.

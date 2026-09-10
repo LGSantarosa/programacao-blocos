@@ -1879,3 +1879,118 @@ test('a página que some sem avisar grava antes de ir',
 
     cdp.fechar();
   });
+
+
+test('as pilhas que rodam ao mesmo tempo chegam inteiras ao robô',
+  { skip: PULAR, timeout: 120000 },
+  async (t) => {
+    /* Do bloco na tela até o byte no robô, passando pelo Blockly de verdade.
+       O que se afirma aqui é a costura que nenhum teste de mesa alcança: que a
+       categoria existe no Gigante, que o PLAY manda TODAS as pilhas com cabeça
+       (e não só a âncora), e que o «{ } ver código» recusa em vez de exportar
+       o programa pela metade. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 10) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-tarefas-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 10}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 10}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 10}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const abrir = async () => {
+      await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 10}/` });
+      const ate = Date.now() + 30000;
+      let pronta = false;
+      while (Date.now() < ate && !pronta) {
+        pronta = await aval(`document.readyState === 'complete'
+          && typeof Blockly !== 'undefined'
+          && !!Blockly.getMainWorkspace()`).catch(() => false);
+        if (!pronta) await espera(250);
+      }
+      assert.ok(pronta, 'a página não ficou pronta em 30 s');
+      await espera(600);
+    };
+
+    await abrir();
+    await aval(`localStorage.removeItem('robo_programa'); Niveis.definir('gigante')`);
+    await abrir();
+
+    /* A categoria só existe no Gigante: é onde a criança já tem condição. */
+    const categorias = JSON.parse(await aval(`(function () {
+      var itens = Blockly.getMainWorkspace().getToolbox().getToolboxItems();
+      return JSON.stringify(itens.map(function (i) {
+        return i.getName ? i.getName() : '';
+      }));
+    })()`));
+    assert.ok(categorias.indexOf('Ao mesmo tempo') >= 0,
+      `faltou a categoria no Gigante; vieram ${JSON.stringify(categorias)}`);
+
+    /* Monta na mão: um andar dentro do PLAY, e uma pilha de aviso ao lado. */
+    await aval(`(function () {
+      var ws = Blockly.getMainWorkspace();
+      var raiz = ws.getBlocksByType('quando_play', false)[0];
+      var andar = ws.newBlock('mover_frente');
+      andar.initSvg(); andar.render();
+      raiz.getInput('CORPO').connection.connect(andar.previousConnection);
+
+      var cabeca = ws.newBlock('quando_aviso');
+      cabeca.initSvg(); cabeca.render();
+      cabeca.moveBy(300, 300);
+      var girar = ws.newBlock('girar');
+      girar.initSvg(); girar.render();
+      cabeca.getInput('CORPO').connection.connect(girar.previousConnection);
+      return 1;
+    })()`);
+    await espera(300);
+
+    assert.strictEqual(await aval(`Blocos.temTarefas(Blockly.getMainWorkspace())`),
+      true, 'a página não viu a segunda pilha');
+
+    const tarefas = JSON.parse(await aval(`(function () {
+      var t = Blocos.workspaceParaTarefas(Blockly.getMainWorkspace());
+      return JSON.stringify(t.map(function (x) { return x.quando; }));
+    })()`));
+    assert.deepStrictEqual(tarefas, ['play', 'aviso'],
+      'o PLAY tem de mandar as duas pilhas, e nesta ordem');
+
+    /* O bytecode que sairia daqui tem cabeçalho: duas linhas de OP_TASK. */
+    const cabecalho = JSON.parse(await aval(`(function () {
+      var t = Blocos.workspaceParaTarefas(Blockly.getMainWorkspace());
+      var b = Compilador.compilarTarefas(t).bytes;
+      return JSON.stringify([b[0], b[7]]);
+    })()`));
+    assert.deepStrictEqual(cabecalho, [14, 14],
+      'as duas primeiras instruções tinham de ser OP_TASK');
+
+    /* E o código do Arduino recusa, em português, em vez de exportar só o
+       PLAY: o .ino tem um loop() só. */
+    await aval(`document.getElementById('codigo').click()`);
+    await espera(300);
+    const texto = await aval(`document.getElementById('codigo-texto').textContent`);
+    assert.match(texto, /mais de uma pilha/,
+      `o painel devia explicar a recusa; veio: ${texto.slice(0, 120)}`);
+
+    cdp.fechar();
+  });

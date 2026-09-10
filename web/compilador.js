@@ -12,7 +12,14 @@
     HALT: 0, MOTOR: 1, WAIT: 2, TURN: 3,
     SET_REG: 4, DEC_JNZ: 5, JMP: 6,
     PUSH: 8, SENSOR: 9, BIN: 10, UN: 11, JMP_FALSE: 12, REPORT: 13,
+    TASK: 14, BROADCAST: 15,
   };
+
+  /* Quando uma tarefa começa. Precisa bater com core/bytecode.h. */
+  var TAREFA = { NO_PLAY: 0, NO_AVISO: 1 };
+
+  /* Quantas pilhas a VM roda ao mesmo tempo. Também de bytecode.h. */
+  var N_TAREFAS = 6;
 
   /* Um opcode com seletor em vez de um por conta: o campo "a" da instrução já
      existe e está sobrando. Precisa bater com core/bytecode.h. */
@@ -55,7 +62,15 @@
      própria, senão passariam a existir duas aritméticas no projeto (o
      int32 da VM e o double do JS) divergindo justamente onde é difícil
      perceber. */
-  function compilar(ast, opcoes) {
+  /* O compilador de um pedaço: devolve a lista de instruções, sem virar
+     bytes. Existe separado porque uma tela com tarefas é vários pedaços
+     costurados, e costurar exige mexer nos saltos de cada um antes de fechar.
+
+     opcoes.reportar: compila um valor e o relata (é a bolha do relator).
+     opcoes.valor:    compila só o valor, sem relatar (é a condição de um
+                      «quando», que a tarefa vai testar sozinha).
+     opcoes.semHalt:  não fecha com HALT — quem fecha é quem costura. */
+  function compilarPedaco(ast, opcoes) {
     var instrucoes = [];
     var profundidade = 0;
 
@@ -297,6 +312,10 @@
             emitir(OP.HALT, 0, 0, 0, no.blockId);
             break;
 
+          case 'avisar':
+            emitir(OP.BROADCAST, no.aviso, 0, 0, no.blockId);
+            break;
+
           case 'repetir_sempre': {
             var inicioSempre = instrucoes.length;
             gerar(no.corpo || []);
@@ -314,17 +333,17 @@
       var idValor = (opcoes.reportar && opcoes.reportar.blockId) || null;
       gerarValor(opcoes.reportar, idValor);
       emitir(OP.REPORT, 0, 0, 0, idValor);
+    } else if (opcoes && opcoes.valor !== undefined) {
+      gerarValor(opcoes.valor, opcoes.blockId || null);
     } else {
       gerar(ast);
     }
-    emitir(OP.HALT, 0, 0, 0, null);
+    if (!(opcoes && opcoes.semHalt)) emitir(OP.HALT, 0, 0, 0, null);
 
-    if (instrucoes.length > MAX_INSTR) {
-      throw new Error(
-        'O programa ficou grande demais: ' + instrucoes.length +
-        ' instruções, e o robô só guarda ' + MAX_INSTR + '.');
-    }
+    return { instrucoes: instrucoes };
+  }
 
+  function montarBytes(instrucoes) {
     var bytes = new Uint8Array(instrucoes.length * 7);
     var dv = new DataView(bytes.buffer);
     instrucoes.forEach(function (it, k) {
@@ -334,8 +353,27 @@
       dv.setInt16(o + 3, it.b, true);
       dv.setInt16(o + 5, it.c, true);
     });
+    return bytes;
+  }
 
-    return { bytes: bytes, pcMap: instrucoes.map(function (it) { return it.blockId; }) };
+  function naoPassaDoTeto(instrucoes) {
+    if (instrucoes.length > MAX_INSTR) {
+      throw new Error(
+        'O programa ficou grande demais: ' + instrucoes.length +
+        ' instruções, e o robô só guarda ' + MAX_INSTR + '.');
+    }
+  }
+
+  /* Uma pilha só, sem cabeçalho de tarefa nenhum: é o que o robô sempre
+     recebeu, e o que ele continua recebendo enquanto a criança não usar
+     nenhuma cabeça nova. */
+  function compilar(ast, opcoes) {
+    var pedaco = compilarPedaco(ast, opcoes);
+    naoPassaDoTeto(pedaco.instrucoes);
+    return {
+      bytes: montarBytes(pedaco.instrucoes),
+      pcMap: pedaco.instrucoes.map(function (it) { return it.blockId; }),
+    };
   }
 
   /* Um programa que existe só para responder uma pergunta: calcula o
@@ -344,8 +382,104 @@
     return compilar([], { reportar: no });
   }
 
+  /* Várias pilhas, cada uma com o seu pc. O formato está em core/bytecode.h:
+     um OP_TASK por tarefa, todos antes de qualquer código, e o corpo de cada
+     uma depois.
+
+     Um programa que tem só a âncora do PLAY não passa por aqui — quem decide é
+     o app.js. É de propósito: sem cabeçalho o bytecode sai idêntico ao de
+     antes, e um programa que a criança guardou continua rodando igual. */
+  function compilarTarefas(tarefas) {
+    if (!tarefas.length) return compilar([]);
+    if (tarefas.length > N_TAREFAS) {
+      throw new Error(
+        'São ' + tarefas.length + ' pilhas com cabeça, e o robô roda ' +
+        N_TAREFAS + ' ao mesmo tempo. Junte duas, ou apague uma.');
+    }
+
+    /* Cada tarefa vira um pedaço de programa compilado sozinho, e depois os
+       pedaços são costurados um atrás do outro. Compilar separado é o que
+       permite reusar o compilador inteiro sem reescrevê-lo: o preço é que os
+       saltos de dentro de cada pedaço nascem relativos ao pedaço, e precisam
+       ser somados ao lugar onde ele acabou caindo. */
+    var pedacos = tarefas.map(function (t) {
+      if (t.quando === 'condicao') return pedacoDeCondicao(t);
+      return compilarPedaco(t.corpo || []);
+    });
+
+    var instrucoes = [];
+    var mapa = [];
+    /* O cabeçalho ocupa uma instrução por tarefa, e o corpo da primeira começa
+       logo depois dele. */
+    var base = tarefas.length;
+    var inicios = [];
+    for (var i = 0; i < pedacos.length; i++) {
+      inicios.push(base);
+      base += pedacos[i].instrucoes.length;
+    }
+
+    tarefas.forEach(function (t, k) {
+      var quando = t.quando === 'aviso' ? TAREFA.NO_AVISO : TAREFA.NO_PLAY;
+      instrucoes.push({ op: OP.TASK, a: quando, b: inicios[k],
+                        c: t.quando === 'aviso' ? (t.aviso | 0) : 0,
+                        blockId: t.blockId || null });
+      mapa.push(t.blockId || null);
+    });
+
+    pedacos.forEach(function (pedaco, k) {
+      var deslocamento = inicios[k];
+      pedaco.instrucoes.forEach(function (it) {
+        var novo = { op: it.op, a: it.a, b: it.b, c: it.c, blockId: it.blockId };
+        /* Os três saltos que existem carregam endereço: JMP e JMP_FALSE no
+           campo a, DEC_JNZ no campo b. Esquecer um deles manda a criança para
+           o meio do programa de outra pilha, e isso não dá erro — dá um robô
+           fazendo coisa que ninguém montou. */
+        if (novo.op === OP.JMP || novo.op === OP.JMP_FALSE) novo.a += deslocamento;
+        if (novo.op === OP.DEC_JNZ) novo.b += deslocamento;
+        instrucoes.push(novo);
+        mapa.push(it.blockId || null);
+      });
+    });
+
+    naoPassaDoTeto(instrucoes);
+    return { bytes: montarBytes(instrucoes), pcMap: mapa };
+  }
+
+  /* «quando <condição>» não precisa de nada novo na VM: é uma tarefa que fica
+     testando e, quando dá verdade, roda o corpo e volta a testar. O laço é o
+     próprio corpo da tarefa.
+
+     Ela nunca termina, de propósito: enquanto o programa roda, esse olho fica
+     aberto. É por isso que uma tela com «quando» só para no PARAR. */
+  function pedacoDeCondicao(t) {
+    var corpo = compilarPedaco(t.corpo || [], { semHalt: true });
+    var cond = compilarPedaco([], { valor: t.cond,
+                                    blockId: t.blockId, semHalt: true });
+    var instrucoes = [];
+    cond.instrucoes.forEach(function (it) { instrucoes.push(it); });
+    /* Condição falsa: volta ao começo do teste. O zero é o início do pedaço,
+       e o compilarTarefas soma o deslocamento depois. */
+    instrucoes.push({ op: OP.JMP_FALSE, a: 0, b: 0, c: 0,
+                      blockId: t.blockId || null });
+    /* O corpo foi compilado sozinho, achando que começava em zero; aqui ele
+       cai depois do teste. O deslocamento é onde o corpo começa, e é o mesmo
+       para todas as instruções dele — calcular por instrução, com a lista
+       crescendo, foi o primeiro jeito de errar isto. */
+    var inicioCorpo = instrucoes.length;
+    corpo.instrucoes.forEach(function (it) {
+      var novo = { op: it.op, a: it.a, b: it.b, c: it.c, blockId: it.blockId };
+      if (novo.op === OP.JMP || novo.op === OP.JMP_FALSE) novo.a += inicioCorpo;
+      if (novo.op === OP.DEC_JNZ) novo.b += inicioCorpo;
+      instrucoes.push(novo);
+    });
+    instrucoes.push({ op: OP.JMP, a: 0, b: 0, c: 0, blockId: t.blockId || null });
+    return { instrucoes: instrucoes };
+  }
+
   var api = { compilar: compilar, compilarValor: compilarValor,
-              OP: OP, BIN: BIN, UN: UN, MAX_INSTR: MAX_INSTR };
+              compilarTarefas: compilarTarefas,
+              OP: OP, BIN: BIN, UN: UN, TAREFA: TAREFA,
+              MAX_INSTR: MAX_INSTR, N_TAREFAS: N_TAREFAS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Compilador = api;
 })(typeof self !== 'undefined' ? self : globalThis);

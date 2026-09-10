@@ -108,6 +108,43 @@
         colour: COR_INICIO,
         tooltip: 'Tudo que estiver aqui dentro roda quando a criança apertar PLAY.',
       },
+      /* As duas outras cabeças de pilha, além da âncora do PLAY. São cabeças:
+         não têm encaixe em cima, então nunca entram no meio do programa da
+         criança. Cada uma vira uma tarefa da VM, com o seu próprio pc.
+
+         Verde como a âncora, e de propósito: para a criança, o que estas três
+         têm em comum é serem o lugar por onde uma pilha começa a andar. */
+      {
+        type: 'quando_condicao',
+        message0: '🔁 quando %1',
+        args0: [{ type: 'input_value', name: 'COND', check: 'Boolean' }],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        colour: COR_INICIO,
+        tooltip: 'Fica de olho o tempo todo. Sempre que isto for verdade, ' +
+                 'roda o que estiver aqui dentro.',
+      },
+      {
+        type: 'quando_aviso',
+        message0: '📣 quando chegar o aviso %1',
+        args0: [{ type: 'field_number', name: 'AVISO', value: 1,
+                  min: 1, max: 9, precision: 1 }],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        colour: COR_INICIO,
+        tooltip: 'Fica dormindo até alguém mandar este aviso.',
+      },
+      {
+        type: 'avisar',
+        message0: '📣 avisar %1',
+        args0: [{ type: 'field_number', name: 'AVISO', value: 1,
+                  min: 1, max: 9, precision: 1 }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_INICIO,
+        tooltip: 'Acorda quem estiver esperando este aviso. Não espera ' +
+                 'ninguém responder: o robô segue no próximo bloco.',
+      },
       {
         type: 'mover_frente',
         message0: '%1 %2 %3 %4 %5',
@@ -436,6 +473,9 @@
         };
       case 'parar':
         return { op: 'parar', blockId: id };
+      case 'avisar':
+        return { op: 'avisar',
+                 aviso: Number(b.getFieldValue('AVISO')), blockId: id };
       case 'repetir_sempre':
         return {
           op: 'repetir_sempre',
@@ -503,6 +543,47 @@
     return pilhaParaAst(raizes[0].getInputTargetBlock('CORPO'));
   }
 
+  /* Toda pilha que começa por uma cabeça, na ordem em que a VM vai recebê-las:
+     o PLAY primeiro, porque é o que a criança montou primeiro e é o que ela
+     procura no meio da tela.
+
+     Uma pilha solta, sem cabeça nenhuma, não entra aqui: ela continua sendo
+     rascunho que só roda quando o dedo a toca. Foi decisão de manter — dar
+     vida a todo pedaço largado na tela faria o PLAY rodar coisas que a criança
+     tinha deixado de lado. */
+  function workspaceParaTarefas(workspace) {
+    var tarefas = [];
+    var raizes = workspace.getBlocksByType('quando_play', false);
+    if (raizes.length) {
+      tarefas.push({ quando: 'play',
+                     corpo: pilhaParaAst(raizes[0].getInputTargetBlock('CORPO')),
+                     blockId: raizes[0].id });
+    }
+    var cond = workspace.getBlocksByType('quando_condicao', false);
+    for (var i = 0; i < cond.length; i++) {
+      tarefas.push({ quando: 'condicao',
+                     cond: valorDe(cond[i], 'COND'),
+                     corpo: pilhaParaAst(cond[i].getInputTargetBlock('CORPO')),
+                     blockId: cond[i].id });
+    }
+    var avisos = workspace.getBlocksByType('quando_aviso', false);
+    for (var j = 0; j < avisos.length; j++) {
+      tarefas.push({ quando: 'aviso',
+                     aviso: Number(avisos[j].getFieldValue('AVISO')),
+                     corpo: pilhaParaAst(avisos[j].getInputTargetBlock('CORPO')),
+                     blockId: avisos[j].id });
+    }
+    return tarefas;
+  }
+
+  /* Quantas cabeças existem além da âncora. O app.js usa isto para saber se
+     precisa compilar em tarefas ou se o programa é o de sempre — e programa de
+     sempre tem que gerar o bytecode de sempre, byte por byte. */
+  function temTarefas(workspace) {
+    return workspace.getBlocksByType('quando_condicao', false).length > 0 ||
+           workspace.getBlocksByType('quando_aviso', false).length > 0;
+  }
+
   /* A peça que a criança tocou, traduzida em "o que rodar".
 
      A regra se lê no bloco tocado, e não na raiz da pilha dele. Um relator
@@ -519,6 +600,14 @@
     if (raiz.type === 'quando_play') {
       return { ast: pilhaParaAst(raiz.getInputTargetBlock('CORPO')),
                ehPrograma: true };
+    }
+    /* Tocar numa cabeça de evento roda o corpo dela ali mesmo, uma vez. É o
+       jeito de a criança experimentar o pedaço sem esperar a condição
+       acontecer nem mandar o aviso — e não conta como tentativa da missão,
+       porque não é o programa. */
+    if (raiz.type === 'quando_condicao' || raiz.type === 'quando_aviso') {
+      return { ast: pilhaParaAst(raiz.getInputTargetBlock('CORPO')),
+               ehPrograma: false };
     }
     return { ast: pilhaParaAst(raiz), ehPrograma: false };
   }
@@ -577,6 +666,8 @@
   }
 
   var api = { definir: definir, workspaceParaAst: workspaceParaAst,
+              workspaceParaTarefas: workspaceParaTarefas,
+              temTarefas: temTarefas,
               pilhaDoBloco: pilhaDoBloco,
               valorDoBloco: valorDoBloco,
               criarRaiz: criarRaiz, fixarRaiz: fixarRaiz,

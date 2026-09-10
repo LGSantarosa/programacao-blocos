@@ -237,6 +237,16 @@
           gerarNos(no.senao || [], nivel + 1, profundidade, linhas);
           linhas.push(r + '}');
           break;
+        /* O .ino é um programa só, com um setup() e um loop(): não há pc
+           extra para dar a uma segunda pilha. Traduzir o aviso sem ter para
+           quem avisar geraria um código que compila e não faz nada — pior que
+           recusar. */
+        case 'avisar':
+          throw new Error(
+            'O 📣 avisar só faz sentido com mais de uma pilha rodando ao ' +
+            'mesmo tempo, e o código do Arduino roda uma só. Tire os avisos ' +
+            'para ver o código.');
+
         default:
           throw new Error('Bloco desconhecido: ' + no.op);
       }

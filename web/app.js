@@ -801,9 +801,35 @@
     robo.rodar();
   }
 
-  btPlay.addEventListener('click', function () {
-    rodar(Blocos.workspaceParaAst(workspace), true);
-  });
+  /* O PLAY manda tudo que tem cabeça, e não só a âncora: com «quando» ou
+     «quando chegar o aviso» na tela, são várias pilhas rodando ao mesmo tempo.
+
+     Enquanto não houver cabeça nova nenhuma, o caminho é o de sempre e o
+     bytecode sai idêntico ao de antes — o programa que a criança guardou não
+     muda de forma por causa de um bloco que ela ainda não usou. */
+  function rodarPrograma() {
+    if (!Blocos.temTarefas(workspace)) {
+      rodar(Blocos.workspaceParaAst(workspace), true);
+      return;
+    }
+    spErro.textContent = '';
+    esconderBolha();
+    relatorEsperado = null;
+    Som.tocar('play');
+    var compilado;
+    try {
+      compilado = Compilador.compilarTarefas(Blocos.workspaceParaTarefas(workspace));
+    } catch (e) {
+      mostrarErro(e);
+      return;
+    }
+    contarTentativa = true;
+    mapaPc = compilado.pcMap;
+    robo.carregar(compilado.bytes);
+    robo.rodar();
+  }
+
+  btPlay.addEventListener('click', rodarPrograma);
 
   /* Tocar numa peça roda a peça. O evento vem do próprio Blockly, e é por isso
      que ele acerta o gesto: o handleUp do Gesture despacha em cadeia
@@ -838,6 +864,14 @@
       return;
     }
     esconderBolha();
+    /* Tocar no programa da âncora é o mesmo que apertar PLAY — e com tarefas
+       na tela, PLAY quer dizer todas elas. Sem isto, tocar no programa rodaria
+       só a pilha do PLAY e a criança veria o «quando» ficar de fora sem
+       explicação nenhuma. */
+    if (pilha.ehPrograma && Blocos.temTarefas(workspace)) {
+      rodarPrograma();
+      return;
+    }
     if (!pilha.ast.length) return;
     rodar(pilha.ast, pilha.ehPrograma);
   });
@@ -983,7 +1017,18 @@
      ela pode olhar com a placa desligada. */
   btCodigo.addEventListener('click', function () {
     try {
-      preCodigo.textContent = Arduino.gerar(Blocos.workspaceParaAst(workspace));
+      /* Recusar e explicar, em vez de exportar só a pilha do PLAY: um código
+         que sai pela metade sem avisar é o tipo de mentira que só aparece com
+         o robô montado na mesa e o programa pela metade rodando nele. */
+      if (Blocos.temTarefas(workspace)) {
+        preCodigo.textContent =
+          'Este programa tem mais de uma pilha rodando ao mesmo tempo, e o ' +
+          'código do Arduino roda uma só — ele tem um setup() e um loop(), e ' +
+          'mais nada.\n\nPara ver o código, deixe na tela só o ' +
+          '▶ quando apertar PLAY.';
+      } else {
+        preCodigo.textContent = Arduino.gerar(Blocos.workspaceParaAst(workspace));
+      }
     } catch (e) {
       preCodigo.textContent = e.message;
     }

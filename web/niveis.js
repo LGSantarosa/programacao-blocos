@@ -12,6 +12,8 @@
      bloco que sai dela são a mesma coisa para a criança. */
   var COR_MOVIMENTO = '#0050f0', COR_LACO = '#f0c000', COR_SENSOR = '#20b0f0';
   var COR_CONTA = '#002080';
+  /* O mesmo verde da âncora do PLAY: é a família de quem começa uma pilha. */
+  var COR_INICIO = '#37c26b';
 
   /* ICONE é o desenho que abre a peça, e é sempre visível: ele vem antes de um
      encaixe, então some junto com a fileira quando o encaixe se esconde, e é a
@@ -101,6 +103,10 @@
       'conta_menor', 'conta_maior', 'conta_igual',
       'conta_e', 'conta_ou', 'conta_nao', 'aleatorio',
       'distancia', 'se', 'se_entao_senao', 'repetir_ate',
+      /* As pilhas que rodam ao mesmo tempo. Entram no Gigante e não antes
+         porque exigem entender que duas coisas acontecem juntas — e porque o
+         «quando» pede uma condição, que é peça de conta. */
+      'quando_condicao', 'quando_aviso', 'avisar',
     ]),
     campos: DEFINICOES.grande.campos,
     bolinhas: false,
@@ -175,6 +181,17 @@
     if (sentir) {
       xml += '<category name="Sentir" colour="' + COR_SENSOR + '">' +
              sentir + '</category>';
+    }
+
+    var aoMesmoTempo = '';
+    if (tem('quando_condicao')) {
+      aoMesmoTempo += bloco('quando_condicao');
+      aoMesmoTempo += bloco('quando_aviso');
+      aoMesmoTempo += bloco('avisar');
+    }
+    if (aoMesmoTempo) {
+      xml += '<category name="Ao mesmo tempo" colour="' + COR_INICIO + '">' +
+             aoMesmoTempo + '</category>';
     }
 
     var contas = '';

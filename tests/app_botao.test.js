@@ -33,3 +33,21 @@ test('a página sabe dizer se está no ensaio ou no robô', () => {
 test('existe como voltar para o ensaio', () => {
   assert.match(APP, /Android\.voltarParaEnsaio\(\)/);
 });
+
+test('todo módulo de web/ entra na página, e antes do app.js', () => {
+  /* O app.js usa os outros como variáveis globais que o navegador só tem se a
+     tag <script> estiver lá. Esquecer a tag não quebra teste nenhum de mesa —
+     quebra a página inteira, em branco, no tablet. Aconteceu de perto quando o
+     tentativas.js e o reconexao.js saíram do app.js. */
+  const WEB = path.join(__dirname, '..', 'web');
+  const modulos = fs.readdirSync(WEB)
+    .filter((f) => f.endsWith('.js') && f !== 'app.js');
+  const posApp = HTML.indexOf('src="app.js"');
+  assert.ok(posApp > 0, 'a página tem de carregar o app.js');
+
+  for (const m of modulos) {
+    const pos = HTML.indexOf('src="' + m + '"');
+    assert.ok(pos > 0, `faltou <script src="${m}"> no index.html`);
+    assert.ok(pos < posApp, `${m} tem de vir antes do app.js`);
+  }
+});

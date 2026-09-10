@@ -46,7 +46,8 @@
   var relatorEsperado = null;   /* o bloco cuja resposta estamos aguardando */
   var tempoBolha = null;
   var robo = null;
-  var geracaoDaConexao = 0;
+  /* Quem é a conexão da vez e quando tentar de novo: reconexao.js. */
+  var conexoes = Reconexao.criar();
   /* null = a origem que serviu a página, que é o caso do navegador. O app
      Android chama App.irPara() para apontar para o simulador de dentro dele
      ou para a placa. */
@@ -59,7 +60,7 @@
 
   var missao = Missoes.daVez(Missoes.atual());
   var cumpriu = false;
-  var tentativas = 0;
+  var tentativas = Tentativas.criar(Missoes.TENTATIVAS_ATE_AJUDA);
   var tColisao = -Infinity, tFim = -Infinity, tParado = Date.now();
   var confetes = [];
 
@@ -391,7 +392,7 @@
     if (i === Missoes.atual() && !cumpriu) return;
     missao = Missoes.daVez(Missoes.definir(i));
     cumpriu = false;
-    tentativas = 0;
+    tentativas.zerar();
     mostrarMissao();
   }
 
@@ -404,7 +405,7 @@
     txtMissao.textContent = missao.texto;
     caixaMissao.className = '';
     btProxima.hidden = true;
-    btGabarito.hidden = tentativas < Missoes.TENTATIVAS_ATE_AJUDA;
+    btGabarito.hidden = !tentativas.ajuda();
     marcarFases();
     enviarArena();
   }
@@ -428,7 +429,7 @@
   btProxima.addEventListener('click', function () {
     missao = Missoes.daVez(Missoes.avancar());
     cumpriu = false;
-    tentativas = 0;
+    tentativas.zerar();
     mostrarMissao();
   });
 
@@ -694,18 +695,13 @@
   }
 
   function definirRodando(estaRodando) {
+    /* Rodou e não chegou: uma tentativa. Depois de algumas, a ajuda aparece
+       sozinha — sem a criança precisar pedir, que é justamente o que quem
+       travou não faz. A regra inteira mora no tentativas.js, com teste. */
+    if (tentativas.mudouRodando(rodando, estaRodando, cumpriu, contarTentativa)) {
+      btGabarito.hidden = false;
+    }
     if (rodando && !estaRodando) {
-      /* Rodou e não chegou: uma tentativa. Depois de algumas, a ajuda aparece
-         sozinha — sem a criança precisar pedir, que é justamente o que quem
-         travou não faz.
-
-         Só o programa da âncora conta. Uma pilha solta rodada com o dedo é
-         exploração, não tentativa: contá-la ofereceria o gabarito a quem está
-         se divertindo, dizendo que fracassou. */
-      if (!cumpriu && contarTentativa) {
-        tentativas++;
-        if (tentativas >= Missoes.TENTATIVAS_ATE_AJUDA) btGabarito.hidden = false;
-      }
       /* Sem festa aqui. O programa acabar não é vencer: vencer é chegar na
          estrela, e quem comemora é cumprirMissao(). Comemorar todo fim de
          execução premiaria rodar qualquer coisa e esvaziaria o sentido da
@@ -720,11 +716,11 @@
   }
 
   function conectar() {
-    /* Cada conexão leva um número. Uma reconexão já agendada por um soquete
+    /* Cada conexão leva um crachá. Uma reconexão já agendada por um soquete
        velho acorda depois da troca de alvo, e sem isto abriria uma conexão a
        mais — que abre outra ao morrer, e mais outra. */
-    var minha = ++geracaoDaConexao;
-    function souAtual() { return minha === geracaoDaConexao; }
+    var minha = conexoes.nova();
+    function souAtual() { return minha.souAtual(); }
 
     robo = Rede.conectar(Rede.url(alvo || location.host, location.protocol), {
       aoConectar: function () {
@@ -745,7 +741,7 @@
         rodando = false;
         btPlay.disabled = true;
         btParar.disabled = true;
-        setTimeout(function () { if (souAtual()) conectar(); }, 1500);
+        minha.aoCair(conectar);
       },
       aoPc: function (pc) {
         var id = pc < mapaPc.length ? mapaPc[pc] : null;
@@ -903,7 +899,7 @@
     /* A fase fica: o nível decide como os blocos são desenhados, não quais
        fases já foram vencidas. Mas as tentativas dela naquela fase eram de um
        programa que não existe mais. */
-    tentativas = 0;
+    tentativas.zerar();
     btGabarito.hidden = true;
     aplicarNivel();
   }

@@ -582,7 +582,8 @@
     var c = confete.getContext('2d');
     c.clearRect(0, 0, confete.width, confete.height);
     var vivos = 0;
-    for (var p of confetes) {
+    for (var i = 0; i < confetes.length; i++) {
+      var p = confetes[i];
       p.vy += 0.35;                    /* gravidade */
       p.x += p.vx; p.y += p.vy; p.giro += 0.16;
       if (p.y < confete.height + 20) vivos++;
@@ -861,8 +862,9 @@
   /* Três botões em vez de um menu suspenso: criança de quatro anos não abre
      dropdown. O botão do nível ativo fica afundado, como uma tecla apertada. */
   function marcarNivel() {
-    for (var b of botoesNivel) {
-      b.setAttribute('aria-pressed', String(b.dataset.nivel === nivel));
+    for (var i = 0; i < botoesNivel.length; i++) {
+      botoesNivel[i].setAttribute('aria-pressed',
+        String(botoesNivel[i].dataset.nivel === nivel));
     }
   }
 

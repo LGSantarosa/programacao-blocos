@@ -67,7 +67,7 @@
     function pronto() { return ws.readyState === WebSocket.OPEN; }
 
     return {
-      pronto,
+      pronto: pronto,
       carregar: function (bytes) {
         if (!pronto()) return;
         var quadro = new Uint8Array(3 + bytes.length);
@@ -122,7 +122,7 @@
     return esquema + '//' + host + '/';
   }
 
-  var api = { conectar, url };
+  var api = { conectar: conectar, url: url };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Rede = api;
 })(typeof self !== 'undefined' ? self : globalThis);

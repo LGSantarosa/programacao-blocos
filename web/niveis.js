@@ -198,7 +198,8 @@
      isso que subir e descer de nível não perde nada. */
   function aplicar(workspace, nivel) {
     var def = definicao(nivel);
-    for (var b of workspace.getAllBlocks(false)) aplicarNoBloco(b, def);
+    var blocos = workspace.getAllBlocks(false);
+    for (var i = 0; i < blocos.length; i++) aplicarNoBloco(blocos[i], def);
   }
 
   /* Uma peça só, e o nível já resolvido em def. Existe separada porque há um
@@ -218,12 +219,14 @@
        É o encaixe que se esconde, e não o campo lá dentro: um campo
        escondido dentro do shadow deixaria o encaixe vazio aparecendo — um
        buraco na peça, pior que o número. */
-    var nome;
-    for (nome of Object.keys(campos)) {
+    var nomes = Object.keys(campos), i, nome;
+    for (i = 0; i < nomes.length; i++) {
+      nome = nomes[i];
       var entrada = b.getInput(nome);
       if (entrada) entrada.setVisible(campos[nome]);
     }
-    for (nome of Object.keys(campos)) {
+    for (i = 0; i < nomes.length; i++) {
+      nome = nomes[i];
       if (b.getInput(nome)) continue;
       var campo = b.getField(nome);
       if (campo) campo.setVisible(campos[nome]);

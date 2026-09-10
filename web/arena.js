@@ -27,7 +27,8 @@
     ctx.strokeRect(2, 2, px - 4, px - 4);
 
     ctx.fillStyle = '#20b0f0';
-    for (var o of obstaculos) {
+    for (var i = 0; i < obstaculos.length; i++) {
+      var o = obstaculos[i];
       ctx.fillRect(m(o.x0), my(o.y1), m(o.x1 - o.x0), m(o.y1 - o.y0));
     }
 

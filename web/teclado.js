@@ -211,7 +211,8 @@
     jaHouveToque = false;
   }
 
-  var api = { pedir, preparar, aberto, esquecer, VIRGULA };
+  var api = { pedir: pedir, preparar: preparar, aberto: aberto,
+              esquecer: esquecer, VIRGULA: VIRGULA };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Teclado = api;
 })(typeof self !== 'undefined' ? self : globalThis);

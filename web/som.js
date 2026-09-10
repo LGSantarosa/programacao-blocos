@@ -81,7 +81,8 @@
     }
   }
 
-  var api = { SONS, tocar, mudo, alternarMudo };
+  var api = { SONS: SONS, tocar: tocar, mudo: mudo,
+              alternarMudo: alternarMudo };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Som = api;
 })(typeof self !== 'undefined' ? self : globalThis);

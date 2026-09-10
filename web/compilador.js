@@ -231,7 +231,8 @@
     }
 
     function gerar(nos) {
-      for (var no of nos) {
+      for (var i = 0; i < nos.length; i++) {
+        var no = nos[i];
         switch (no.op) {
           case 'frente':
             andar(no, 1);

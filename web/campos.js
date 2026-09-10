@@ -14,11 +14,19 @@
      largura constante evita o bloco pular de tamanho a cada clique. */
   var CASAS = 5;
 
+  /* String.prototype.repeat é ES6, e a régua aqui é ES5 — ver
+     tests/es5.test.js. Um laço de cinco voltas não pede mais que isso. */
+  function vezes(c, n) {
+    var s = '';
+    for (var i = 0; i < n; i++) s += c;
+    return s;
+  }
+
   function paraBolinhas(n) {
     var v = Math.round(Number(n));
-    if (!isFinite(v) || v < 1) return '●' + '○'.repeat(CASAS - 1);
+    if (!isFinite(v) || v < 1) return '●' + vezes('○', CASAS - 1);
     if (v > CASAS) return String(v);   /* bolinhas não representam doze */
-    return '●'.repeat(v) + '○'.repeat(CASAS - v);
+    return vezes('●', v) + vezes('○', CASAS - v);
   }
 
   /* Só faz sentido no navegador, onde Blockly existe. */
@@ -147,7 +155,8 @@
     return true;
   }
 
-  var api = { paraBolinhas, registrar, MIN, MAX, CASAS };
+  var api = { paraBolinhas: paraBolinhas, registrar: registrar,
+              MIN: MIN, MAX: MAX, CASAS: CASAS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Campos = api;
 })(typeof self !== 'undefined' ? self : globalThis);

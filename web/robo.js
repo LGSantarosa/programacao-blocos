@@ -42,7 +42,9 @@
     var ox = dx * r * 0.38, oy = dy * r * 0.38;
     var perpX = -dy * r * 0.34, perpY = dx * r * 0.34;
 
-    for (var s of [1, -1]) {
+    var lados = [1, -1];
+    for (var i = 0; i < lados.length; i++) {
+      var s = lados[i];
       var ex = ox + perpX * s, ey = oy + perpY * s;
       ctx.fillStyle = '#fff';
       ctx.beginPath();

@@ -730,11 +730,21 @@ serem reabertas sem motivo novo:
   `make test-lento` os roda. Rodar o lento antes de commitar continua sendo a
   regra, escrita no README e no Makefile.
 
-**Aberto:** **F3**, a falha intermitente. Continua sem reprodução: as duas
-execuções completas da suíte feitas em 10/09 deram 306/306 e 313/313 verdes, e o
-laço de 20 execuções dos dois testes de navegador concorrentes — o roteiro que a
-própria revisão manda seguir — estava rodando quando isto foi escrito. Sem log
-de uma falha, não há o que consertar.
+**Aberto:** **F3**, a falha intermitente. Continua sem reprodução. O que se
+tentou em 10/09, e o que saiu:
+
+- duas execuções completas da suíte: 306/306 e 313/313 verdes;
+- uma execução limpa do `make test-lento`: 14/14 verde;
+- o laço do roteiro — os dois testes de navegador concorrentes, em série —
+  **parou na 6ª de 20 rodadas, todas verdes**. Interrompido por escolha dele: a
+  hora que faltava não se paga contra uma falha que já não apareceu em seis.
+
+Fica assim, e o roteiro do F3 acima continua valendo para a próxima vez. Uma
+coisa aprendida ao tentar: **a árvore precisa estar parada durante o laço**. A
+3ª rodada da primeira tentativa acusou «gabaritos que não resolvem» no nível
+médio, e era contaminação — eu editava `web/` enquanto o Chromium recarregava a
+página no meio dos cinco minutos. Vermelho assim não prova nada e ainda queima a
+amostra; foi por isso que o laço recomeçou do zero.
 
 Números do dia: a suíte saiu de 306 testes para **336**, e os 30 que entraram
 cobrem o que antes só o Chromium alcançava — arena (7), tentativas (10),

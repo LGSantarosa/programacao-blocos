@@ -10,7 +10,10 @@ achado foi revalidado nesse código — a primeira passagem foi escrita contra o
 fim, na seção **G**, para não voltarem à lista por engano.
 
 Cada item traz **onde**, **como reproduzir** e **o que fazer**. Ordenado por
-prioridade, não por arquivo. O que foi provado rodando está marcado
+prioridade, não por arquivo. **O placar de como cada achado terminou está na
+seção H**, no fim — o corpo do texto continua descrevendo o código como ele
+estava no `0728410`, de propósito: um diagnóstico reescrito depois do conserto
+deixa de servir de prova do que foi encontrado. O que foi provado rodando está marcado
 **(provado)**; o que saiu da leitura está marcado **(por leitura)**.
 
 Números: 280 testes JS + os quatro binários em C passam. A suíte leva 293 s, dos
@@ -689,6 +692,53 @@ porque as soluções são boas.
 - **O `prompt` que não abria no WebView.** O `web/teclado.js` e o
   `WebChromeClient` do `MainActivity`. Boa dupla: consertou o defeito do app e
   deu à criança um teclado de doze teclas grandes em vez do teclado do sistema.
+
+---
+
+## H. Placar em 10/09/2026
+
+A revisão foi escrita contra o `0728410`. Este é o estado dela um dia depois,
+conferido item a item **no código**, e não pela mensagem dos commits.
+
+**Fechado — o bloco inteiro que a criança encontra:** A1 (`a1270e5`), A2
+(`d6330df`), A3 (`985665d` + `99e3e02`), A4 (`ed14b3d`), A5 (`d9d2cff`), A6
+(`3ecf625`), A7 (`53184f4`), A8 (`c916fde`).
+
+**Fechado — fidelidade:** B1, que era só diagnóstico e tinha duas decisões em
+aberto. As duas foram tomadas: passo fatiado (`c2ca9d3`), `dt` de verdade com
+física antes da VM (`b8950a8`) e o giro fechado com `ENTRE_EIXOS` derivado
+(`76fec21`).
+
+**Fechado — uso:** C1 (`0ebf1ea`), C2 (`4403d52`), C3 (`741f1b2`), C4
+(`438fc16`), C5 (`0575b02`), C6 (`aria-live` nos três painéis).
+
+**Fechado — desempenho e código:** D1 (`985665d`), D2 (`384f008`), E1+E2
+(`b5c53cf`), E3 (`a2af9f9`), E4 (`5343e53`), F1 (`a2fb93e`), F2 (`fe63a56`).
+
+Duas decisões que a revisão deixou em aberto e foram tomadas aqui, para não
+serem reabertas sem motivo novo:
+
+- **E3, a régua do guarda de ES5:** escolhida a opção 1 — converter o código
+  (oito `for…of`, cinco objetos de propriedade abreviada, dois `.repeat`) e
+  acrescentar os padrões à lista. A opção 2 (renomear para «o que o Safari 9
+  tem») é mais honesta com o código que existia, mas depende de alguém lembrar
+  de qual construção o iOS 9 tem — e foi essa lembrança que falhou as duas vezes
+  em que a página morreu em branco. O porquê está no cabeçalho do
+  `tests/es5.test.js`.
+- **F1, o corte da suíte:** os dois testes de Chromium passaram a exigir
+  `TESTES_LENTOS=1`. O `make test` caiu de **291 s para 8 s** (medido), e
+  `make test-lento` os roda. Rodar o lento antes de commitar continua sendo a
+  regra, escrita no README e no Makefile.
+
+**Aberto:** **F3**, a falha intermitente. Continua sem reprodução: as duas
+execuções completas da suíte feitas em 10/09 deram 306/306 e 313/313 verdes, e o
+laço de 20 execuções dos dois testes de navegador concorrentes — o roteiro que a
+própria revisão manda seguir — estava rodando quando isto foi escrito. Sem log
+de uma falha, não há o que consertar.
+
+Números do dia: a suíte saiu de 306 testes para **336**, e os 30 que entraram
+cobrem o que antes só o Chromium alcançava — arena (7), tentativas (10),
+reconexão (8), os padrões novos do guarda de ES5 e as tags de script da página.
 
 ---
 

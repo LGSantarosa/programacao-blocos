@@ -15,6 +15,12 @@ acontecer antes de mandar no robô de verdade.
 Nada de `npm install`. O projeto não tem uma dependência sequer.
 
 ```bash
+make subir                   # compila o robô virtual e levanta o servidor
+```
+
+Ou, se preferir ver as duas metades:
+
+```bash
 cd host && make && cd ..     # compila o robô virtual (uma vez, ou após mexer no C)
 node bridge/server.js        # sobe o servidor
 ```
@@ -27,7 +33,8 @@ Se reclamar de `EADDRINUSE`, já tem algo na porta:
 lsof -ti:8080 -sTCP:LISTEN | xargs -r kill
 ```
 
-Outra porta, se preferir: `PORTA=9000 node bridge/server.js`.
+Outra porta, se preferir: `PORTA=9000 node bridge/server.js`, ou
+`make subir PORTA=9000`.
 
 ### Como usar
 
@@ -624,6 +631,14 @@ registradores, não do C++.
 ---
 
 ## Testes
+
+```bash
+make test        # C, ponta a ponta e JS — o que dá para rodar em qualquer máquina
+make test-tudo   # o acima, mais o firmware (PlatformIO) e o app Android (SDK)
+```
+
+O `Makefile` da raiz é só um atalho; por baixo são estas cinco linhas, e elas
+continuam valendo uma a uma:
 
 ```bash
 cd tests && make test && cd ..      # VM, física, laço e montador (C)

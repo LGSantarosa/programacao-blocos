@@ -14,6 +14,7 @@ import androidx.webkit.WebViewAssetLoader
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var voz: Voz
 
     private val redeDoRobo by lazy { RedeDoRobo(this) }
     private val servidor = ServidorLocal()
@@ -51,7 +52,17 @@ class MainActivity : AppCompatActivity() {
            enquanto se prova o app na bancada, e coisa que não deve sair junto
            num APK entregue a uma escola. */
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-        webView.addJavascriptInterface(PonteJs(this), "Android")
+        /* Quando o motor de fala termina de ligar, a página pode já ter
+           perguntado e ouvido "não" — então ela pergunta de novo. Se a página
+           ainda nem carregou, o Som não existe e o try engole; ela vai
+           perguntar sozinha ao abrir, e a resposta já será a certa. */
+        voz = Voz(this) {
+            runOnUiThread {
+                webView.evaluateJavascript(
+                    "try { Som.vozesMudaram(); } catch (e) {}", null)
+            }
+        }
+        webView.addJavascriptInterface(PonteJs(this, voz), "Android")
         /* Sem um WebChromeClient, um alert/confirm/prompt do JavaScript não
            abre nada e devolve null na mesma hora — sem erro, sem aviso. Foi
            esse silêncio que escondeu o defeito do número: em aparelho de
@@ -141,6 +152,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         redeDoRobo.soltar()
         servidor.parar()
+        voz.parar()
         super.onDestroy()
     }
 }

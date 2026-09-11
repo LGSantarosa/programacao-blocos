@@ -5,6 +5,15 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
 
+    <!-- Do Android 11 em diante um app só enxerga os outros que declara aqui.
+         Sem isto o TextToSpeech não acha motor nenhum e a voz fica muda, sem
+         erro — o mesmo silêncio que o Voz.kt veio consertar. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"

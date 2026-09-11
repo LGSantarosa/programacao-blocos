@@ -87,6 +87,15 @@
     }
   }
 
+  /* Dentro do app Android a voz não vem do navegador: o WebView não traz o
+     speechSynthesis, e a página ficava calada num aparelho que fala. Quem fala
+     ali é o TextToSpeech do sistema, pela ponte (android/.../Voz.kt). Tendo os
+     dois, vale o do app — é o que se sabe que funciona naquele aparelho. */
+  function vozDoApp() {
+    return typeof Android !== 'undefined' && Android.falar && Android.temVoz
+           ? Android : null;
+  }
+
   /* A voz. Quem chama passa a descrição já pronta — o som não sabe o que é um
      bloco, do mesmo jeito que não sabe o que é um comando.
 
@@ -98,6 +107,11 @@
      instalado, fica quieto. Mudo é melhor que quebrado. */
   function falar(texto) {
     if (!texto || mudoAgora) return;
+    var app = vozDoApp();
+    if (app) {
+      try { app.falar(String(texto)); } catch (e) { /* quieto */ }
+      return;
+    }
     var voz = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
     var Frase = typeof SpeechSynthesisUtterance !== 'undefined'
                 ? SpeechSynthesisUtterance : null;
@@ -131,20 +145,36 @@
     }
   }
 
-  function temVoz() { return vozes().length > 0; }
+  function temVoz() {
+    var app = vozDoApp();
+    if (app) {
+      try { return !!app.temVoz(); } catch (e) { return false; }
+    }
+    return vozes().length > 0;
+  }
 
   /* A lista carrega assíncrona: no primeiro instante da página ela vem vazia
      mesmo num aparelho que fala. Sem isto o aviso apareceria em quem tem voz,
-     e ficaria na tela até a criança trocar de nível. */
+     e ficaria na tela até a criança trocar de nível.
+
+     No app o motor de fala também liga assíncrono, e quem avisa que ele
+     terminou é o próprio app, chamando vozesMudaram(). */
+  var avisoDeVozes = null;
+
   function aoMudarVozes(aviso) {
+    avisoDeVozes = aviso;
     var voz = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
     if (!voz || !('onvoiceschanged' in voz)) return;
     voz.onvoiceschanged = aviso;
   }
 
+  function vozesMudaram() {
+    if (avisoDeVozes) avisoDeVozes();
+  }
+
   var api = { SONS: SONS, tocar: tocar, falar: falar, mudo: mudo,
               alternarMudo: alternarMudo, temVoz: temVoz,
-              aoMudarVozes: aoMudarVozes };
+              aoMudarVozes: aoMudarVozes, vozesMudaram: vozesMudaram };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Som = api;
 })(typeof self !== 'undefined' ? self : globalThis);

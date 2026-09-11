@@ -155,3 +155,78 @@ test('aoMudarVozes avisa quando a lista termina de carregar', () => {
     assert.strictEqual(avisos, 1, 'o aviso não foi chamado quando as vozes chegaram');
   } finally { semDublê(); }
 });
+
+/* ---------- a voz dentro do app Android ---------- */
+
+/* O WebView do Android não traz o speechSynthesis: no S24 FE a página
+   perguntava, não havia, e ela ficava calada com voz instalada no aparelho.
+   Dentro do app quem fala é o TextToSpeech, pela ponte window.Android. */
+function dublêDoApp(temVoz) {
+  const falas = [];
+  globalThis.Android = {
+    falar: (t) => falas.push(t),
+    temVoz: () => temVoz,
+  };
+  return falas;
+}
+
+function semApp() { delete globalThis.Android; }
+
+test('dentro do app a voz sai pela ponte, mesmo sem speechSynthesis', () => {
+  semDublê();
+  const falas = dublêDoApp(true);
+  try {
+    Som.falar('andar para frente');
+    assert.deepStrictEqual(falas, ['andar para frente']);
+  } finally { semApp(); }
+});
+
+/* Se um dia o WebView ganhar a API, o app continua valendo: é a voz que se
+   sabe que existe naquele aparelho, e as duas juntas falariam em dobro. */
+test('tendo a ponte e o speechSynthesis, fala só a ponte', () => {
+  const doNavegador = dublê();
+  const doApp = dublêDoApp(true);
+  try {
+    Som.falar('girar para a direita');
+    assert.deepStrictEqual(doApp, ['girar para a direita']);
+    assert.deepStrictEqual(doNavegador, [], 'o navegador falou junto com o app');
+  } finally { semApp(); semDublê(); }
+});
+
+test('no mudo a ponte cala junto com os bipes', () => {
+  const falas = dublêDoApp(true);
+  Som.alternarMudo();
+  try {
+    Som.falar('andar para frente');
+    assert.deepStrictEqual(falas, [], 'a voz do app falou com o som desligado');
+  } finally { Som.alternarMudo(); semApp(); }
+});
+
+test('dentro do app, temVoz é a resposta do motor de fala', () => {
+  dublêDoApp(true);
+  try { assert.strictEqual(Som.temVoz(), true); } finally { semApp(); }
+  dublêDoApp(false);
+  try { assert.strictEqual(Som.temVoz(), false); } finally { semApp(); }
+});
+
+test('uma ponte que estoura não derruba a página', () => {
+  globalThis.Android = {
+    falar: () => { throw new Error('motor caiu'); },
+    temVoz: () => { throw new Error('motor caiu'); },
+  };
+  try {
+    assert.doesNotThrow(() => Som.falar('andar para frente'));
+    assert.strictEqual(Som.temVoz(), false);
+  } finally { semApp(); }
+});
+
+/* O motor liga assíncrono: a página pergunta ao abrir, ouve "não", e o app a
+   chama de volta quando a voz fica pronta. Sem isto o aviso de "sem voz"
+   ficaria na tela de um aparelho que fala. */
+test('vozesMudaram chama o aviso registrado, mesmo sem speechSynthesis', () => {
+  semDublê();
+  let avisos = 0;
+  Som.aoMudarVozes(() => { avisos++; });
+  Som.vozesMudaram();
+  assert.strictEqual(avisos, 1);
+});

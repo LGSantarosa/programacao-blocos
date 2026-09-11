@@ -242,7 +242,7 @@
 
   /* A caixa de blocos é um workspace à parte do principal, e é reconstruída
      toda vez que a criança abre uma categoria. Sem reaplicar o nível ali, a
-     paleta mostra número e texto mesmo no Pequeno: a criança escolhe a peça
+     paleta mostra número e texto mesmo no Iniciante: a criança escolhe a peça
      vendo o que ela não deveria ver, e o bloco só simplifica depois de solto. */
   function aplicarNaPaleta() {
     var f = workspace.getFlyout && workspace.getFlyout();
@@ -333,7 +333,7 @@
        palavras. Vesti-las pelo ouvinte de BLOCK_CREATE chega tarde: o Blockly
        entrega evento por uma fila assíncrona, e entre o desenho e o ouvinte
        cabe um quadro. A criança de quatro anos via, por um piscar, os blocos
-       do Grande na caixa do Pequeno.
+       do Intermediário na caixa do Iniciante.
 
        O remédio é vestir dentro do próprio show(), antes de a página pintar:
        o mesmo instante em que as peças acabaram de ser postas ali. O reflow
@@ -920,16 +920,18 @@
     }
   }
 
-  /* Só o Grande. É o degrau seguinte ao teto dos blocos — nos outros níveis
-     seria mais uma escolha na tela de quem ainda está aprendendo a ler, e o
-     código mostraria números que aqueles níveis escondem de propósito. */
+  /* Só o Intermediário. É o degrau seguinte ao teto dos blocos — nos outros
+     níveis seria mais uma escolha na tela de quem ainda está aprendendo a
+     ler, e o código mostraria números que aqueles níveis escondem de
+     propósito. */
   function atualizarBotaoCodigo() {
     btCodigo.hidden = (nivel !== 'grande' && nivel !== 'gigante');
   }
 
   /* A aba de blocos é um workspace à parte, e o updateToolbox reconstrói a
      caixa sem fechá-la: sem isto ela continua oferecendo as peças do nível que
-     se acabou de sair, e dá para arrastar um se…senão para dentro do Pequeno. */
+     se acabou de sair, e dá para arrastar um se…senão para dentro do
+     Iniciante. */
   function fecharPaleta() {
     var f = workspace.getFlyout && workspace.getFlyout();
     if (f && f.isVisible && f.isVisible()) f.hide();

@@ -5,8 +5,8 @@
   'use strict';
 
   var LISTA = ['pequeno', 'medio', 'grande', 'gigante'];
-  var NOMES = { pequeno: 'Pequeno', medio: 'Médio', grande: 'Grande',
-                gigante: 'Gigante' };
+  var NOMES = { pequeno: 'Iniciante', medio: 'Básico',
+                grande: 'Intermediário', gigante: 'Avançado' };
 
   /* Precisa bater com web/blocos.js: a cor da categoria na caixa e a cor do
      bloco que sai dela são a mesma coisa para a criança. */
@@ -17,10 +17,10 @@
 
   /* ICONE é o desenho que abre a peça, e é sempre visível: ele vem antes de um
      encaixe, então some junto com a fileira quando o encaixe se esconde, e é a
-     tabela que o traz de volta. No Pequeno ele é a única coisa que sobra.
+     tabela que o traz de volta. No Iniciante ele é a única coisa que sobra.
 
      T1 e T2 são as palavras dos blocos. Elas são campos justamente para poderem
-     sumir no Pequeno — se fossem texto cru do message0, sobrariam na tela
+     sumir no Iniciante — se fossem texto cru do message0, sobrariam na tela
      coisas como "⬆ andar frente  s" depois de esconder o número. */
   /* Cada encaixe nasce com o seu shadow, senão a peça sai da paleta com um
      buraco no lugar do número. O valor padrão é o que o campo tinha antes. */
@@ -60,7 +60,7 @@
     var partes = ENCAIXES[tipo] || [];
     var xml = '';
     for (var i = 0; i < partes.length; i++) {
-      /* O que veio pronto (o passo fixo do Pequeno) manda; o resto vem no
+      /* O que veio pronto (o passo fixo do Iniciante) manda; o resto vem no
          padrão. */
       if (!dentro || dentro.indexOf('name="' + partes[i][0] + '"') < 0) {
         xml += encaixe(partes[i][0], partes[i][1], partes[i][2]);
@@ -94,16 +94,17 @@
     },
   };
 
-  /* O Gigante é o Grande mais as contas. Escrito a partir dele, e não como
-     lista própria, porque um bloco novo no Grande tem que aparecer no Gigante
-     — do contrário o degrau de cima teria menos peças que o de baixo. */
+  /* O Avançado é o Intermediário mais as contas. Escrito a partir dele, e
+     não como lista própria, porque um bloco novo no Intermediário tem que
+     aparecer no Avançado — do contrário o degrau de cima teria menos peças
+     que o de baixo. */
   DEFINICOES.gigante = {
     blocos: DEFINICOES.grande.blocos.concat([
       'conta_mais', 'conta_menos', 'conta_vezes', 'conta_dividir',
       'conta_menor', 'conta_maior', 'conta_igual',
       'conta_e', 'conta_ou', 'conta_nao', 'aleatorio',
       'distancia', 'se', 'se_entao_senao', 'repetir_ate',
-      /* As pilhas que rodam ao mesmo tempo. Entram no Gigante e não antes
+      /* As pilhas que rodam ao mesmo tempo. Entram no Avançado e não antes
          porque exigem entender que duas coisas acontecem juntas — e porque o
          «quando» pede uma condição, que é peça de conta. */
       'quando_condicao', 'quando_aviso', 'avisar',
@@ -116,7 +117,7 @@
     return DEFINICOES[nivel] || DEFINICOES.medio;
   }
 
-  /* No Pequeno os blocos saem da caixa já preenchidos: meio segundo de
+  /* No Iniciante os blocos saem da caixa já preenchidos: meio segundo de
      movimento e um quarto de volta para cada lado. */
   var PRE_PREENCHIDO = {
     pequeno: {
@@ -256,7 +257,7 @@
 
     /* O girar tem dois controles para o mesmo valor. O menu é o que a
        criança lê por ícone, mas ele só sabe dizer 90 e -90. Um ângulo
-       qualquer, herdado do nível Grande, não cabe nele — e mostrar
+       qualquer, herdado do nível Intermediário, não cabe nele — e mostrar
        "direita" num bloco que vira 45 graus seria mentira. Mesma regra das
        bolinhas: quando o controle simples não representa o valor, mostra o
        honesto. */
@@ -270,7 +271,7 @@
       var g = ehNumero ? Number(dentro.getFieldValue('NUM')) : NaN;
       var cabeNoMenu = (g === 90 || g === -90);
       if (cabeNoMenu && dir.getValue() !== String(g)) dir.setValue(String(g));
-      if (!campos.GRAUS) {          /* Pequeno e Médio: o menu é o normal */
+      if (!campos.GRAUS) {          /* Iniciante e Básico: o menu é o normal */
         /* Encaixe antes do menu, de novo: o menu mora na fileira do encaixe,
            e mostrá-lo depois é o que faz a escolha do menu valer. */
         entradaG.setVisible(!cabeNoMenu);

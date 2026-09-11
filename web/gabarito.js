@@ -10,7 +10,7 @@
 
   /* O teto das bolinhas. Acima disso o campo desiste do desenho e mostra o
      algarismo, e o clique nele volta para 1 em vez de passar de cinco: no
-     Pequeno a criança não teria como construir a peça que o gabarito mostra.
+     Iniciante a criança não teria como construir a peça que o gabarito mostra.
      Tem que bater com CASAS em web/campos.js — há um teste guardando. */
   var MAX_BOLINHAS = 5;
 
@@ -47,7 +47,7 @@
              fields: { VEL: VEL_PADRAO } };
   }
 
-  /* No Pequeno o caminho vira pilha de passos curtos, que é o vocabulário
+  /* No Iniciante o caminho vira pilha de passos curtos, que é o vocabulário
      dela; nos outros vira um bloco só com os segundos somados, que é como
      alguém que lê número escreveria. Mesma distância, escrita na língua de quem
      está olhando. */
@@ -80,11 +80,11 @@
              inputs: { GRAUS: enc('numero', graus) } };
   }
 
-  /* O mesmo caminho nas três línguas. O Pequeno não tem sensor, então anda
-     cego; o Médio compõe os três blocos que ele ganhou; o Grande usa o bloco
-     de laço com sensor, que é o dele.
+  /* O mesmo caminho nas três línguas. O Iniciante não tem sensor, então anda
+     cego; o Básico compõe os três blocos que ele ganhou; o Intermediário usa
+     o bloco de laço com sensor, que é o dele.
 
-     No Médio o teste vem antes do andar dentro do laço — é o que torna esta
+     No Básico o teste vem antes do andar dentro do laço — é o que torna esta
      forma equivalente ao "repetir até", que também testa antes de rodar. */
   function blocosAtePerto(passo, nivel, passoS) {
     if (nivel === 'pequeno') {
@@ -102,9 +102,9 @@
     return [{ type: 'repetir_sempre', inputs: { CORPO: { block: se } } }];
   }
 
-  /* O Gigante fala a língua do Grande: as fases de hoje não pedem conta
-     nenhuma, e um gabarito com conta ensinaria a resolver com mais do que
-     precisa. */
+  /* O Avançado fala a língua do Intermediário: as fases de hoje não pedem
+     conta nenhuma, e um gabarito com conta ensinaria a resolver com mais do
+     que precisa. */
   function comoGrande(nivel) {
     return nivel === 'grande' || nivel === 'gigante';
   }

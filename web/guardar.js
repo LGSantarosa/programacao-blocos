@@ -29,11 +29,11 @@
   }
 
   /* O nível vai junto com o programa, e não por organização: um programa do
-     Grande não se desenha no Pequeno. Os blocos de controle não têm versão
-     simplificada — um "se…senão" no Pequeno não é o "se obstáculo" com menos
-     campos, é outra coisa — e é exatamente por isso que trocar de nível
-     pergunta antes de apagar. Ressuscitar um programa de outro nível seria
-     fazer em silêncio o que a troca de nível não se permite fazer sem
+     Intermediário não se desenha no Iniciante. Os blocos de controle não têm
+     versão simplificada — um "se…senão" no Iniciante não é o "se obstáculo"
+     com menos campos, é outra coisa — e é exatamente por isso que trocar de
+     nível pergunta antes de apagar. Ressuscitar um programa de outro nível
+     seria fazer em silêncio o que a troca de nível não se permite fazer sem
      perguntar. */
   function gravar(estado, nivel) {
     var c = caixa();

@@ -39,10 +39,10 @@
   var SEM_OBSTACULOS = [];
   var INICIO_PAREDE = { x: 1.00, y: 0.25, theta: Math.PI / 2 };
 
-  /* O gabarito é feito do mesmo passo curto que o nível Pequeno usa: 0,5 s de
-     movimento, ~11,7 cm. Assim ele funciona igual nos três níveis, e ensina de
-     passagem que mais blocos é mais longe — em vez de esconder a resposta num
-     número que a criança de quatro anos não lê.
+  /* O gabarito é feito do mesmo passo curto que o nível Iniciante usa:
+     0,5 s de movimento, ~11,7 cm. Assim ele funciona igual nos três níveis,
+     e ensina de passagem que mais blocos é mais longe — em vez de esconder a
+     resposta num número que a criança de quatro anos não lê.
 
      Cada passo é { andar: n } ou { girar: graus }. Um "andar" com n > 1 vira um
      bloco repetir; com n = 1 vira um bloco só. */
@@ -75,7 +75,7 @@
        e falha, enquanto parar pelo sensor para em ~1,77 e cumpre.
 
        O passo "ate_perto" guarda as duas leituras do mesmo caminho: a condição,
-       para quem tem sensor, e o equivalente em passos cegos, para o Pequeno,
+       para quem tem sensor, e o equivalente em passos cegos, para o Iniciante,
        que não tem. Fonte de verdade única, como as outras trilhas. */
     { texto: 'Chegue bem pertinho da parede', x: 1.00, y: 1.70,
       inicio: INICIO_PAREDE, obstaculos: SEM_OBSTACULOS,
@@ -86,7 +86,7 @@
      separa "ainda tentando" de "travou": duas tentativas ainda é exploração. */
   var TENTATIVAS_ATE_AJUDA = 3;
 
-  /* O passo curto do gabarito, em segundos. Bate com o do nível Pequeno. */
+  /* O passo curto do gabarito, em segundos. Bate com o do nível Iniciante. */
   var PASSO_S = 0.5;
 
   /* Perto o bastante para valer. Generoso de propósito: o robô real erra

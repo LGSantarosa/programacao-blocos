@@ -107,9 +107,14 @@
   #niveis { display: flex; background: #002080; padding: 4px;
             border-radius: 15px; }
   /* Dentro do painel ele ocupa a largura toda: são quatro alvos de toque, e
-     apertados eles voltam a ser difíceis de acertar. */
-  #painel-ajustes #niveis { width: 100%; }
-  #painel-ajustes #niveis button { flex: 1; padding: 12px 6px; }
+     apertados eles voltam a ser difíceis de acertar.
+
+     Quebra em duas fileiras quando "Intermediário" e "Avançado" não cabem na
+     mesma linha — num celular de 360px eles saíam pela borda. A base é auto e
+     não zero de propósito: com base zero o flex nunca quebra, e a palavra
+     comprida vazava em vez de descer. */
+  #painel-ajustes #niveis { width: 100%; flex-wrap: wrap; row-gap: 4px; }
+  #painel-ajustes #niveis button { flex: 1 1 auto; padding: 12px 6px; }
   #niveis button {
     font-size: 16px; font-weight: 800; padding: 10px 16px;
     background: transparent; color: #93b4f5; border-radius: 11px;
@@ -359,8 +364,8 @@
      refazer: só existia o "próxima".
 
      Bolinhas, e não "Fase 3 de 6", pelo mesmo motivo do repetir no nível
-     Pequeno: quem ainda não lê algarismo enxerga quantidade num desenho. Quem
-     lê tem o número no aria-label e no título. */
+     Iniciante: quem ainda não lê algarismo enxerga quantidade num desenho.
+     Quem lê tem o número no aria-label e no título. */
   #fases { display: flex; justify-content: center; flex-wrap: wrap;
            margin-top: 8px; }
   #fases button {
@@ -692,10 +697,10 @@
 
       <p class="ajustes-rotulo" id="rotulo-nivel">Nível</p>
       <div id="niveis" role="group" aria-labelledby="rotulo-nivel">
-        <button type="button" data-nivel="pequeno" aria-pressed="false">Pequeno</button>
-        <button type="button" data-nivel="medio"   aria-pressed="true">Médio</button>
-        <button type="button" data-nivel="grande"  aria-pressed="false">Grande</button>
-        <button type="button" data-nivel="gigante" aria-pressed="false">Gigante</button>
+        <button type="button" data-nivel="pequeno" aria-pressed="false">Iniciante</button>
+        <button type="button" data-nivel="medio"   aria-pressed="true">Básico</button>
+        <button type="button" data-nivel="grande"  aria-pressed="false">Intermediário</button>
+        <button type="button" data-nivel="gigante" aria-pressed="false">Avançado</button>
       </div>
 
       <div id="ajustes-botoes">

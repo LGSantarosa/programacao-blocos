@@ -32,7 +32,7 @@
      Eram caracteres — ⬆ ⬇ ↻ ↺ — e um caractere só existe se a fonte do
      aparelho tiver aquele desenho. As setas de rotação não estão na Roboto,
      que é a fonte do Android: num Galaxy o menu do girar virava um retângulo
-     vazio, e no nível Pequeno, onde as palavras somem, a peça inteira ficava
+     vazio, e no nível Iniciante, onde as palavras somem, a peça inteira ficava
      sem sinal nenhum. As setas de andar tinham a doença irmã: quando o
      aparelho as troca por emoji colorido, a largura muda depois de o Blockly
      já ter medido a peça, e ela sai torta.
@@ -61,10 +61,11 @@
                            VOLTA + '</g>');
 
   /* Nomeado, e não anônimo. O Blockly guarda os campos que vêm antes de um
-     encaixe na fileira daquele encaixe: o ícone vem antes do SEG, e no Pequeno
-     o SEG está escondido — a fileira some e leva o desenho junto. Quem reacende
-     campo escondido é a tabela do nível, e ela só enxerga campo com nome. Por
-     isso ICONE aparece no campos de todos os níveis, sempre true. */
+     encaixe na fileira daquele encaixe: o ícone vem antes do SEG, e no
+     Iniciante o SEG está escondido — a fileira some e leva o desenho junto.
+     Quem reacende campo escondido é a tabela do nível, e ela só enxerga
+     campo com nome. Por isso ICONE aparece no campos de todos os níveis,
+     sempre true. */
   function imagem(src, alt) {
     return { type: 'field_image', name: 'ICONE', src: src,
              width: LADO_ICONE, height: LADO_ICONE, alt: alt };
@@ -181,15 +182,15 @@
         type: 'girar',
         /* Cinco pedaços e não quatro: o LINHA_DIR existe só para dar ao menu
            uma fileira própria. O Blockly guarda os campos que vêm antes de um
-           encaixe na fileira daquele encaixe, e o Pequeno e o Médio escondem o
-           encaixe GRAUS para mostrar o menu no lugar do número. Sem esta
-           divisão, esconder o encaixe demolia a fileira onde o menu morava: o
-           corpo do bloco encolhia para 39px e o ícone continuava desenhado em
-           x=75, boiando fora da peça. */
+           encaixe na fileira daquele encaixe, e o Iniciante e o Básico
+           escondem o encaixe GRAUS para mostrar o menu no lugar do número.
+           Sem esta divisão, esconder o encaixe demolia a fileira onde o
+           menu morava: o corpo do bloco encolhia para 39px e o ícone
+           continuava desenhado em x=75, boiando fora da peça. */
         message0: '%1 %2 %3 %4 %5',
         args0: [
           { type: 'field_label', name: 'T1', text: 'girar' },
-          /* Só a seta. É o único texto que sobrava no nível Pequeno, e a
+          /* Só a seta. É o único texto que sobrava no nível Iniciante, e a
              seta de rotação diz sozinha para que lado o robô vira. */
           /* O menu aceita imagem no lugar do rótulo, e é o mesmo desenho
              que o resto dos blocos usa. O alt não é decoração: é o que o
@@ -261,8 +262,9 @@
       {
         type: 'repetir_sempre',
         /* Texto cru, não campo: não acompanha número nenhum, então não tem
-           motivo para sumir no Pequeno — e um bloco herdado do Grande que
-           descesse de nível viraria um 🔁 mudo, igual ao repetir comum. */
+           motivo para sumir no Iniciante — e um bloco herdado do
+           Intermediário que descesse de nível viraria um 🔁 mudo, igual ao
+           repetir comum. */
         message0: '🔁 repetir para sempre',
         message1: '%1',
         args1: [{ type: 'input_statement', name: 'CORPO' }],
@@ -292,7 +294,7 @@
         message1: '%1',
         args1: [{ type: 'input_statement', name: 'CORPO' }],
         /* Texto cru: é o que separa os dois ramos, e um bloco herdado do
-           Grande precisa continuar legível num nível abaixo. */
+           Intermediário precisa continuar legível num nível abaixo. */
         message2: 'senão',
         message3: '%1',
         args3: [{ type: 'input_statement', name: 'SENAO' }],
@@ -334,7 +336,7 @@
       {
         /* Amarelo: este decide o caminho, e decidir é da família do laço. O
            "se obstáculo" continua ciano porque ele sente. Os dois convivem no
-           Gigante de propósito — o pronto e o geral do qual ele é exemplo. */
+           Avançado de propósito — o pronto e o geral do qual ele é exemplo. */
         type: 'se',
         message0: 'se %1 então',
         args0: [{ type: 'input_value', name: 'COND', check: 'Boolean' }],

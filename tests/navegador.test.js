@@ -187,7 +187,7 @@ test('a criança monta, roda, e trocar de nível pergunta antes de apagar',
       false, 'trocar de nível com trabalho montado deveria perguntar');
     assert.strictEqual(
       await aval(`document.getElementById('confirma-titulo').textContent`),
-      'Trocar para Médio?', 'o título deveria nomear o destino');
+      'Trocar para Básico?', 'o título deveria nomear o destino');
     assert.strictEqual(
       await aval(`document.querySelector('#niveis button[data-nivel=pequeno]')
         .getAttribute('aria-pressed')`),

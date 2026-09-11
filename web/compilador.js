@@ -103,7 +103,7 @@
                         blockId: blockId || null });
     }
 
-    /* O nível Pequeno e o Médio não expõem velocidade; sem ela, vale a
+    /* O nível Iniciante e o Básico não expõem velocidade; sem ela, vale a
        calibração da v1. Acima de 255 o driver satura, então cortamos aqui. */
     function velocidadeDe(no) {
       var v = Math.round(Number(no.velocidade));
@@ -219,8 +219,8 @@
     }
 
     /* O sensor comparado com um limite: é o que os três blocos prontos do
-       Grande querem dizer, e agora é escrito com as mesmas peças que a criança
-       usa à mão no Gigante. */
+       Intermediário querem dizer, e agora é escrito com as mesmas peças que
+       a criança usa à mão no Avançado. */
     function perto(cm) {
       return { op: 'menor', a: { op: 'distancia' }, b: Math.round(cm) };
     }

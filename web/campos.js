@@ -1,11 +1,11 @@
 /* FieldBolinhas: o mesmo campo numérico do "repetir", desenhado como bolinhas
-   em vez de algarismo. É o que permite o bloco existir no nível Pequeno sem
+   em vez de algarismo. É o que permite o bloco existir no nível Iniciante sem
    virar um bloco diferente. */
 (function (raiz) {
   'use strict';
 
-  /* A faixa é a da v1: o nível Grande precisa repetir muitas vezes. O que muda
-     por nível é só o desenho. */
+  /* A faixa é a da v1: o nível Intermediário precisa repetir muitas vezes.
+     O que muda por nível é só o desenho. */
   var MIN = 1, MAX = 100;
 
   /* Precisa bater com COR_MOVIMENTO em web/blocos.js. */

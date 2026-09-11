@@ -116,8 +116,35 @@
     }
   }
 
+  /* Este aparelho sabe falar? Sem voz instalada o speak() vira silêncio sem
+     erro nenhum — no Chromium empacotado em snap, por exemplo, a libspeechd
+     não entra no confinamento e a lista volta vazia. Quem pergunta é o painel
+     de Ajustes, para poder dizer ao adulto por que os blocos não falam em vez
+     de deixar a criança achando que quebrou. */
+  function vozes() {
+    var voz = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
+    if (!voz || typeof voz.getVoices !== 'function') return [];
+    try {
+      return voz.getVoices() || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function temVoz() { return vozes().length > 0; }
+
+  /* A lista carrega assíncrona: no primeiro instante da página ela vem vazia
+     mesmo num aparelho que fala. Sem isto o aviso apareceria em quem tem voz,
+     e ficaria na tela até a criança trocar de nível. */
+  function aoMudarVozes(aviso) {
+    var voz = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
+    if (!voz || !('onvoiceschanged' in voz)) return;
+    voz.onvoiceschanged = aviso;
+  }
+
   var api = { SONS: SONS, tocar: tocar, falar: falar, mudo: mudo,
-              alternarMudo: alternarMudo };
+              alternarMudo: alternarMudo, temVoz: temVoz,
+              aoMudarVozes: aoMudarVozes };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Som = api;
 })(typeof self !== 'undefined' ? self : globalThis);

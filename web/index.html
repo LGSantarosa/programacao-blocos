@@ -137,7 +137,11 @@
      Por isso a exceção logo abaixo. Sem ela o uppercase do body desceria por
      herança para o <text> do SVG e o vazamento voltaria — por cima de um texto
      que já está em caixa alta, e aí nada mais o denunciaria na tela. */
-  body.nao-le { text-transform: uppercase; }
+  body.nao-le,
+  /* Botão não herda: a folha do próprio navegador põe "none" nos controles de
+     formulário. Sem esta linha, PLAY, os níveis e o "fechar" ficavam em caixa
+     mista no meio de uma tela toda em letra de forma. */
+  body.nao-le button { text-transform: uppercase; }
   body.nao-le .blocklySvg text { text-transform: none; }
 
   /* ---------- desfazer e refazer ---------- */
@@ -196,9 +200,13 @@
      [hidden] do navegador, e sem esta linha o painel nasce visível. */
   #painel-ajustes[hidden] { display: none; }
 
+  /* 520 e não 460: em caixa alta os quatro nomes de nível pedem uns 443px, e
+     na caixa antiga o "Avançado" descia sozinho para uma segunda fileira num
+     desktop com espaço de sobra. No celular o width:100% manda, e lá a
+     fileira quebra de propósito — ver #painel-ajustes #niveis. */
   #ajustes-caixa {
     background: #fff; border-radius: 22px; padding: 22px 24px;
-    max-width: 460px; width: 100%; box-sizing: border-box;
+    max-width: 520px; width: 100%; box-sizing: border-box;
     box-shadow: 0 10px 0 rgba(0, 32, 128, .25);
     max-height: 92%; overflow: auto;
   }
@@ -206,6 +214,15 @@
                     color: #002080; text-align: center; }
   .ajustes-rotulo { margin: 0 0 8px; font-size: 15px; font-weight: 800;
                     color: #4a6fc4; }
+  /* Recado para o adulto, não para a criança: fica em corpo pequeno e em cima
+     do botão do alto-falante, que é o assunto. Só aparece quando o aparelho
+     não tem voz e o nível é dos que falam — é a única combinação em que o
+     silêncio é surpresa. */
+  #aviso-voz { margin: 14px 0 0; font-size: 13px; font-weight: 700;
+               line-height: 1.35; color: #7a5a00; background: #fff3cd;
+               border-radius: 10px; padding: 9px 12px; text-align: left; }
+  #aviso-voz[hidden] { display: none; }
+
   #ajustes-botoes { display: flex; flex-wrap: wrap; justify-content: center;
                     margin-top: 16px; }
   #ajustes-botoes > * { margin: 5px; }
@@ -719,6 +736,9 @@
         <button type="button" data-nivel="grande"  aria-pressed="false">Intermediário</button>
         <button type="button" data-nivel="gigante" aria-pressed="false">Avançado</button>
       </div>
+
+      <p id="aviso-voz" hidden>Este aparelho não tem voz instalada, então os
+        blocos não são falados.</p>
 
       <div id="ajustes-botoes">
         <button id="mudo" type="button" title="ligar e desligar o som">🔊</button>

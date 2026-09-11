@@ -933,7 +933,25 @@
         String(botoesNivel[i].dataset.nivel === nivel));
     }
     vestirTela();
+    avisarSemVoz();
   }
+
+  /* Sem voz instalada o speak() vira silêncio sem erro nenhum, e o silêncio
+     fica indistinguível de defeito: a criança pega a peça e não acontece nada.
+     O recado é para o adulto, e só nos níveis que falam — no Intermediário a
+     peça não fala por desenho, e avisar ali explicaria uma ausência que
+     ninguém sentiu. */
+  var avisoVoz = document.getElementById('aviso-voz');
+
+  function avisarSemVoz() {
+    if (!avisoVoz) return;
+    avisoVoz.hidden = !(Niveis.definicao(nivel).naoLe && !Som.temVoz());
+  }
+
+  /* A lista de vozes carrega assíncrona, e no primeiro instante da página vem
+     vazia até num aparelho que fala. Sem isto o aviso apareceria em quem tem
+     voz e ficaria na tela até a criança trocar de nível. */
+  Som.aoMudarVozes(avisarSemVoz);
 
   /* A caixa alta da tela — a de fora das peças. Dentro delas quem veste é o
      web/niveis.js, reescrevendo o texto do campo, porque o Blockly mede a

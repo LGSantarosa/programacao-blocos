@@ -54,6 +54,10 @@ function dublê() {
   globalThis.speechSynthesis = {
     cancel: () => falas.push('CANCELA'),
     speak: (u) => falas.push(u.lang + ': ' + u.text),
+    /* A propriedade existe na interface do navegador mesmo sem ninguém
+       escutando — é por ela que o código descobre se dá para ser avisado. */
+    onvoiceschanged: null,
+    getVoices: () => [],
   };
   return falas;
 }
@@ -107,5 +111,47 @@ test('falar sem texto não pede nada ao navegador', () => {
     Som.falar(null);
     Som.falar('');
     assert.deepStrictEqual(falas, []);
+  } finally { semDublê(); }
+});
+
+/* ---------- saber se este aparelho tem voz ---------- */
+
+/* Sem voz instalada o speak() vira silêncio sem erro nenhum, e a criança não
+   tem como distinguir isso de defeito. Quem pergunta é o painel de Ajustes,
+   para poder dizer ao adulto por que os blocos não falam. */
+test('temVoz é falso quando o navegador não tem a API', () => {
+  semDublê();
+  assert.strictEqual(Som.temVoz(), false);
+});
+
+/* O caso desta máquina: o snap do Chromium não carrega a libspeechd, então a
+   API existe e a lista de vozes volta vazia. */
+test('temVoz é falso quando a API existe mas não há voz instalada', () => {
+  dublê();
+  globalThis.speechSynthesis.getVoices = () => [];
+  try {
+    assert.strictEqual(Som.temVoz(), false);
+  } finally { semDublê(); }
+});
+
+test('temVoz é verdadeiro quando há voz instalada', () => {
+  dublê();
+  globalThis.speechSynthesis.getVoices = () => [{ lang: 'pt-BR', name: 'Portuguese' }];
+  try {
+    assert.strictEqual(Som.temVoz(), true);
+  } finally { semDublê(); }
+});
+
+/* A lista de vozes carrega assíncrona: no primeiro instante da página ela vem
+   vazia mesmo num aparelho que fala. Quem mostra o aviso precisa saber que a
+   resposta pode mudar, senão avisa que não há voz num aparelho que tem. */
+test('aoMudarVozes avisa quando a lista termina de carregar', () => {
+  dublê();
+  globalThis.speechSynthesis.getVoices = () => [];
+  try {
+    let avisos = 0;
+    Som.aoMudarVozes(() => { avisos++; });
+    globalThis.speechSynthesis.onvoiceschanged();
+    assert.strictEqual(avisos, 1, 'o aviso não foi chamado quando as vozes chegaram');
   } finally { semDublê(); }
 });

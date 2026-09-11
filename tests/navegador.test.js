@@ -2251,12 +2251,21 @@ test('nos dois primeiros níveis a tela inteira fica em caixa alta',
         if (l > maior) { maior = l; texto = ts[i].textContent.replace(/\u00a0/g, ' '); }
       }
       var aba = document.querySelectorAll('.blocklyTreeLabel')[0];
+      var caixa = function (s) {
+        var e = document.querySelector(s);
+        return e ? getComputedStyle(e).textTransform : null;
+      };
       return JSON.stringify({
         palavra: texto,
         traçado: Math.round(maior),
         peça: Math.round(b.getSvgRoot().getBBox().width),
         aba: aba ? getComputedStyle(aba).textTransform : null,
-        missão: getComputedStyle(document.getElementById('missao')).textTransform,
+        missão: caixa('#missao'),
+        /* Botão não herda text-transform: a folha do próprio navegador põe
+           "none" nos controles de formulário. Sem regra própria, PLAY e os
+           botões do painel ficavam em caixa mista no meio de uma tela toda
+           em letra de forma. */
+        botão: caixa('#ajustes-fechar'),
       });
     })()`;
 
@@ -2272,6 +2281,8 @@ test('nos dois primeiros níveis a tela inteira fica em caixa alta',
       'as abas da gaveta ficaram em caixa mista no Básico');
     assert.strictEqual(basico.missão, 'uppercase',
       'o texto da missão ficou em caixa mista no Básico');
+    assert.strictEqual(basico.botão, 'uppercase',
+      'os botões ficaram em caixa mista no meio de uma tela em letra de forma');
 
     /* A medição deixou uma peça na bancada, e trocar de nível com trabalho
        montado abre a pergunta em vez de trocar — o nível ficaria no Básico e o
@@ -2287,6 +2298,8 @@ test('nos dois primeiros níveis a tela inteira fica em caixa alta',
       'no Intermediário a caixa alta tinha de sair');
     assert.strictEqual(inter.aba, 'none',
       'as abas continuaram gritando no Intermediário');
+    assert.strictEqual(inter.botão, 'none',
+      'os botões continuaram gritando no Intermediário');
 
     cdp.fechar();
   });
@@ -2373,6 +2386,78 @@ test('pegar uma peça da gaveta faz a voz dizer o que ela é',
     const ditas = await aval(`JSON.stringify(window.__ditas)`);
     assert.ok(JSON.parse(ditas).includes('pt-BR: andar para frente'),
       `a peça saiu da gaveta calada; o que se pediu falar foi ${ditas}`);
+
+    cdp.fechar();
+  });
+
+test('sem voz no aparelho, os Ajustes dizem por que os blocos não falam',
+  { skip: PULAR, timeout: 120000 },
+  async (t) => {
+    /* O Chromium headless não tem voz instalada — é o mesmo caso do snap do
+       Chromium no desktop, onde a libspeechd não entra no confinamento. Sem
+       aviso, o silêncio ao pegar a peça é indistinguível de defeito.
+
+       Só nos níveis que falam: no Intermediário a peça não fala por desenho, e
+       avisar ali seria explicar uma ausência que ninguém sentiu. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 15) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-avisovoz-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 15}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 15}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 15}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 15}/` });
+    await espera(3000);
+
+    assert.strictEqual(await aval(`Som.temVoz()`), false,
+      'este Chromium tem voz; o teste precisa de um aparelho mudo');
+
+    const aviso = `(function () {
+      document.getElementById('ajustes').click();
+      var a = document.getElementById('aviso-voz');
+      return JSON.stringify({ existe: !!a, aparece: a ? !a.hidden : null,
+                              texto: a ? a.textContent : null });
+    })()`;
+
+    await aval(`document.querySelector('#niveis button[data-nivel=pequeno]').click()`);
+    await espera(700);
+    const noIniciante = JSON.parse(await aval(aviso));
+    assert.ok(noIniciante.existe, 'o painel de Ajustes não tem o aviso de voz');
+    assert.strictEqual(noIniciante.aparece, true,
+      'sem voz no aparelho, o Iniciante precisa dizer por que os blocos calam');
+    assert.match(noIniciante.texto, /voz/i, 'o aviso tem de falar de voz');
+
+    await aval(`document.getElementById('ajustes-fechar').click()`);
+    await espera(300);
+    await aval(`document.querySelector('#niveis button[data-nivel=grande]').click()`);
+    await espera(700);
+    const noIntermediario = JSON.parse(await aval(aviso));
+    assert.strictEqual(noIntermediario.aparece, false,
+      'o Intermediário não fala por desenho, e não deveria avisar de voz');
 
     cdp.fechar();
   });

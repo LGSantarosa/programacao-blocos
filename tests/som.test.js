@@ -41,3 +41,71 @@ test('alternarMudo inverte o estado', () => {
   Som.alternarMudo();
   assert.strictEqual(Som.mudo(), antes);
 });
+
+/* ---------- a voz que descreve os blocos ---------- */
+
+/* Um dublê no lugar do speechSynthesis do navegador. Não é mock de
+   conveniência: é a única forma de afirmar o que sai pelo alto-falante sem um
+   navegador por perto, e o que os testes checam é o que o código pede à API —
+   a língua, o cancelamento, o silêncio no mudo. */
+function dublê() {
+  const falas = [];
+  globalThis.SpeechSynthesisUtterance = function (texto) { this.text = texto; };
+  globalThis.speechSynthesis = {
+    cancel: () => falas.push('CANCELA'),
+    speak: (u) => falas.push(u.lang + ': ' + u.text),
+  };
+  return falas;
+}
+
+function semDublê() {
+  delete globalThis.speechSynthesis;
+  delete globalThis.SpeechSynthesisUtterance;
+}
+
+test('falar diz o texto em português do Brasil', () => {
+  const falas = dublê();
+  try {
+    Som.falar('andar para frente');
+    assert.ok(falas.includes('pt-BR: andar para frente'),
+      `esperava a fala em pt-BR, veio ${JSON.stringify(falas)}`);
+  } finally { semDublê(); }
+});
+
+/* Arrastar três peças seguidas fala a última, não enfileira três: a criança
+   ouviria o nome de uma peça que já largou. */
+test('falar corta a fala anterior antes de começar a próxima', () => {
+  const falas = dublê();
+  try {
+    Som.falar('andar para frente');
+    Som.falar('girar para a direita');
+    assert.deepStrictEqual(falas, ['CANCELA', 'pt-BR: andar para frente',
+                                   'CANCELA', 'pt-BR: girar para a direita']);
+  } finally { semDublê(); }
+});
+
+/* O botão do alto-falante é um só, e para quem aperta "mudo" é mudo. */
+test('no mudo a voz cala junto com os bipes', () => {
+  const falas = dublê();
+  Som.alternarMudo();
+  try {
+    Som.falar('andar para frente');
+    assert.deepStrictEqual(falas, [], 'a voz falou com o som desligado');
+  } finally { Som.alternarMudo(); semDublê(); }
+});
+
+/* Mesma regra do tocar(): navegador sem a API fica quieto e nunca derruba a
+   página. Num aparelho Android sem TTS instalado é exatamente este o caso. */
+test('sem speechSynthesis a voz fica quieta em vez de estourar', () => {
+  semDublê();
+  assert.doesNotThrow(() => Som.falar('andar para frente'));
+});
+
+test('falar sem texto não pede nada ao navegador', () => {
+  const falas = dublê();
+  try {
+    Som.falar(null);
+    Som.falar('');
+    assert.deepStrictEqual(falas, []);
+  } finally { semDublê(); }
+});

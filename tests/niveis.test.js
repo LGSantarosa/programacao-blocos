@@ -384,3 +384,75 @@ test('a caixa do Gigante oferece de fato os blocos gerais de controle', () => {
     assert.ok(xml.includes('type=' + t), 'faltou ' + t + ' na caixa do Gigante');
   }
 });
+
+/* ---------- caixa alta nos dois primeiros níveis ---------- */
+
+/* Por que reescrever o texto e não usar text-transform no CSS: o Blockly mede
+   a palavra para dimensionar a peça, e o CSS só pinta. No Chromium a medida
+   continuava vindo da minúscula e "andar frente" crescia 25px por cima do
+   encaixe do número — o texto vazava da peça. Reescrevendo o campo, o render()
+   remede e a peça cresce junto. */
+function peca(tipo) {
+  const ws = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.blocks.append({ type: tipo }, ws);
+  } finally {
+    Blockly.Events.enable();
+  }
+  return ws.getBlocksByType(tipo, false)[0];
+}
+
+function palavras(b) {
+  const fora = [];
+  for (const entrada of b.inputList) {
+    for (const campo of entrada.fieldRow) {
+      if (campo instanceof Blockly.FieldLabel) fora.push(campo.getText());
+    }
+  }
+  return fora;
+}
+
+test('o Iniciante e o Básico escrevem as palavras da peça em caixa alta', () => {
+  for (const nivel of ['pequeno', 'medio']) {
+    const b = peca('mover_frente');
+    Niveis.aplicarEmUm(b, nivel);
+    assert.deepStrictEqual(palavras(b), ['ANDAR FRENTE', 'S'],
+      'no ' + nivel + ' quem ainda não lê precisa da letra de forma');
+  }
+});
+
+test('subir e descer de nível devolve a palavra como estava', () => {
+  const b = peca('mover_frente');
+  Niveis.aplicarEmUm(b, 'pequeno');
+  Niveis.aplicarEmUm(b, 'grande');
+  assert.deepStrictEqual(palavras(b), ['andar frente', 's'],
+    'a caixa alta corroeu o texto do bloco ao descer de nível');
+});
+
+/* O "PLAY" do bloco verde é o único texto que já nasce em caixa alta. Um
+   toLowerCase() na volta o devolveria como "play", e a peça deixaria de
+   nomear o botão que ela representa. Por isso o original fica guardado. */
+test('o PLAY do bloco verde volta do Iniciante ainda em caixa alta', () => {
+  const b = peca('quando_play');
+  Niveis.aplicarEmUm(b, 'pequeno');
+  assert.deepStrictEqual(palavras(b), ['▶ QUANDO APERTAR PLAY']);
+  Niveis.aplicarEmUm(b, 'gigante');
+  assert.deepStrictEqual(palavras(b), ['▶ quando apertar PLAY'],
+    'o PLAY precisa sobreviver à descida de nível');
+});
+
+/* A trava que guarda o combinado: nos dois níveis onde a voz fala, nenhuma
+   peça pode sair da caixa muda. Quem acrescentar bloco ao Iniciante ou ao
+   Básico sem verbete na tabela descobre aqui, e não pela criança que tocou na
+   peça e não ouviu nada. */
+test('nenhuma peça do Iniciante ou do Básico fica sem descrição falada', () => {
+  const mudos = [];
+  for (const nivel of ['pequeno', 'medio']) {
+    for (const tipo of Niveis.definicao(nivel).blocos) {
+      const b = peca(tipo);
+      if (!Blocos.descrever(b)) mudos.push(nivel + ': ' + tipo);
+    }
+  }
+  assert.deepStrictEqual(mudos, [], 'peça sem voz num nível que fala');
+});

@@ -321,6 +321,20 @@
       Niveis.aplicar(workspace, nivel);
       return;
     }
+    /* A voz que diz o que a peça é, para quem ainda não lê. No começo do
+       arrasto, que é quando a criança está escolhendo — e não no fim, quando
+       ela já decidiu.
+
+       Falar aqui não atropela a execução viva: no Blockly arrastar e tocar são
+       gestos exclusivos, então quem arrasta ouve o nome e quem toca roda a
+       peça. */
+    if (e.type === Blockly.Events.BLOCK_DRAG && e.isStart) {
+      if (Niveis.definicao(nivel).naoLe) {
+        var pega = workspace.getBlockById(e.blockId);
+        if (pega) Som.falar(Blocos.descrever(pega));
+      }
+      return;
+    }
     if (e.type !== Blockly.Events.BLOCK_CREATE) return;
     if (workspace.isDragging && workspace.isDragging()) return;
     Niveis.aplicar(workspace, nivel);
@@ -918,6 +932,18 @@
       botoesNivel[i].setAttribute('aria-pressed',
         String(botoesNivel[i].dataset.nivel === nivel));
     }
+    vestirTela();
+  }
+
+  /* A caixa alta da tela — a de fora das peças. Dentro delas quem veste é o
+     web/niveis.js, reescrevendo o texto do campo, porque o Blockly mede a
+     palavra para dimensionar a peça e o CSS só pinta. Aqui fora é HTML, o
+     texto reflui sozinho, e uma classe no body resolve. */
+  function vestirTela() {
+    var c = document.body.classList;
+    if (!c) return;                      /* navegador antigo: fica em caixa mista */
+    if (Niveis.definicao(nivel).naoLe) c.add('nao-le');
+    else c.remove('nao-le');
   }
 
   /* Só o Intermediário. É o degrau seguinte ao teto dos blocos — nos outros

@@ -123,6 +123,23 @@
   #niveis button:active:not(:disabled) { -webkit-transform: none; transform: none; }
   #niveis button[aria-pressed="true"] { background: #fff; color: #0050f0; }
 
+  /* ---------- a tela de quem ainda não lê ---------- */
+
+  /* Letra de forma nos dois primeiros níveis: é a que a criança aprende
+     primeiro, e é nela que o nome dela está escrito na mochila.
+
+     Aqui é só o HTML — abas da gaveta, missão, botões, painel. Dentro das
+     peças quem veste é o web/niveis.js, reescrevendo o texto do campo: o
+     Blockly mede a palavra para dimensionar a peça e o text-transform só
+     pinta, então o texto crescia por cima do encaixe do número sem a peça
+     crescer junto.
+
+     Por isso a exceção logo abaixo. Sem ela o uppercase do body desceria por
+     herança para o <text> do SVG e o vazamento voltaria — por cima de um texto
+     que já está em caixa alta, e aí nada mais o denunciaria na tela. */
+  body.nao-le { text-transform: uppercase; }
+  body.nao-le .blocklySvg text { text-transform: none; }
+
   /* ---------- desfazer e refazer ---------- */
   /* O Blockly já tem a pilha, e já oferece "Desfazer" no menu que abre com um
      toque longo de 750 ms sobre o fundo. Mas um gesto que só existe para quem

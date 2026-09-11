@@ -559,3 +559,21 @@ test('valorDoBloco lê o numerinho do encaixe', () => {
   const shadow = achar(ws, 'esperar').getInputTargetBlock('SEG');
   assert.strictEqual(Blocos.valorDoBloco(shadow), 7);
 });
+
+/* ---------- o que a voz diz de cada peça ---------- */
+
+test('a descrição falada nomeia a ação, não o texto do bloco', () => {
+  const ws = carregar([{ type: 'mover_frente' }]);
+  const b = ws.getBlocksByType('mover_frente', false)[0];
+  assert.strictEqual(Blocos.descrever(b), 'andar para frente');
+});
+
+/* "girar 90 graus" não diz nada a quem ainda não lê algarismo. O lado, sim:
+   é o que a seta desenhada na peça já mostra. */
+test('o girar diz o lado, que é o que a seta da peça mostra', () => {
+  const ws = carregar([{ type: 'girar', fields: { DIR: '90' } },
+                       { type: 'girar', fields: { DIR: '-90' } }]);
+  const [d, e] = ws.getBlocksByType('girar', false);
+  assert.strictEqual(Blocos.descrever(d), 'girar para a direita');
+  assert.strictEqual(Blocos.descrever(e), 'girar para a esquerda');
+});

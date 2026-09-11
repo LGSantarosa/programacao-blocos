@@ -1,5 +1,11 @@
-/* Bipes sintetizados por Web Audio. Nenhum arquivo de áudio: o flash da ESP32
-   não tem orçamento para asset de som, e síntese custa zero byte. */
+/* O que sai pelo alto-falante: os bipes, sintetizados por Web Audio, e a voz
+   que descreve os blocos para quem ainda não lê. Nenhum arquivo de áudio: o
+   flash da ESP32 não tem orçamento para asset de som, e tanto a síntese quanto
+   a voz do sistema custam zero byte.
+
+   A voz mora aqui, e não em arquivo próprio, por causa do botão do
+   alto-falante: ele é um só, e para quem aperta "mudo" é mudo. Duas casas
+   seriam dois interruptores. */
 (function (raiz) {
   'use strict';
 
@@ -81,7 +87,36 @@
     }
   }
 
-  var api = { SONS: SONS, tocar: tocar, mudo: mudo,
+  /* A voz. Quem chama passa a descrição já pronta — o som não sabe o que é um
+     bloco, do mesmo jeito que não sabe o que é um comando.
+
+     cancel() antes de cada frase: arrastar três peças seguidas fala a última,
+     não enfileira três. Sem isso a criança ouviria o nome de uma peça que já
+     largou, e a voz iria ficando para trás do dedo.
+
+     A fala é enfeite, igual ao bipe: navegador sem a API, ou Android sem TTS
+     instalado, fica quieto. Mudo é melhor que quebrado. */
+  function falar(texto) {
+    if (!texto || mudoAgora) return;
+    var voz = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
+    var Frase = typeof SpeechSynthesisUtterance !== 'undefined'
+                ? SpeechSynthesisUtterance : null;
+    if (!voz || !Frase) return;
+    try {
+      voz.cancel();
+      var f = new Frase(texto);
+      f.lang = 'pt-BR';
+      /* Um pouco abaixo do normal. A velocidade padrão é feita para adulto
+         lendo notificação, e "andar para frente" no ritmo dela passa antes de
+         a criança de quatro anos ter ligado o som à peça na mão. */
+      f.rate = 0.9;
+      voz.speak(f);
+    } catch (e) {
+      /* Quieto é melhor que quebrado. */
+    }
+  }
+
+  var api = { SONS: SONS, tocar: tocar, falar: falar, mudo: mudo,
               alternarMudo: alternarMudo };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Som = api;

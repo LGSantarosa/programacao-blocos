@@ -2187,3 +2187,192 @@ test('a caixa de blocos já abre vestida do nível, sem piscar o desenho cheio',
 
     cdp.fechar();
   });
+
+/* ---------- a tela de quem ainda não lê ---------- */
+
+test('nos dois primeiros níveis a tela inteira fica em caixa alta',
+  { skip: PULAR, timeout: 120000 },
+  async (t) => {
+    /* Letra de forma é a que a criança aprende primeiro. A prova mede o
+       traçado do texto dentro da peça e a largura da peça: no Chromium,
+       text-transform no CSS fazia o texto crescer 25px sem a peça crescer
+       junto, e "ANDAR FRENTE" invadia o encaixe do número. Medir os dois é o
+       que separa "está em caixa alta" de "está em caixa alta e coube". */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 13) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-alta-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 13}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 13}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 13}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 13}/` });
+    await espera(3000);
+
+    /* Põe uma peça com palavra na bancada e lê o traçado dela. */
+    const medir = `(function () {
+      var ws = Blockly.getMainWorkspace();
+      var b = ws.getAllBlocks(false).filter(function (x) {
+        return x.type === 'mover_frente';
+      })[0];
+      if (!b) {
+        b = ws.newBlock('mover_frente'); b.initSvg(); b.render(); b.moveBy(80, 300);
+        Niveis.aplicarEmUm(b, Niveis.atual());
+      }
+      var maior = 0, texto = '';
+      var ts = b.getSvgRoot().querySelectorAll('text');
+      for (var i = 0; i < ts.length; i++) {
+        var l = ts[i].getBBox().width;
+        /* O Blockly pinta espaço como NBSP (Field.NBSP), então o texto do DOM
+           não bate com o literal do teste se vier cru daqui. */
+        if (l > maior) { maior = l; texto = ts[i].textContent.replace(/\u00a0/g, ' '); }
+      }
+      var aba = document.querySelectorAll('.blocklyTreeLabel')[0];
+      return JSON.stringify({
+        palavra: texto,
+        traçado: Math.round(maior),
+        peça: Math.round(b.getSvgRoot().getBBox().width),
+        aba: aba ? getComputedStyle(aba).textTransform : null,
+        missão: getComputedStyle(document.getElementById('missao')).textTransform,
+      });
+    })()`;
+
+    await aval(`document.querySelector('#niveis button[data-nivel=medio]').click()`);
+    await espera(900);
+    const basico = JSON.parse(await aval(medir));
+
+    assert.strictEqual(basico.palavra, 'ANDAR FRENTE',
+      'no Básico a peça precisa estar escrita em letra de forma');
+    assert.ok(basico.traçado < basico.peça,
+      `o texto (${basico.traçado}px) vazou da peça (${basico.peça}px)`);
+    assert.strictEqual(basico.aba, 'uppercase',
+      'as abas da gaveta ficaram em caixa mista no Básico');
+    assert.strictEqual(basico.missão, 'uppercase',
+      'o texto da missão ficou em caixa mista no Básico');
+
+    /* A medição deixou uma peça na bancada, e trocar de nível com trabalho
+       montado abre a pergunta em vez de trocar — o nível ficaria no Básico e o
+       teste mediria a mesma coisa duas vezes. Esvaziar antes é o que a criança
+       faria respondendo "sim". */
+    await aval(`(function () { Blocos.limpar(Blockly.getMainWorkspace()); return 1; })()`);
+    await espera(300);
+    await aval(`document.querySelector('#niveis button[data-nivel=grande]').click()`);
+    await espera(900);
+    const inter = JSON.parse(await aval(medir));
+
+    assert.strictEqual(inter.palavra, 'andar frente',
+      'no Intermediário a caixa alta tinha de sair');
+    assert.strictEqual(inter.aba, 'none',
+      'as abas continuaram gritando no Intermediário');
+
+    cdp.fechar();
+  });
+
+test('pegar uma peça da gaveta faz a voz dizer o que ela é',
+  { skip: PULAR, timeout: 120000 },
+  async (t) => {
+    /* Quem ainda não lê precisa saber o que é a peça na hora de escolher. O
+       Chromium headless tem a API mas nenhuma voz instalada, então o que se
+       prova aqui é o pedido: que o app mande falar "andar para frente" em
+       pt-BR no instante em que a peça sai da gaveta. */
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 14) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-voz-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 14}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 14}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 14}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${PORTA_WEB + 14}/` });
+    await espera(3000);
+
+    await aval(`document.querySelector('#niveis button[data-nivel=pequeno]').click()`);
+    await espera(800);
+
+    /* Grava o que for pedido ao sintetizador. */
+    await aval(`(function () {
+      window.__ditas = [];
+      speechSynthesis.speak = function (f) { window.__ditas.push(f.lang + ': ' + f.text); };
+      speechSynthesis.cancel = function () {};
+      return 1;
+    })()`);
+
+    const cat = JSON.parse(await aval(`(() => {
+      const r = document.querySelectorAll('.blocklyTreeRow')[0].getBoundingClientRect();
+      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    })()`));
+    await mouse('mousePressed', cat.x, cat.y);
+    await mouse('mouseReleased', cat.x, cat.y);
+    await espera(800);
+
+    const alvo = JSON.parse(await aval(`(() => {
+      const b = document.querySelectorAll('.blocklyFlyout .blocklyDraggable')[0];
+      const r = b.getBoundingClientRect();
+      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    })()`));
+
+    await mouse('mousePressed', alvo.x, alvo.y);
+    for (let k = 1; k <= 8; k++) {
+      await mouse('mouseMoved', alvo.x + (700 - alvo.x) * k / 8,
+                                alvo.y + (400 - alvo.y) * k / 8);
+      await espera(40);
+    }
+    await mouse('mouseReleased', 700, 400);
+    await espera(600);
+
+    const ditas = await aval(`JSON.stringify(window.__ditas)`);
+    assert.ok(JSON.parse(ditas).includes('pt-BR: andar para frente'),
+      `a peça saiu da gaveta calada; o que se pediu falar foi ${ditas}`);
+
+    cdp.fechar();
+  });

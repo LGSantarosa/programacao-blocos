@@ -76,6 +76,12 @@
       campos: { ICONE: true, T1: false, T2: false, SEG: false, VEL: false,
                 DIR: true, GRAUS: false, N: true, CM: true },
       bolinhas: true,
+      /* Um flag só, e nomeado pela criança e não pelo efeito: é daqui que saem
+         a caixa alta e a voz que descreve os blocos. São a mesma pergunta —
+         "esta criança já lê?" — e separá-los em dois interruptores deixaria
+         possível ligar um sem o outro, que não é combinação que sirva a
+         ninguém. */
+      naoLe: true,
     },
     medio: {
       blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'parar',
@@ -83,6 +89,7 @@
       campos: { ICONE: true, T1: true, T2: true, SEG: true, VEL: false,
                 DIR: true, GRAUS: false, N: true, CM: true },
       bolinhas: false,
+      naoLe: true,
     },
     grande: {
       blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'parar',
@@ -91,6 +98,7 @@
       campos: { ICONE: true, T1: true, T2: true, SEG: true, VEL: true,
                 DIR: false, GRAUS: true, N: true, CM: true },
       bolinhas: false,
+      naoLe: false,
     },
   };
 
@@ -111,6 +119,7 @@
     ]),
     campos: DEFINICOES.grande.campos,
     bolinhas: false,
+    naoLe: false,
   };
 
   function definicao(nivel) {
@@ -249,6 +258,8 @@
       var campo = b.getField(nome);
       if (campo) campo.setVisible(campos[nome]);
     }
+    vestirCaixa(b, def.naoLe);
+
     /* O "repetir" é sempre o mesmo campo, com a mesma faixa de 1 a 100. Só
        o desenho muda: bolinhas para quem não lê, algarismo para quem lê. */
     var alvoN = b.getInput('N') && b.getInputTargetBlock('N');
@@ -283,6 +294,49 @@
       if (t2 && campos.T2) t2.setVisible(entradaG.isVisible());
     }
     if (b.render) b.render();
+  }
+
+  /* Caixa alta para quem ainda não lê: a letra de forma é a que a criança
+     aprende primeiro, e é nela que o nome dela é escrito na mochila.
+
+     Reescreve o texto do campo, e não text-transform no CSS, porque o Blockly
+     mede a palavra para dimensionar a peça e o CSS só pinta: a medida
+     continuava vindo da minúscula e "andar frente" crescia 25px por cima do
+     encaixe do número. Aqui o render() no fim do aplicarNoBloco remede, e a
+     peça cresce junto com a palavra.
+
+     Só FieldLabel. A imagem tem texto — o alt, que é o que o leitor de tela
+     lê — e gritar com ele não ajuda ninguém; o menu de direção é desenho, e o
+     de velocidade só aparece de Intermediário para cima.
+
+     O original fica guardado no próprio campo na primeira visita. Descer de
+     nível devolve o que estava escrito, e não um toLowerCase() — senão o
+     "PLAY" do bloco verde voltaria como "play". Mesma regra do resto do
+     arquivo: trocar de nível nunca corrói o que já existia. */
+  function vestirCaixa(b, alta) {
+    /* Fora da pilha do desfazer. O setValue de um campo é uma mudança do
+       Blockly como qualquer outra, e sem esta cerca abrir a página no
+       Iniciante já nascia com o botão desfazer aceso — e desfazer devolvia a
+       peça para a caixa mista, que é o desenho do nível de cima.
+
+       Vestir não é o que a criança fez: é como o nível desenha o que ela fez.
+       A mesma razão pela qual esconder um campo também não se desfaz. */
+    var eventos = Blockly.Events.isEnabled && Blockly.Events.isEnabled();
+    if (eventos) Blockly.Events.disable();
+    try {
+      for (var i = 0; i < b.inputList.length; i++) {
+        var fileira = b.inputList[i].fieldRow;
+        for (var j = 0; j < fileira.length; j++) {
+          var campo = fileira[j];
+          if (!(campo instanceof Blockly.FieldLabel)) continue;
+          if (campo.__original === undefined) campo.__original = campo.getText();
+          var texto = alta ? campo.__original.toUpperCase() : campo.__original;
+          if (campo.getText() !== texto) campo.setValue(texto);
+        }
+      }
+    } finally {
+      if (eventos) Blockly.Events.enable();
+    }
   }
 
   /* O que o app chama: a peça e o nome do nível, sem conhecer o def. */

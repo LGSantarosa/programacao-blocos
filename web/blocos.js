@@ -667,7 +667,40 @@
     return criarRaiz(workspace);
   }
 
+  /* O que a voz diz ao pegar a peça, para a criança que ainda não lê.
+
+     Não é o texto do bloco lido em voz alta: "andar frente 1 s" tem unidade e
+     número, e quem ainda não lê algarismo não recebe nada disso. É o nome da
+     ação, na forma como um adulto a diria em voz alta ao lado dela.
+
+     Só os blocos do Iniciante e do Básico, que são os níveis onde a voz fala.
+     Peça sem verbete fica muda — descrever() devolve null, e quem chama
+     entende silêncio. */
+  var DESCRICAO = {
+    quando_play:    'quando apertar o play',
+    mover_frente:   'andar para frente',
+    mover_tras:     'andar para trás',
+    esperar:        'esperar',
+    parar:          'parar tudo',
+    repetir:        'repetir',
+    repetir_sempre: 'repetir para sempre',
+    se_obstaculo:   'se tiver algo na frente',
+  };
+
+  /* O girar é o único que não cabe numa linha da tabela: a peça é a mesma para
+     os dois lados, e o que muda é o menu. Dizer "girar 90 graus" seria ler o
+     número para quem não lê número; o lado é o que a seta desenhada já mostra,
+     e é o que a criança vai ver o robô fazer. */
+  function descrever(bloco) {
+    if (bloco.type === 'girar') {
+      var g = Number(bloco.getFieldValue('DIR'));
+      return 'girar para a ' + (g < 0 ? 'esquerda' : 'direita');
+    }
+    return DESCRICAO[bloco.type] || null;
+  }
+
   var api = { definir: definir, workspaceParaAst: workspaceParaAst,
+              DESCRICAO: DESCRICAO, descrever: descrever,
               workspaceParaTarefas: workspaceParaTarefas,
               temTarefas: temTarefas,
               pilhaDoBloco: pilhaDoBloco,

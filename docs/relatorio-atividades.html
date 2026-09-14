@@ -805,11 +805,289 @@ Arduino exportado copia o valor, e um teste falha caso os dois divirjam.</p>
 nominal de duas baterias 18650. O firmware de bancada ficou no repositório
 justamente para que a medição possa ser repetida em outro robô.</p>
 
+<h3>Atividade 28: O aplicativo Android provado no aparelho</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 02/09</p>
+
+<p><b>Descrição:</b><br>
+Primeira execução do aplicativo num celular de verdade. A dúvida que decidia a
+arquitetura: um celular com dados móveis ligados, conectado à rede da placa,
+manda a conversa da tela para a placa ou para a internet?</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Teste num Galaxy S24 FE com Android 16, com o 4G ligado de propósito, que é
+      o caso que quebra: o aplicativo entrou na rede Robo-01 e o PLAY moveu o robô
+      de verdade</li>
+  <li>Correção da biblioteca nativa para aparelhos com páginas de memória de
+      16 KB. Neste aparelho ela carregava com um aviso, mas nos aparelhos que já
+      saem assim de fábrica o aplicativo nem abriria</li>
+  <li>Correção de um travamento ao entrar no robô com o celular já num Wi-Fi: a
+      tela não fechava a conexão anterior, e o servidor local do aplicativo ficava
+      preso esperando por ela. Medido no aparelho: sete conexões abertas ao mesmo
+      tempo e oito presas tentando conectar</li>
+  <li>Regra de layout para o celular deitado, onde falta altura e não largura. O
+      cabeçalho caiu de 164 para 86 pixels</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+O plano de recuo, que era mover a conversa com a placa para dentro do código
+Android, não foi necessário. O aplicativo é o mesmo ambiente do navegador, com o
+robô virtual rodando dentro do celular e sem precisar de computador.</p>
+
+<h3>Atividade 29: Revisão de código do projeto inteiro</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 03/09</p>
+
+<p><b>Descrição:</b><br>
+Varredura de todas as partes do projeto — máquina virtual, robô virtual, ponte,
+interface, firmware, aplicativo e testes — procurando duas coisas: defeito que a
+criança encontra, e atrito para quem mexe no código.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>21 achados em seis grupos: defeitos que a criança vê, fidelidade do robô
+      virtual, uso, desempenho em tablet antigo, limpeza de código e ferramentas de
+      trabalho</li>
+  <li>Cada achado com local no código, forma de reproduzir e proposta de correção,
+      e marcado como “provado rodando” ou “encontrado lendo”</li>
+  <li>Duas auditorias sobre o próprio documento, que corrigiram onze pontos</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+O documento virou o plano dos dias seguintes. A lição das auditorias ficou
+escrita: das correções que elas apontaram, a maioria estava nos achados lidos e
+não rodados, e duas das receitas propostas teriam introduzido defeitos. Por isso
+a regra do projeto passou a ser: um defeito pode ser encontrado lendo, mas a
+correção precisa ser provada rodando. E número que não foi medido não entra no
+texto — o desvio do robô virtual, que a primeira versão estimava em “uns 5%”, foi
+medido: de 1,8% a 3,5%.</p>
+
+<h3>Atividade 30: Defeitos que a criança encontrava</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 04/09</p>
+
+<p><b>Descrição:</b><br>
+Correção dos oito achados da revisão que aparecem na mão de quem usa.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Número grande demais: “andar frente 100 s” virava um valor negativo dentro
+      da instrução, e o robô não andava nada, em silêncio. Agora o compilador
+      recusa com uma frase no vocabulário da criança</li>
+  <li>O bloco de sorteio não sorteava: dependia do relógio, e num laço rápido
+      duzentos sorteios seguidos davam o mesmo número. Ganhou um gerador de números
+      aleatórios de verdade, com semente própria em cada máquina virtual</li>
+  <li>Pedir a solução automática destravava o bloco “quando apertar PLAY”, que a
+      criança podia então apagar sem querer</li>
+  <li>Um endereço malformado na barra do navegador derrubava o servidor da sala
+      inteira. Agora responde com erro e segue no ar</li>
+  <li>Na placa, a versão aparecia na tela como o marcador cru, sem o número</li>
+  <li>O botão voltar do Android fechava o aplicativo e perdia o programa. Agora a
+      página grava antes de sair</li>
+  <li>A depuração do aplicativo passou a existir só na versão de
+      desenvolvimento</li>
+  <li>Uma queda de conexão avisa a tela uma vez só, e não duas</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+Os oito corrigidos, cada um com teste. O primeiro é o pior tipo de defeito para
+este projeto: a criança pede uma coisa, o robô faz outra, e ela conclui que o erro
+foi dela.</p>
+
+<h3>Atividade 31: O robô virtual anda o que a calibração manda</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 07/09</p>
+
+<p><b>Descrição:</b><br>
+O robô virtual percorria de 1,8% a 3,5% menos que a calibração dizia, porque dois
+relógios conviviam sem concordar: a máquina virtual media o tempo real, e a física
+avançava um passo fixo que não contava o tempo gasto em cada volta.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>A física passou a receber o intervalo verdadeiro entre uma volta e outra</li>
+  <li>A física roda antes da máquina virtual, para que cada intervalo seja
+      atribuído aos motores que valiam durante ele, e não aos que acabaram de
+      mudar</li>
+  <li>O passo é fatiado: um intervalo grande é andado em pedaços, com teste de
+      colisão em cada um</li>
+  <li>A conta do giro foi fechada, com a distância entre as rodas derivada das
+      outras constantes em vez de digitada</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+O fatiamento veio primeiro porque protege contra o pior efeito do conserto: na
+primeira tentativa, com um intervalo grande o robô atravessava a parede inteira e
+aparecia do outro lado sem registrar colisão. Foi reproduzido antes de ser
+corrigido. O ensaio é o contrato que faz o robô virtual valer para o real, e um
+ensaio que anda menos esconde erro na hora de calibrar.</p>
+
+<h3>Atividade 32: Uma tela mais lisa de usar</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 08/09</p>
+
+<p><b>Descrição:</b><br>
+Melhorias de uso levantadas na revisão. Nenhuma corrige defeito; elas mudam como é
+usar a tela.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>O programa da criança fica guardado: fechar a aba, o tablet dormir ou o
+      Android fechar o aplicativo não apagam mais o trabalho</li>
+  <li>Botões de desfazer e refazer à vista. Antes eles existiam, mas só num toque
+      longo de três quartos de segundo que nenhuma criança descobre</li>
+  <li>O erro aparece numa bolha em cima da peça que o causou, e não mais numa
+      linha pequena no cabeçalho, onde ninguém olha</li>
+  <li>Trilha de fases: em que fase ela está, quantas faltam, e a possibilidade de
+      voltar a uma anterior</li>
+  <li>O cabeçalho ficou só com o que a criança usa. Nível, som, código e versão
+      foram para trás de um botão de engrenagem</li>
+  <li>Painéis de estado anunciados para leitor de tela</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+A melhoria de maior retorno é o programa guardado, e a parte difícil já existia:
+o mesmo mecanismo que monta a solução automática serve para salvar e carregar.
+Desfazer à vista muda a sensação da tela, porque dá para experimentar sem
+medo.</p>
+
+<h3>Atividade 33: Ferramentas de trabalho, desempenho e limpeza</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 09/09</p>
+
+<p><b>Descrição:</b><br>
+A metade da revisão que a criança não vê: o custo de saber se algo quebrou, o
+gasto de bateria num tablet de sala de aula, e partes do código que só o
+navegador conseguia testar.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>A bateria de testes do dia a dia caiu de 291 segundos para 8. Os dois testes
+      que abrem navegador rodam num comando separado, obrigatório antes de
+      publicar</li>
+  <li>Um comando só para subir o ambiente e outro para testar, no lugar de cinco
+      linhas decoradas</li>
+  <li>Desenho em repouso: com tudo parado, a tela deixou de ser redesenhada 60 vezes
+      por segundo e caiu para 10, e a camada de confete só é limpa quando há
+      confete</li>
+  <li>O teste de compatibilidade com o tablet antigo voltou a cobrar o que o nome
+      promete. Três construções modernas tinham escapado dele</li>
+  <li>Duas regras saíram do arquivo principal da interface para módulos testáveis
+      em milissegundos: quando a ajuda aparece sozinha, e a reconexão</li>
+  <li>A tradução do protocolo feita pela placa ganhou teste: ela era a única, entre
+      as quatro implementações — firmware, ponte, página e aplicativo — sem
+      nenhum</li>
+  <li>Código morto removido, e teste para a arena do robô virtual</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+20 dos 21 achados da revisão fechados, conferidos no código e não pela mensagem de
+cada correção. A bateria passou de 306 para 336 testes. Ficou aberto um: uma falha
+intermitente vista uma vez, que em seis rodadas seguidas não voltou a aparecer. O
+roteiro para reproduzi-la ficou escrito.</p>
+
+<h3>Atividade 34: Tarefas e eventos — pilhas que rodam ao mesmo tempo</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 10/09</p>
+
+<p><b>Descrição:</b><br>
+Terceiro ciclo da série cujo alvo é a criança nunca esbarrar num teto. Até aqui a
+máquina virtual tinha um único ponteiro de execução: qualquer espera parava o
+programa inteiro, e tocar numa peça interrompia o que estivesse rodando.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Máquina virtual com até seis tarefas, cada uma com ponteiro, registradores e
+      pilha de valores próprios, em rodízio justo</li>
+  <li>Duas instruções novas: um cabeçalho que diz onde cada tarefa começa e se ela
+      nasce no PLAY ou dormindo, e o envio de aviso</li>
+  <li>Categoria “Ao mesmo tempo” no nível Avançado, com três peças: “quando
+      (condição)”, “quando chegar o aviso [n]” e “avisar [n]”</li>
+  <li>O PLAY passa a mandar todas as pilhas que têm cabeça. Pilha solta continua
+      sendo rascunho, que só roda no toque</li>
+  <li>A exportação para Arduino recusa e explica, em vez de gerar só a pilha do
+      PLAY</li>
+  <li>Três camadas de teste: o cabeçalho e os saltos, o robô virtual de verdade
+      alimentado pelo compilador de verdade, e o navegador montando duas
+      pilhas</li>
+</ul>
+
+<p><b>Resultado:</b></p>
+<p>Três decisões registradas:</p>
+<ul>
+  <li><b>Programa sem cabeçalho continua valendo.</b> O programa que uma criança
+      deixou guardado não pode virar lixo com a atualização, e há teste provando
+      que, sem peça nova na tela, as instruções saem idênticas byte a byte.</li>
+  <li><b>O motor é um só:</b> quando duas tarefas mandam nele, vale a última que
+      falou. Isso está afirmado em teste, para ninguém tentar consertar por
+      engano.</li>
+  <li><b>Um aviso recomeça a tarefa que já estava rodando</b>, que é o que se
+      espera de apertar de novo o que já está tocando.</li>
+</ul>
+<p>Uma regra saiu do próprio teste, que errou primeiro: toda tarefa termina com uma
+instrução de parada. Sem ela, a execução cai dentro da tarefa seguinte e roda o
+programa da outra.</p>
+
+<h3>Atividade 35: Níveis com nome de escada, e acabamentos de troca</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 11/09</p>
+
+<p><b>Descrição:</b><br>
+Os nomes Pequeno, Médio, Grande e Gigante falavam de tamanho, e tamanho não diz
+para onde o nível leva.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Níveis renomeados para Iniciante, Básico, Intermediário e Avançado. Só o
+      rótulo mudou, então o nível salvo de cada criança continua valendo</li>
+  <li>A fileira de níveis quebra em duas linhas no celular, onde “Intermediário”
+      não cabia</li>
+  <li>A pergunta “isto vai apagar o programa” passou a aparecer na frente do painel
+      de ajustes, e não atrás dele</li>
+  <li>A caixa de blocos abre já no desenho do nível. Antes, por um quadro, as peças
+      apareciam no desenho do nível mais alto e só depois encolhiam</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+É a escada que o adulto que escolhe o nível já reconhece. O teste da caixa confere
+os campos no mesmo instante em que a categoria abre, sem devolver o controle ao
+navegador: se a resposta certa só viesse um quadro depois, ele falharia, que é
+exatamente o que a criança via.</p>
+
+<h3>Atividade 36: A tela fala e escreve em letra de forma</h3>
+<p class="campo"><b>Status:</b> Concluído<br>
+<b>Data:</b> 14/09</p>
+
+<p><b>Descrição:</b><br>
+Adaptação para quem ainda não lê, nos níveis Iniciante e Básico.</p>
+
+<p><b>O que foi feito:</b></p>
+<ul>
+  <li>Todo texto em letra de forma, dentro e fora das peças</li>
+  <li>Voz: pegar uma peça diz o nome dela. A voz vem na hora de escolher, no começo
+      do arrasto, e não no fim, quando a criança já decidiu</li>
+  <li>A voz é a do próprio sistema, sem nenhum arquivo de áudio, e obedece ao mesmo
+      botão de mudo dos sons</li>
+  <li>Aviso nos Ajustes quando o aparelho não tem voz instalada</li>
+  <li>Verificado no aplicativo, no aparelho</li>
+</ul>
+
+<p><b>Resultado:</b><br>
+A letra de forma não pôde ser só estilo visual: a biblioteca de blocos mede a
+palavra para dimensionar a peça, e o estilo só pinta. “ANDAR FRENTE” crescia 25
+pixels por cima do encaixe do número, sem a peça crescer junto. Quem troca o texto
+agora é a configuração do nível, e ela guarda o original, para que descer de nível
+devolva o “PLAY” do bloco verde como “PLAY” e não como “play”.</p>
+
+<p>A voz não lê o texto do bloco: “andar frente 1 s” tem número e unidade, e quem
+não lê algarismo não recebe nada disso. Ela diz o nome da ação, e o girar diz o
+lado. Sem voz instalada, a fala vira silêncio sem erro nenhum, e ninguém distingue
+isso de um defeito — daí o aviso nos Ajustes, dirigido ao adulto.</p>
+
 <hr>
 
 <h2>3. Estado atual e verificação</h2>
-
-<p>Bateria de testes completa, toda verde:</p>
 
 <table>
   <tr>
@@ -818,19 +1096,14 @@ justamente para que a medição possa ser repetida em outro robô.</p>
     <th>Resultado</th>
   </tr>
   <tr>
-    <td>Testes em JavaScript</td>
-    <td>Compilador, blocos, níveis, solução automática, som, teclado numérico, ponte e navegador</td>
-    <td><b>280 / 280</b></td>
+    <td>Testes rápidos</td>
+    <td>JavaScript, C e ponta a ponta: compilador, blocos, níveis, tarefas, protocolo, teclado, arena e ponte</td>
+    <td><b>360 aprovados, 0 falhas</b></td>
   </tr>
   <tr>
-    <td>Testes em C</td>
-    <td>Máquina virtual, física e montador de mensagens</td>
-    <td>Verde</td>
-  </tr>
-  <tr>
-    <td>Teste de ponta a ponta</td>
-    <td>Robô virtual, do protocolo ao movimento</td>
-    <td>Verde</td>
+    <td>Testes de navegador</td>
+    <td>Soluções das missões em todos os níveis, e interface</td>
+    <td>Rodados à parte antes de publicar</td>
   </tr>
   <tr>
     <td>Teste de compatibilidade</td>
@@ -840,7 +1113,7 @@ justamente para que a medição possa ser repetida em outro robô.</p>
   <tr>
     <td>Compilação do firmware</td>
     <td>ESP32</td>
-    <td>Sucesso — RAM 18,6%, flash 66,7%</td>
+    <td>Sucesso — RAM 18,7%, flash 66,7%</td>
   </tr>
   <tr>
     <td>Teste em hardware</td>
@@ -850,6 +1123,11 @@ justamente para que a medição possa ser repetida em outro robô.</p>
   <tr>
     <td>Robô montado</td>
     <td>Motores, sensor de distância, velocidades e trajetória em linha reta</td>
+    <td><b>Aprovado</b></td>
+  </tr>
+  <tr>
+    <td>Aplicativo Android</td>
+    <td>Galaxy S24 FE, Android 16, com dados móveis ligados</td>
     <td><b>Aprovado</b></td>
   </tr>
 </table>
@@ -863,10 +1141,10 @@ em C, e os dois lados são escritos independentemente.</p>
 <table>
   <tr>
     <th></th>
-    <th>Pequeno (4 a 6)</th>
-    <th>Médio (7 a 9)</th>
-    <th>Grande (10+)</th>
-    <th>Gigante (12+)</th>
+    <th>Iniciante (4 a 6)</th>
+    <th>Básico (7 a 9)</th>
+    <th>Intermediário (10+)</th>
+    <th>Avançado (12+)</th>
   </tr>
   <tr>
     <td><b>Movimento</b></td>
@@ -890,6 +1168,20 @@ em C, e os dois lados são escritos independentemente.</p>
     <td><b>Contas</b></td>
   </tr>
   <tr>
+    <td><b>Ao mesmo tempo</b></td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+    <td><b>Quando, avisos</b></td>
+  </tr>
+  <tr>
+    <td><b>Para quem não lê</b></td>
+    <td>Voz e letra de forma</td>
+    <td>Voz e letra de forma</td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
     <td><b>Saída</b></td>
     <td>—</td>
     <td>—</td>
@@ -904,94 +1196,29 @@ em C, e os dois lados são escritos independentemente.</p>
   <li><b>Validação do código exportado num Arduino IDE real.</b> O teste compila
       o C++ gerado com um compilador de verdade, o que prova a sintaxe, mas não
       prova a plataforma.</li>
-  <li><b>Integração do robô físico.</b> <i>Concluída em 01/09</i> — alimentação,
-      driver TB6612FNG, motores e HC-SR04 validados no chassi montado
-      (Atividades 24 e 27).</li>
-  <li><b>Calibração do giro.</b> As três velocidades de andar foram medidas no
-      robô (Atividade 27), mas o giro usa um valor próprio, ainda estimado — e é
-      o mesmo valor que mal tira o robô da inércia andando reto. Como girar no
-      lugar é mais pesado que andar, porque as rodas arrastam de lado, é provável
-      que o bloco de giro tenha hoje o mesmo defeito que a velocidade
-      <i>devagar</i> tinha. A régua de bancada da Atividade 23 mede isso do mesmo
-      jeito.</li>
-  <li><b>Autonomia por bateria.</b> As medições foram feitas com fonte de
-      bancada. Bateria descarregando altera todos os limiares medidos.</li>
+  <li><b>Calibração do giro no robô real.</b> As velocidades de andar foram
+      medidas (Atividade 27), mas o giro usa um valor estimado, que mal tira o robô
+      da inércia andando reto.</li>
+  <li><b>Blocos de sensor no robô montado.</b> A leitura está provada, mas “se
+      obstáculo” e “repetir até chegar perto” nunca decidiram nada no robô
+      real.</li>
+  <li><b>Autonomia por bateria.</b> Tudo foi medido com fonte de bancada, e bateria
+      descarregando sobe o limiar de partida.</li>
+  <li><b>Missões no robô real.</b> A chegada à estrela depende de uma posição que a
+      placa não tem como informar.</li>
+  <li><b>Acrescentar uma pilha a um programa em curso.</b> Tocar numa peça ainda
+      troca o programa inteiro da placa.</li>
 </ul>
 
-<h2>5. Plano das próximas duas semanas</h2>
+<h2>5. Próximos ciclos</h2>
 
-<p>As atividades abaixo estão <b>planejadas</b>, não realizadas. Elas saem
-diretamente das pendências da seção 4 e do que a sessão de 01/09 deixou anotado
-como não medido.</p>
-
-<table>
-  <tr>
-    <th>Data prevista</th>
-    <th>Atividade</th>
-    <th>Por que é necessária</th>
-  </tr>
-  <tr>
-    <td>02/09 a 03/09</td>
-    <td><b>Calibração do giro no robô real</b></td>
-    <td>O giro usa um valor próprio, ainda estimado, e é o mesmo que mal tira o
-        robô da inércia andando reto. Girar no lugar é mais pesado, porque as
-        rodas arrastam de lado: é provável que o bloco de giro tenha hoje o mesmo
-        defeito que a velocidade <i>devagar</i> tinha. Envolve medir com a régua
-        de bancada, ajustar o valor e refazer a relação entre tempo e ângulo.</td>
-  </tr>
-  <tr>
-    <td>04/09</td>
-    <td><b>Verificação do ângulo girado</b></td>
-    <td>Mudar a velocidade de giro muda quantos milissegundos custa um grau, e
-        esse número está copiado em três lugares — a máquina virtual, a física do
-        robô virtual e o código Arduino exportado. Medir o ângulo real de um giro
-        de 90 e de 360 graus, e reconciliar os três.</td>
-  </tr>
-  <tr>
-    <td>05/09</td>
-    <td><b>Blocos de sensor rodando no robô montado</b></td>
-    <td>A leitura do sensor está provada, mas os blocos que <i>decidem</i> a
-        partir dela — “se obstáculo a menos de”, “repetir até chegar perto” —
-        nunca foram executados no robô real com o sensor ligado. É o caminho
-        completo: sensor, decisão e motor.</td>
-  </tr>
-  <tr>
-    <td>08/09 a 09/09</td>
-    <td><b>Autonomia e comportamento com bateria</b></td>
-    <td>Todas as velocidades foram medidas com fonte de bancada em 7,5 V fixos.
-        Bateria descarregando baixa a tensão, e o limiar em que o robô sai da
-        inércia sobe junto: o <i>devagar</i> pode parar de andar com a bateria
-        pela metade. Medir com as 18650 em três estados de carga.</td>
-  </tr>
-  <tr>
-    <td>10/09</td>
-    <td><b>Missões no robô real</b></td>
-    <td>A chegada à estrela é decidida pela posição que a telemetria informa, e a
-        placa não tem física para informar posição alguma. No robô real a missão
-        nunca se dá por cumprida. Definir o que a missão significa fora da arena
-        simulada.</td>
-  </tr>
-  <tr>
-    <td>11/09 a 12/09</td>
-    <td><b>Validação do código exportado num Arduino IDE real</b></td>
-    <td>Pendência aberta desde a Atividade 16. O teste automatizado compila o C++
-        gerado com um compilador de verdade, o que prova a sintaxe, mas não prova
-        a plataforma: bibliotecas, versão do núcleo ESP32 e gravação pelo próprio
-        IDE.</td>
-  </tr>
-</table>
-
-<h2>6. Próximos ciclos</h2>
-
-<p>Na ordem combinada, ditada pelo que a máquina virtual precisa e não por
+<p>Já feitos da ordem original: execução viva (Atividade 22) e tarefas e eventos
+(Atividade 34). O que sobra, na ordem ditada pela máquina virtual e não por
 preferência:</p>
 
 <ol>
-  <li><b>Caixas com nome</b> — variáveis, criadas e nomeadas pela criança.</li>
-  <li><b>Tarefas e eventos</b> — “quando começar”, “quando tal condição”, avisos
-      entre pedaços do programa. Precisa de mais de um ponteiro de execução.</li>
+  <li><b>Caixas com nome</b> — variáveis, criadas e nomeadas pela criança. É o
+      próximo.</li>
   <li><b>Blocos que ela inventa</b> — funções do usuário.</li>
   <li><b>Dados</b> — listas e texto.</li>
-  <li><b>Execução viva</b> — clicar num bloco e ele rodar na hora, sem ciclo de
-      envio.</li>
 </ol>

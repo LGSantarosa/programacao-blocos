@@ -476,3 +476,18 @@ test('a gaveta das caixas é montada na hora, e não escrita no XML', () => {
   assert.ok(xml.includes('<category name="Caixas" colour="#e06000" custom="CAIXAS"></category>'), xml);
   assert.ok(!xml.includes('type="caixa_'), 'as peças vêm da gaveta, não do XML');
 });
+
+/* ---------- os blocos que ela inventa ---------- */
+
+test('só o Avançado tem os blocos inventados', () => {
+  for (const nivel of ['pequeno', 'medio', 'grande']) {
+    const b = Niveis.definicao(nivel).blocos;
+    assert.ok(b.indexOf('bloco_ensinar') < 0, nivel + ' não deveria ter blocos inventados');
+    assert.ok(!Niveis.caixaXml(nivel).includes('custom="MEUS_BLOCOS"'));
+  }
+  const g = Niveis.definicao('gigante').blocos;
+  assert.ok(g.indexOf('bloco_ensinar') >= 0);
+  assert.ok(g.indexOf('bloco_usar') >= 0);
+  assert.ok(Niveis.caixaXml('gigante').includes(
+    '<category name="Meus blocos" colour="#a040c0" custom="MEUS_BLOCOS"></category>'));
+});

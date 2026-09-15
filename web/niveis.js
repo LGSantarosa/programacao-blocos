@@ -13,6 +13,7 @@
   var COR_MOVIMENTO = '#0050f0', COR_LACO = '#f0c000', COR_SENSOR = '#20b0f0';
   var COR_CONTA = '#002080';
   var COR_CAIXA = '#e06000';
+  var COR_BLOCO = '#a040c0';
   /* O mesmo verde da âncora do PLAY: é a família de quem começa uma pilha. */
   var COR_INICIO = '#37c26b';
 
@@ -121,6 +122,10 @@
          alguma coisa para quem já faz conta — e porque é aqui que duas pilhas
          precisam de um lugar em comum. */
       'caixa_guardar', 'caixa_mudar', 'caixa_ler',
+      /* Os blocos que ela inventa. No Avançado porque dar nome a um pedaço de
+         programa só vale para quem já monta pedaços grandes o bastante para
+         repetir. */
+      'bloco_ensinar', 'bloco_usar',
     ]),
     campos: DEFINICOES.grande.campos,
     bolinhas: false,
@@ -228,6 +233,12 @@
     if (tem('caixa_guardar')) {
       xml += '<category name="Caixas" colour="' + COR_CAIXA +
              '" custom="CAIXAS"></category>';
+    }
+    /* Como a das caixas: depende do que a criança já ensinou, e quem monta é
+       o Blocos.gavetaDeBlocos, registrado pelo app.js com este nome. */
+    if (tem('bloco_ensinar')) {
+      xml += '<category name="Meus blocos" colour="' + COR_BLOCO +
+             '" custom="MEUS_BLOCOS"></category>';
     }
     xml += '</xml>';
     return xml;

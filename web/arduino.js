@@ -53,7 +53,7 @@
      maiúscula. Uma lista que acompanhasse tudo isso ficaria para trás no
      primeiro bloco novo; o prefixo fecha tudo de uma vez, e ainda diz a quem
      lê que aquilo é a caixa que ela criou. */
-  function limparNome(nome) {
+  function limparNome(nome, prefixo) {
     var s = String(nome === null || nome === undefined ? '' : nome);
     var fora = '', i, c, baixo, troca;
     for (i = 0; i < s.length; i++) {
@@ -69,29 +69,43 @@
     fora = fora.replace(/[^A-Za-z0-9_]/g, '_')
                .replace(/_+/g, '_')
                .replace(/^_+|_+$/g, '');
-    return 'caixa_' + (fora || 'caixa');
+    return (prefixo || 'caixa_') + (fora || 'caixa');
   }
 
-  /* Nome da caixa → identificador, para o gerar() em curso. Refeito a cada
-     gerar(), na ordem em que as caixas aparecem, para que dois nomes que
-     dão no mesmo virem _2, _3 sempre na mesma ordem. */
+  /* Nome → identificador, para o gerar() em curso. Refeito a cada gerar(), na
+     ordem em que aparecem, para que dois nomes que dão no mesmo virem _2, _3
+     sempre na mesma ordem. Caixas e blocos contam colisão separado: o prefixo
+     já os separa. */
   var identificadores = {};
   var identificadoresUsados = {};
 
-  function identificadorDe(nome) {
-    var chave = ' ' + nome;   /* o espaço impede "constructor" e parentes */
+  function identificadorDe(nome, prefixo) {
+    prefixo = prefixo || 'caixa_';
+    var chave = prefixo + ' ' + nome;   /* o espaço impede "constructor" e parentes */
     if (Object.prototype.hasOwnProperty.call(identificadores, chave)) {
       return identificadores[chave];
     }
-    var base = limparNome(nome), ident = base, k = 2;
+    var base = limparNome(nome, prefixo), ident = base, k = 2;
     while (Object.prototype.hasOwnProperty.call(identificadoresUsados, ident)) {
       ident = base + '_' + k;
       k++;
     }
     identificadores[chave] = ident;
-    identificadoresUsados[ident] = true;
+    identificadoresUsados[ident] = prefixo;
     return ident;
   }
+
+  /* As funções dos blocos inventados, em ordem de dependência: uma entra na
+     lista depois de todas as que ela usa. Sem ciclo (a tradução já recusou),
+     essa ordem sempre existe. Cada nome é visitado uma vez só: a árvore
+     compartilha o corpo de uma definição em todos os usos, e visitá-lo em cada
+     um refaria a explosão que a tradução evitou. */
+  var funcoes = [];
+  var funcoesVistas = {};
+
+  /* Dentro de bloco_x(), o return do «parar» só sairia da função, e o robô
+     seguiria para o bloco seguinte — onde a VM parou tudo. */
+  var emFuncao = false;
 
   function recuo(n) {
     var s = '', i;
@@ -205,6 +219,22 @@
       usoDeValor(no.valor, uso);
       if (no.op === 'guardar' || no.op === 'mudar') identificadorDe(no.nome);
       if (no.op === 'mudar') uso.somar = true;
+      if (no.op === 'usar') {
+        var chaveFn = ' ' + String(no.nome).toLowerCase();
+        if (!Object.prototype.hasOwnProperty.call(funcoesVistas, chaveFn)) {
+          funcoesVistas[chaveFn] = true;
+          /* A de dentro primeiro: é o que põe a função usada antes de quem usa.
+             E marcando que está dentro de função, para o «parar» de lá pedir
+             o fim(). */
+          var antes = uso.dentroDeFuncao;
+          uso.dentroDeFuncao = true;
+          usoDe(no.corpo || [], uso);
+          uso.dentroDeFuncao = antes;
+          funcoes.push(no);
+          identificadorDe(no.nome, 'bloco_');
+        }
+      }
+      if (no.op === 'parar' && uso.dentroDeFuncao) uso.fim = true;
       if (no.op === 'frente') uso.frente = true;
       if (no.op === 'tras') uso.tras = true;
       if (no.op === 'girar') uso.girar = true;
@@ -221,7 +251,10 @@
       }
       /* Os três ramos possíveis. O "senão" não se chama "corpo", e esquecê-lo
          geraria um arquivo sem a função que o próprio arquivo chama. */
-      if (no.corpo) usoDe(no.corpo, uso);
+      /* O corpo de um «usar» já foi visitado acima, uma vez por nome. Entrar
+         nele de novo aqui, a cada uso, refaria a explosão que a árvore
+         compartilhada evita. */
+      if (no.corpo && no.op !== 'usar') usoDe(no.corpo, uso);
       if (no.entao) usoDe(no.entao, uso);
       if (no.senao) usoDe(no.senao, uso);
     }
@@ -250,7 +283,10 @@
           break;
         case 'parar':
           linhas.push(r + 'parar();');
-          linhas.push(r + 'return;');
+          linhas.push(r + (emFuncao ? 'fim();' : 'return;'));
+          break;
+        case 'usar':
+          linhas.push(r + identificadorDe(no.nome, 'bloco_') + '();');
           break;
         case 'repetir': {
           /* Zero viraria um laço que nunca roda; o compilador força 1 pela
@@ -488,12 +524,40 @@
   function declaracoes() {
     var fora = [], ident;
     for (ident in identificadoresUsados) {
-      if (Object.prototype.hasOwnProperty.call(identificadoresUsados, ident)) {
+      if (Object.prototype.hasOwnProperty.call(identificadoresUsados, ident) &&
+          identificadoresUsados[ident] === 'caixa_') {
         fora.push('int32_t ' + ident + ' = 0;');
       }
     }
     if (!fora.length) return [];
     return ['/* As caixas que você criou. */'].concat(fora, ['']);
+  }
+
+  /* delay e não laço vazio: o delay do ESP32 cede a vez, e um while (true) {}
+     seco dispara o watchdog da tarefa e reinicia a placa. */
+  var FIM_FN = [
+    '/* O robô para aqui, e não volta para quem chamou: é o que o parar faz nos',
+    '   blocos. */',
+    'void fim() {',
+    '  while (true) delay(1000);',
+    '}',
+    ''
+  ];
+
+  function gerarFuncoes() {
+    var fora = [], k, no, corpo;
+    for (k = 0; k < funcoes.length; k++) {
+      no = funcoes[k];
+      corpo = [];
+      emFuncao = true;
+      gerarNos(no.corpo || [], 1, 0, corpo);
+      emFuncao = false;
+      fora.push('void ' + identificadorDe(no.nome, 'bloco_') + '() {');
+      fora = fora.concat(corpo);
+      fora.push('}');
+      fora.push('');
+    }
+    return fora;
   }
 
   var FIM = [
@@ -516,6 +580,9 @@
     var nos = ast || [];
     identificadores = {};
     identificadoresUsados = {};
+    funcoes = [];
+    funcoesVistas = {};
+    emFuncao = false;
     var uso = usoDe(nos);
     var corpo = [];
     var linhas = [];
@@ -530,6 +597,8 @@
     if (uso.aleatorio) linhas = linhas.concat(ALEATORIO);
     if (uso.sensor) linhas = linhas.concat(SENSOR);
     if (uso.somar) linhas = linhas.concat(SOMAR);
+    if (uso.fim) linhas = linhas.concat(FIM_FN);
+    linhas = linhas.concat(gerarFuncoes());
     linhas.push('void programa() {');
     linhas = linhas.concat(corpo);
     linhas.push('}');

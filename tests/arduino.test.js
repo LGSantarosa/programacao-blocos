@@ -514,3 +514,80 @@ test('a somar do sketch gerado dá a volta sem comportamento indefinido',
     fs.rmSync(dir, { recursive: true, force: true });
     assert.strictEqual(r.status, 0, 'a somar errou (código ' + r.status + '):\n' + r.stderr);
   });
+
+/* ---------- os blocos que ela inventa ---------- */
+
+const girar90 = [{ op: 'girar', graus: 90 }];
+
+test('usar vira chamada, e a função é declarada uma vez', () => {
+  const uso = { op: 'usar', nome: 'dançar', corpo: girar90 };
+  const texto = gerar([uso, uso]);
+  assert.strictEqual(texto.split('void bloco_dancar() {').length - 1, 1, texto);
+  assert.ok(texto.includes('  girar(90);\n}'), texto);
+  assert.strictEqual(programa([uso, uso]), '  bloco_dancar();\n  bloco_dancar();');
+});
+
+test('a função usada por outra vem antes dela', () => {
+  const b = { op: 'usar', nome: 'b', corpo: girar90 };
+  const a = { op: 'usar', nome: 'a', corpo: [b] };
+  const texto = gerar([a]);
+  assert.ok(texto.indexOf('void bloco_b()') < texto.indexOf('void bloco_a()'), texto);
+  assert.ok(texto.indexOf('void bloco_a()') < texto.indexOf('void programa()'), texto);
+});
+
+test('parar dentro de função chama fim(), e fim só existe então', () => {
+  const com = gerar([{ op: 'usar', nome: 'x', corpo: [{ op: 'parar' }] }]);
+  assert.ok(com.includes('void bloco_x() {\n  parar();\n  fim();\n}'), com);
+  assert.ok(com.includes('void fim() {'), com);
+  assert.ok(com.indexOf('void fim()') < com.indexOf('void bloco_x()'));
+  const sem = gerar([{ op: 'parar' }]);
+  assert.ok(!sem.includes('fim()'));
+  assert.ok(sem.includes('  parar();\n  return;'), 'fora de função, o parar é o de sempre');
+});
+
+test('o sensor lido só dentro de um bloco inventado é declarado', () => {
+  const texto = gerar([{ op: 'usar', nome: 'olhar',
+    corpo: [{ op: 'se', cond: { op: 'menor', a: { op: 'distancia' }, b: 10 },
+              corpo: [{ op: 'parar' }] }] }]);
+  assert.ok(texto.includes('int distanciaCm()'), texto);
+});
+
+test('o repetir dentro da função recomeça em i', () => {
+  const texto = gerar([{ op: 'repetir', vezes: 2, corpo: [
+    { op: 'usar', nome: 'volta', corpo: [{ op: 'repetir', vezes: 3, corpo: girar90 }] }] }]);
+  assert.ok(texto.includes('void bloco_volta() {\n  for (int i = 0; i < 3; i++) {'), texto);
+});
+
+test('bloco e caixa com o mesmo nome não se atropelam', () => {
+  const texto = gerar([
+    { op: 'guardar', indice: 0, nome: 'x', valor: 1 },
+    { op: 'usar', nome: 'x', corpo: girar90 },
+  ]);
+  assert.ok(texto.includes('int32_t caixa_x = 0;'));
+  assert.ok(texto.includes('void bloco_x() {'));
+});
+
+test('a cadeia de vinte blocos gera o .ino em milissegundos', () => {
+  let corpo = girar90;
+  for (let i = 0; i < 20; i++) {
+    const uso = { op: 'usar', nome: 'b' + i, corpo };
+    corpo = [uso, uso];
+  }
+  const t0 = Date.now();
+  const texto = gerar(corpo);
+  assert.ok(Date.now() - t0 < 500, 'demorou ' + (Date.now() - t0) + ' ms');
+  assert.strictEqual((texto.match(/^void bloco_b\d+\(\) \{$/gm) || []).length, 20);
+});
+
+test('o sketch com dois blocos encadeados e um parar compila',
+  { skip: temGpp() ? false : 'sem g++ nesta máquina' }, () => {
+    const b = { op: 'usar', nome: 'girar um pouco', corpo: [{ op: 'girar', graus: 10 }] };
+    const a = { op: 'usar', nome: 'dançar', corpo: [b, b, { op: 'parar' }] };
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ino-'));
+    const arq = path.join(dir, 'blocos.cpp');
+    fs.writeFileSync(arq, '#include "fake_arduino.h"\n' + gerar([a, { op: 'girar', graus: 5 }]));
+    const r = spawnSync('g++', ['-fsyntax-only', '-Wall', '-I', __dirname, arq],
+      { encoding: 'utf8' });
+    fs.rmSync(dir, { recursive: true, force: true });
+    assert.strictEqual(r.status, 0, 'o sketch não compilou:\n' + r.stderr);
+  });

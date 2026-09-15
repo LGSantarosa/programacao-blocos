@@ -130,6 +130,15 @@ evitou: é a operação sobre estado dividido, e ela precisa ser uma.
 A soma passa por `uint32_t` e volta, para dar a volta em vez de ser comportamento
 indefinido do C quando a caixa estoura.
 
+Metade disso é garantida pelo padrão e metade não. A soma em `uint32_t` é
+definida: dá a volta módulo 2³². A conversão de volta para `int32_t`, quando o
+resultado passa de `INT32_MAX`, é **definida pela implementação** em C e em C++
+antes do C++20. A garantia vale para os compiladores que o projeto usa — o GCC do
+host e da ESP32, e o Clang do NDK —, que documentam essa conversão como módulo
+2³², e é o que os testes conferem rodando. Uma conversão escrita só com o que o
+padrão garante existe, mas é uma linha que ninguém lê de primeira; entre ela e
+um compilador documentado, fica o compilador.
+
 O «guardar [conta com a própria caixa]» que a criança montar à mão — `guardar
 (voltas + 1) na caixa voltas` — continua não sendo atômico. É o programa dela, e
 ele é tão atômico quanto ela o escreveu; quem quer somar tem o bloco de somar.
@@ -407,6 +416,10 @@ garantir a volta. Um `.ino` que anda igual ao robô até o dia em que a conta
 estoura é um `.ino` que não anda igual. O nome `somar` fica fora do alcance das
 caixas, porque toda caixa começa por `caixa_`.
 
+A conversão final para `int32_t` tem a mesma ressalva escrita na VM: definida
+pela implementação, e módulo 2³² no GCC da ESP32, que é o compilador do Arduino
+IDE para essa placa.
+
 O `.ino` roda um programa só, então lá não há duas pilhas para se atropelar.
 
 ### Os números, arredondados como na VM
@@ -441,11 +454,10 @@ multiplica por 1000 antes de arredondar e a casa decimal é de verdade.
 | `tests/vm_test.c` | `STORE_VAR`, `PUSH_VAR` e `CHANGE_VAR` guardam, leem e somam; `CHANGE_VAR` estourando dá a volta; índice fora da faixa para a VM nos três; a caixa sobrevive a `vm_load` + `vm_run`; `ZERAR` zera como instrução e como primeira do programa |
 | `tests/tarefas_test.c` | **duas tarefas fazendo «mudar x por 1» num laço de N voltas terminam com 2N**; `ZERAR` antes do cabeçalho não desloca as tarefas |
 | `tests/compilador.test.js` | programa sem `zerarCaixas` gera bytecode idêntico ao de antes; o bytecode de `caixa`, `guardar` e `mudar`; `zerarCaixas` emite `ZERAR` mesmo sem caixa na árvore; os `inicio` somam 1 com `ZERAR`; conta de profundidade máxima dentro de `mudar` passa, e uma a mais dá o erro no bloco |
-| `tests/caixas.test.js` | criar dá o menor livre; renomear não mexe; apagar libera; **apagar e desfazer volta ao mesmo lugar**; a 17ª é recusada; **lugar apagado continua sujo, e só o aviso de programa com `ZERAR` o limpa**; mapa e sujos voltam iguais depois de gravados e lidos |
+| `tests/caixas.test.js` | criar dá o menor livre; renomear não mexe; apagar libera; **apagar e desfazer volta ao mesmo lugar**; a 17ª é recusada; **lugar apagado continua sujo, e só o aviso de programa com `ZERAR` o limpa**; mapa e sujos voltam iguais depois de gravados e lidos; **estado corrompido não quebra a página**: id que não é texto, lugar fora de 0..15 ou não inteiro, e dois ids no mesmo lugar (fica o primeiro) são descartados, e um `caixas` que nem é objeto vira mapa vazio |
 | `tests/guardar.test.js` | `{ nivel, blocos, caixas }` vai e volta; programa antigo sem `caixas` lê com mapa vazio |
 | `tests/blocos.test.js` | o nó leva o lugar do mapa e o nome; bloco com caixa sem lugar vira erro no bloco |
-| `tests/arduino.test.js` | as seis regras de limpeza; nomes `PWMA`, `delay`, `HIGH`, `__x`, `_Nome`, `3voltas`, `número de voltas` e dois nomes colidindo geram identificadores válidos e distintos; a global é `int32_t` e aparece antes de `fiacao()` e de `programa()`; `mudar` gera `somar(...)` e a função só existe quando há «mudar»; `guardar 1.6` e `guardar -1.6` escrevem `2` e `-2`, `-1.5` escreve `-1`, igual ao bytecode; `andar (1.5 + 1)` escreve os números arredondados |
-| `tests/somar_test.c` | a `somar` exatamente como o `arduino.js` a escreve (lida do arquivo, como o `arduino.test.js` já lê os pinos) compilada no teste de mesa: `2147483647 + 1` dá `-2147483648`, igual ao `CHANGE_VAR` |
+| `tests/arduino.test.js` | as seis regras de limpeza; nomes `PWMA`, `delay`, `HIGH`, `__x`, `_Nome`, `3voltas`, `número de voltas` e dois nomes colidindo geram identificadores válidos e distintos; a global é `int32_t` e aparece antes de `fiacao()` e de `programa()`; `mudar` gera `somar(...)` e a função só existe quando há «mudar»; `guardar 1.6` e `guardar -1.6` escrevem `2` e `-2`, `-1.5` escreve `-1`, igual ao bytecode; `andar (1.5 + 1)` escreve os números arredondados; **um sketch gerado com «mudar», com um `main()` colado no fim, compila com `g++ -fsanitize=undefined -fno-sanitize-recover`, roda, e `somar(INT32_MAX, 1)` dá `INT32_MIN`** — o mesmo caminho do teste de sintaxe que já existe, agora linkando, porque o `fake_arduino.h` implementa as funções como `inline`. O fake ganha `#include <stdint.h>`, que o `Arduino.h` de verdade já traz |
 | `tests/es5.test.js` | `.normalize(` entra em `PROIBIDO` |
 | `tests/tarefas_ponta_a_ponta.test.js` | uma pilha conta, outra lê, no robô virtual |
 | `tests/navegador.test.js` | criar caixa pelo botão; tocar em «mudar» duas vezes e no relator mostra `2`; **PLAY de um programa sem caixa zera a caixa tocada por pilha solta**; **guardar 5, apagar a caixa, PLAY, criar outra e tocar nela mostra 0**; apagar e desfazer mantém o número; recarregar a página mantém nome e lugar |
@@ -482,3 +494,11 @@ Segunda revisão:
 | PLAY sem caixa na tela deixava número no lugar de uma caixa apagada | `caixas.js` guarda lugares sujos, apagados inclusive, e grava junto; o PLAY zera quando há sujo |
 | `.ino` não arredondava como a VM | `valor()` faz `Math.round` em todo número solto; teste com 1.6, -1.6 e -1.5 |
 | estouro do «mudar» indefinido no `.ino` | `somar()` por `uint32_t`, compilada num teste de mesa; `int32_t` no lugar de `long` |
+
+Terceira revisão (aprovada, com ajustes de teste):
+
+| achado | o que mudou |
+|---|---|
+| `uint32_t` → `int32_t` fora da faixa é definido pela implementação | a spec diz que a garantia é dos compiladores usados (GCC e Clang), e não do padrão |
+| `somar_test.c` não testaria o texto que o `arduino.js` escreve | saiu; o `arduino.test.js` compila e roda o sketch gerado, com UBSan |
+| estado `caixas` corrompido no `localStorage` | descartado entrada por entrada, com teste |

@@ -720,6 +720,7 @@ git push origin master
   - `mapa.temLugar() → boolean`
   - `mapa.temSujo() → boolean`
   - `mapa.zerou() → void`
+  - `mapa.reconciliar(ids: string[]) → void` — id do mapa fora de `ids` vira apagado; id de `ids` sem lugar vira criado.
   - `mapa.exportar() → { lugar: {id: n}, antigo: {id: n}, sujo: number[] }`
 
 - [ ] **Step 1: Escrever os testes que falham**
@@ -833,6 +834,61 @@ test('lugar ocupado é sempre sujo, mesmo que o gravado diga que não', () => {
   const m = Caixas.importar({ lugar: { a: 3 }, sujo: [] });
   assert.deepStrictEqual(m.exportar().sujo, [3]);
 });
+
+/* O workspace.clear() do Blockly esvazia as variáveis sem disparar VAR_DELETE.
+   Quem mantém o mapa em dia é o reconciliar, e não os eventos. */
+
+test('reconciliar tira do mapa quem não existe mais, e o lugar fica sujo', () => {
+  const m = vazio();
+  m.criada('a'); m.criada('b');
+  m.zerou();
+  m.reconciliar(['b']);
+  assert.strictEqual(m.lugarDe('a'), null);
+  assert.strictEqual(m.lugarDe('b'), 1);
+  assert.deepStrictEqual(m.exportar().sujo, [0, 1]);
+  assert.strictEqual(m.criada('c'), 0);
+});
+
+test('reconciliar dá lugar a quem está na tela e não no mapa', () => {
+  const m = vazio();
+  m.reconciliar(['x', 'y']);
+  assert.strictEqual(m.lugarDe('x'), 0);
+  assert.strictEqual(m.lugarDe('y'), 1);
+});
+
+test('trocar de tela sem evento nenhum não deixa fantasma segurando lugar', () => {
+  const m = vazio();
+  for (let volta = 0; volta < 5; volta++) {
+    const ids = [];
+    for (let i = 0; i < 10; i++) ids.push('v' + volta + '_' + i);
+    m.reconciliar(ids);
+    assert.deepStrictEqual(ids.map((id) => m.lugarDe(id)),
+                           [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'volta ' + volta);
+    m.reconciliar([]);        /* o clear() do Blockly */
+  }
+  assert.strictEqual(m.temLugar(), true);
+  assert.ok(Object.keys(m.exportar().antigo).length <= Caixas.N_CAIXAS,
+    'a lembrança não pode crescer a cada troca de tela');
+});
+
+test('estado gravado com 16 fantasmas não impede a caixa de verdade', () => {
+  const lugar = {};
+  for (let i = 0; i < 16; i++) lugar['fantasma' + i] = i;
+  const m = Caixas.importar({ lugar });
+  m.reconciliar(['real']);
+  assert.strictEqual(m.lugarDe('real'), 0);
+  assert.strictEqual(m.temSujo(), true, 'os fantasmas podiam ter número na VM');
+});
+
+test('quando uma caixa toma um lugar, a lembrança antiga dele some', () => {
+  const m = vazio();
+  m.criada('a');
+  m.apagada('a');
+  m.criada('b');
+  assert.deepStrictEqual(m.exportar().antigo, {});
+  const lido = Caixas.importar({ lugar: { b: 0 }, antigo: { a: 0, c: 4 } });
+  assert.deepStrictEqual(lido.exportar().antigo, { c: 4 });
+});
 ```
 
 Em `tests/es5.test.js`, acrescente ao fim da lista `PROIBIDO`, depois da entrada de `.repeat`:
@@ -921,8 +977,34 @@ Expected: FAIL — `Cannot find module '../web/caixas.js'`.
     if (n === null) return null;
     this.lugar[id] = n;
     delete this.antigo[id];
+    /* Quem lembrava deste lugar perde a lembrança: desfazer depois disso cai
+       no menor livre, que é a regra de sempre, e a lista nunca passa de
+       N_CAIXAS entradas — senão cresceria no localStorage a cada troca de
+       nível. */
+    for (var velho in this.antigo) {
+      if (temDono(this.antigo, velho) && this.antigo[velho] === n) delete this.antigo[velho];
+    }
     this.sujo[n] = true;
     return n;
+  };
+
+  /* Acerta o mapa com as variáveis que existem na tela, nos dois sentidos.
+
+     Existe porque os eventos não bastam: o workspace.clear() do Blockly — que o
+     Blocos.limpar usa ao trocar de nível, e que o load usa ao restaurar e ao
+     abrir o gabarito — esvazia as variáveis sem disparar VAR_DELETE. Contando
+     só com eventos, as caixas da tela apagada segurariam lugar para sempre.
+
+     Primeiro solta quem sumiu, depois dá lugar a quem chegou: assim quem
+     chegou pode usar o lugar que acabou de ser solto. */
+  Mapa.prototype.reconciliar = function (ids) {
+    var existe = {}, sumiram = [], id, k;
+    for (k = 0; k < ids.length; k++) existe[' ' + ids[k]] = true;
+    for (id in this.lugar) {
+      if (temDono(this.lugar, id) && !existe[' ' + id]) sumiram.push(id);
+    }
+    for (k = 0; k < sumiram.length; k++) this.apagada(sumiram[k]);
+    for (k = 0; k < ids.length; k++) this.criada(ids[k]);
   };
 
   /* O lugar fica livre, mas sujo: o número que a caixa tinha continua na VM
@@ -979,7 +1061,9 @@ Expected: FAIL — `Cannot find module '../web/caixas.js'`.
     if (ehObjeto(dados.antigo)) {
       for (id in dados.antigo) {
         if (!temDono(dados.antigo, id) || id === '' || temDono(m.lugar, id)) continue;
-        if (lugarValido(dados.antigo[id])) m.antigo[id] = dados.antigo[id];
+        /* Lembrança de um lugar que já tem dono não serve mais para nada. */
+        n = dados.antigo[id];
+        if (lugarValido(n) && !usados[n]) m.antigo[id] = n;
       }
     }
 
@@ -2120,10 +2204,166 @@ test('a caixa guarda entre um toque e outro, e só o PLAY zera',
 
 O id `desfazer` é o do `web/app.js:31`, e abrir a categoria com `tb.setSelectedItem` é o jeito que o teste da categoria «Contas» (`tests/navegador.test.js:325`) já usa.
 
+E um segundo teste, logo depois, para o que os eventos de variável não veem: o `workspace.clear()` de trocar de nível e o mapa gravado torto (porta `+ 17`):
+
+```js
+test('trocar de nível e mapa gravado torto não prendem lugar, e a 17ª caixa não nasce',
+  { skip: PULAR, timeout: 180000 },
+  async (t) => {
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 17) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-caixas-limite-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 17}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 17}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 17}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+    const tocar = async (id) => {
+      const p = JSON.parse(await aval(`(() => {
+        const r = Blockly.getMainWorkspace().getBlockById(${JSON.stringify(id)})
+          .getSvgRoot().getBoundingClientRect();
+        return JSON.stringify({ x: r.left + 14, y: r.top + r.height / 2 });
+      })()`));
+      await mouse('mousePressed', p.x, p.y);
+      await mouse('mouseReleased', p.x, p.y);
+      await espera(1200);
+    };
+    const nivel = async (n) => {
+      await aval(`(() => {
+        document.querySelector('#niveis button[data-nivel=${n}]').click();
+        return 1;
+      })()`);
+      await espera(800);
+    };
+    /* Cada janelinha conta, e cada uma dá um nome diferente. */
+    const dialogos = () => aval(`(() => {
+      window.__prompts = window.__prompts || 0;
+      window.prompt = function () { window.__prompts++; return 'caixa' + window.__prompts; };
+      window.confirm = function () { return true; };
+      return 1;
+    })()`);
+    const criarPeloBotao = () => aval(`(() => {
+      Blockly.getMainWorkspace().getButtonCallback('CRIAR_CAIXA')();
+      return 1;
+    })()`);
+    const quantasCaixas = () => aval('Blockly.getMainWorkspace().getAllVariables().length');
+    /* Usa a última caixa: guarda n nela e toca, depois lê e toca. Uma caixa sem
+       lugar daria o erro "não coube" em vez do número. */
+    const usarUltima = async (n, sufixo) => {
+      await aval(`(() => {
+        const ws = Blockly.getMainWorkspace();
+        const vars = ws.getAllVariables();
+        const id = vars[vars.length - 1].getId();
+        Blockly.serialization.blocks.append({ type: 'caixa_guardar', id: 'g${sufixo}',
+          fields: { CAIXA: { id } },
+          inputs: { VALOR: { shadow: { type: 'numero', fields: { NUM: ${n} } } } } }, ws)
+          .moveBy(60, 340);
+        Blockly.serialization.blocks.append({ type: 'caixa_ler', id: 'l${sufixo}',
+          fields: { CAIXA: { id } } }, ws).moveBy(60, 460);
+        return 1;
+      })()`);
+      await espera(600);
+      await tocar('g' + sufixo);
+      await tocar('l' + sufixo);
+      return aval('document.getElementById("bolha").textContent');
+    };
+    const url = `http://localhost:${PORTA_WEB + 17}/`;
+
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    await nivel('gigante');
+    await dialogos();
+
+    /* Três trocas de nível com dez caixas na tela. Sem bloco nenhum, a troca
+       não pergunta — e o clear() leva as trinta caixas sem um VAR_DELETE. */
+    for (let volta = 0; volta < 3; volta++) {
+      await aval(`(() => {
+        const ws = Blockly.getMainWorkspace();
+        for (let i = 0; i < 10; i++) ws.createVariable('v${volta}_' + i);
+        return 1;
+      })()`);
+      await espera(400);
+      await nivel('grande');
+      await nivel('gigante');
+      assert.strictEqual(await quantasCaixas(), 0, 'a troca de nível devia apagar as caixas');
+    }
+
+    /* Com os trinta fantasmas, a primeira caixa pelo botão já bateria no teto. */
+    for (let i = 0; i < 16; i++) {
+      await criarPeloBotao();
+      await espera(150);
+    }
+    assert.strictEqual(await quantasCaixas(), 16, 'nem todas as 16 nasceram');
+    assert.strictEqual(await aval('window.__prompts'), 16);
+    assert.strictEqual(await usarUltima(7, 'a'), '7', 'a 16ª caixa ficou sem lugar');
+
+    /* A 17ª: nem abre a janelinha, e o cabeçalho explica. */
+    await criarPeloBotao();
+    await espera(300);
+    assert.strictEqual(await aval('window.__prompts'), 16, 'a janelinha da 17ª abriu');
+    assert.strictEqual(await quantasCaixas(), 16);
+    assert.match(await aval('document.getElementById("erro").textContent'),
+      /guarda 16 caixas/);
+
+    /* O mapa gravado com 16 fantasmas. O ouvinte entra depois do app.js no
+       pagehide, então escreve por cima do que o app acabou de gravar. */
+    await aval(`(() => {
+      window.addEventListener('pagehide', function () {
+        const d = JSON.parse(localStorage.getItem('robo_programa'));
+        const lugar = {};
+        for (let i = 0; i < 16; i++) lugar['fantasma' + i] = i;
+        d.caixas = { lugar: lugar, antigo: {}, sujo: [] };
+        d.blocos.variables = [];
+        d.blocos.blocks = { languageVersion: 0,
+                            blocks: [{ type: 'quando_play', x: 40, y: 30 }] };
+        localStorage.setItem('robo_programa', JSON.stringify(d));
+      });
+      return 1;
+    })()`);
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    await dialogos();
+    assert.strictEqual(await quantasCaixas(), 0);
+
+    await criarPeloBotao();
+    await espera(400);
+    assert.strictEqual(await quantasCaixas(), 1, 'os fantasmas impediram a caixa de nascer');
+    assert.strictEqual(await usarUltima(4, 'b'), '4', 'a caixa nova ficou sem lugar');
+
+    cdp.fechar();
+  });
+```
+
 - [ ] **Step 2: Rodar e ver falhar**
 
-Run: `make all && TESTES_LENTOS=1 node --test --test-name-pattern="a caixa guarda" tests/navegador.test.js`
-Expected: FAIL — a gaveta «Caixas» abre vazia (callback `CAIXAS` não registrado) ou o botão não existe.
+Run: `make all && TESTES_LENTOS=1 node --test --test-name-pattern="caixa" tests/navegador.test.js`
+Expected: FAIL nos dois — `getButtonCallback('CRIAR_CAIXA')` devolve `undefined` (o botão não foi registrado).
 
 - [ ] **Step 3: `web/index.html`**
 
@@ -2151,33 +2391,42 @@ Logo antes do comentário `/* ---------- o programa da criança volta como ela d
     return Blocos.gavetaDeCaixas(ws);
   });
 
+  /* O mapa acompanha as variáveis que existem na tela, nos dois sentidos.
+
+     Não dá para contar com VAR_CREATE e VAR_DELETE: o workspace.clear() do
+     Blockly — trocar de nível, restaurar, abrir o gabarito — esvazia as
+     variáveis sem disparar evento nenhum, e as caixas da tela apagada
+     segurariam lugar para sempre. Reconciliar é barato (16 lugares), então se
+     reconcilia em todo evento que muda o programa e, de novo, logo antes de
+     cada decisão que depende do mapa: criar, rodar, tocar, gravar. */
+  function reconciliarCaixas() {
+    var vars = workspace.getAllVariables();
+    var ids = [];
+    for (var i = 0; i < vars.length; i++) ids.push(vars[i].getId());
+    caixas.reconciliar(ids);
+  }
+
+  workspace.addChangeListener(function (e) {
+    if (e.isUiEvent) return;
+    reconciliarCaixas();
+  });
+
   /* A 17ª caixa não nasce: a janelinha nem abre. O menu do campo de caixa só
-     renomeia e apaga, então este botão é a única porta de criação. */
+     renomeia e apaga, então este botão é a única porta de criação.
+
+     A frase vai no cabeçalho, e não em bolha: a bolha do mostrarErro se ancora
+     num bloco, e aqui não há bloco culpado — como no "programa grande demais",
+     que também é limite do robô sem peça para apontar. */
   workspace.registerButtonCallback('CRIAR_CAIXA', function () {
+    reconciliarCaixas();
     if (!caixas.temLugar()) {
-      mostrarErro(new Error('O robô guarda ' + Caixas.N_CAIXAS +
-                            ' caixas. Apague uma para criar outra.'));
+      spErro.textContent = 'O robô guarda ' + Caixas.N_CAIXAS +
+                           ' caixas. Apague uma para criar outra.';
+      Som.tocar('batida');
       return;
     }
     Blockly.Variables.createVariableButtonHandler(workspace, null, '');
   });
-
-  /* Criar, apagar e desfazer chegam aqui como eventos de variável. Limpar a
-     tela e trocar de nível também: o workspace.clear() apaga as variáveis uma
-     a uma, e os lugares ficam livres e sujos, que é o certo — a VM ainda tem
-     os números. */
-  workspace.addChangeListener(function (e) {
-    if (e.type === Blockly.Events.VAR_CREATE) caixas.criada(e.varId);
-    else if (e.type === Blockly.Events.VAR_DELETE) caixas.apagada(e.varId);
-  });
-
-  /* Toda variável na tela tem que ter lugar. Idempotente: quem já tem fica
-     onde está. Existe porque os eventos da carga chegam depois, e porque um
-     mapa corrompido pode ter perdido entradas. */
-  function sincronizarCaixas() {
-    var vars = workspace.getAllVariables();
-    for (var i = 0; i < vars.length; i++) caixas.criada(vars[i].getId());
-  }
 ```
 
 - [ ] **Step 5: `web/app.js` — gravar e restaurar**
@@ -2185,6 +2434,9 @@ Logo antes do comentário `/* ---------- o programa da criança volta como ela d
 Em `gravarPrograma`, troque a chamada por:
 
 ```js
+    /* Reconciliado antes de gravar: um mapa com fantasmas gravado aqui
+       voltaria cheio na próxima visita. */
+    reconciliarCaixas();
     Guardar.gravar(Blockly.serialization.workspaces.save(workspace), nivel,
                    caixas.exportar());
 ```
@@ -2192,7 +2444,16 @@ Em `gravarPrograma`, troque a chamada por:
 Em `restaurarPrograma`, depois de `Blocos.fixarRaiz(workspace);`:
 
 ```js
-      sincronizarCaixas();
+      /* O mapa gravado pode ter fantasma — de uma versão com defeito, ou de
+         mão humana no localStorage — e a carga não dispara evento para cada
+         variável na hora. */
+      reconciliarCaixas();
+```
+
+E no `catch` da mesma função, depois de `Blocos.limpar(workspace);`:
+
+```js
+      reconciliarCaixas();
 ```
 
 - [ ] **Step 6: `web/app.js` — o PLAY zera, e a árvore é montada dentro do `try`**
@@ -2204,7 +2465,9 @@ Troque `rodar` por:
      é o caixas.js quem sabe, porque a caixa apagada com número dentro já não
      está na tela nem na árvore. */
   function opcoesDoPrograma(ehPrograma) {
-    return (ehPrograma && caixas.temSujo()) ? { zerarCaixas: true } : undefined;
+    if (!ehPrograma) return undefined;
+    reconciliarCaixas();
+    return caixas.temSujo() ? { zerarCaixas: true } : undefined;
   }
 
   function rodar(ast, ehPrograma) {
@@ -2269,6 +2532,9 @@ Em `rodarPrograma`, troque o começo e a compilação:
 No ouvinte de clique, troque `var pilha = Blocos.pilhaDoBloco(bloco);` por:
 
 ```js
+    /* A caixa criada agora mesmo pode não ter passado ainda pelo ouvinte de
+       eventos, que o Blockly dispara depois. */
+    reconciliarCaixas();
     var pilha;
     try {
       pilha = Blocos.pilhaDoBloco(bloco);
@@ -2297,8 +2563,8 @@ Expected: tudo PASS — C, ponta a ponta e JS, inclusive `es5.test.js` sobre o `
 
 - [ ] **Step 8: Rodar o teste de navegador novo**
 
-Run: `TESTES_LENTOS=1 node --test --test-name-pattern="a caixa guarda" tests/navegador.test.js`
-Expected: PASS. Se falhar, siga `superpowers:systematic-debugging` antes de mexer: leia a mensagem do `assert`, que diz qual das cinco promessas quebrou.
+Run: `TESTES_LENTOS=1 node --test --test-name-pattern="caixa" tests/navegador.test.js`
+Expected: PASS nos dois testes novos. Se falhar, siga `superpowers:systematic-debugging` antes de mexer: leia a mensagem do `assert`, que diz qual das promessas quebrou.
 
 - [ ] **Step 9: README**
 

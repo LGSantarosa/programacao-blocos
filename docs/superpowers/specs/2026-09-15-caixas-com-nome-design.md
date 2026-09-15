@@ -188,6 +188,12 @@ Ele guarda `id da variável → lugar`, de 0 a 15, e responde a quatro eventos:
 | caixa apagada | o lugar fica livre, e o mapa lembra que foi dela; **continua sujo** |
 | programa rodado com `ZERAR` | só os lugares ocupados continuam sujos |
 | programa carregado | o mapa e os sujos voltam como foram gravados |
+| `reconciliar(ids)` | id do mapa que não está em `ids` é tratado como apagado (livre, sujo, lembrado); id de `ids` sem lugar é tratado como criado |
+
+Quando uma caixa toma um lugar, o mapa esquece qualquer lembrança antiga que
+apontava para ele. Desfazer uma exclusão depois disso cai no menor livre — que é
+a regra de sempre — e a lista de lembranças nunca passa de 16 entradas, em vez
+de crescer no `localStorage` a cada troca de nível.
 
 "Sujo" quer dizer "pode ter número na VM". É o que responde se o PLAY precisa
 zerar (ver o compilador).
@@ -205,10 +211,14 @@ zera.
 
 ### A 17ª caixa não nasce
 
-O botão «Criar caixa» pergunta ao mapa antes de abrir a janelinha. Cheio, a
-janela não abre e a bolha diz:
+O botão «Criar caixa» reconcilia e pergunta ao mapa antes de abrir a janelinha.
+Cheio, a janela não abre, soa a batida, e o cabeçalho diz:
 
 > O robô guarda 16 caixas. Apague uma para criar outra.
+
+No cabeçalho, e não numa bolha: a bolha do `mostrarErro` se ancora num bloco, e
+aqui não há bloco culpado — é o mesmo lugar onde já aparece "o programa ficou
+grande demais", que também é um limite do robô sem peça para apontar.
 
 O menu do `field_variable` do Blockly 8 só oferece renomear e apagar, então o
 botão é a única porta de criação. Mesmo assim o `blocos.js` confere: um bloco
@@ -344,11 +354,21 @@ botão.
 O botão abre a janelinha de nome do Blockly (`Blockly.dialog.prompt`). No app
 Android ela aparece porque o `MainActivity.kt` já instala um `WebChromeClient`.
 
-O `app.js` ouve `VAR_CREATE` e `VAR_DELETE` e repassa ao `caixas.js`. Limpar a
-tela e trocar de nível **não** recomeçam o mapa: o `workspace.clear()` do Blockly
-apaga as variáveis uma a uma, cada uma dispara `VAR_DELETE`, e os lugares ficam
-livres e sujos — que é o certo, porque a VM ainda tem os números. Recomeçar o
-mapa esqueceria os sujos e reabriria o caso do PLAY que não zera.
+O `app.js` não confia em evento de variável para manter o mapa em dia. O
+`workspace.clear()` do Blockly — que o `Blocos.limpar` usa ao trocar de nível, e
+que o `serialization.workspaces.load` usa ao restaurar e ao abrir o gabarito —
+troca o mapa de variáveis por um vazio **sem disparar `VAR_DELETE`**
+(`VariableMap.prototype.clear`, em `web/vendor/blockly_compressed.js`). Contando
+só com os eventos, as caixas da tela apagada ficariam ocupando lugar para
+sempre: novas caixas pulariam posições, trocar de nível algumas vezes batia no
+limite de 16 sem caixa nenhuma na tela, e o PLAY zeraria para sempre por causa
+de fantasmas.
+
+Por isso o mapa é **reconciliado** com `workspace.getAllVariables()`, nos dois
+sentidos (ver `reconciliar`), em todo evento que não é de interface e, de novo,
+imediatamente antes de cada decisão que depende dele: criar caixa, rodar e
+gravar. Recomeçar o mapa do zero, em vez de reconciliar, esqueceria os sujos e
+reabriria o caso do PLAY que não zera.
 
 A reaplicação do nível durante um arrasto (memória do ciclo 1) vale para os
 blocos novos sem regra nova: eles não têm campo escondido por nível.
@@ -463,13 +483,13 @@ multiplica por 1000 antes de arredondar e a casa decimal é de verdade.
 | `tests/vm_test.c` | `STORE_VAR`, `PUSH_VAR` e `CHANGE_VAR` guardam, leem e somam; `CHANGE_VAR` estourando dá a volta; índice fora da faixa para a VM nos três; a caixa sobrevive a `vm_load` + `vm_run`; `ZERAR` zera como instrução e como primeira do programa |
 | `tests/tarefas_test.c` | **duas tarefas fazendo «mudar x por 1» num laço de N voltas terminam com 2N**; `ZERAR` antes do cabeçalho não desloca as tarefas |
 | `tests/compilador.test.js` | programa sem `zerarCaixas` gera bytecode idêntico ao de antes; o bytecode de `caixa`, `guardar` e `mudar`; `zerarCaixas` emite `ZERAR` mesmo sem caixa na árvore; os `inicio` somam 1 com `ZERAR`; conta de profundidade máxima dentro de `mudar` passa, e uma a mais dá o erro no bloco |
-| `tests/caixas.test.js` | criar dá o menor livre; renomear não mexe; apagar libera; **apagar e desfazer volta ao mesmo lugar**; a 17ª é recusada; **lugar apagado continua sujo, e só o aviso de programa com `ZERAR` o limpa**; mapa e sujos voltam iguais depois de gravados e lidos; **estado corrompido não quebra a página**: id que não é texto, lugar fora de 0..15 ou não inteiro, e dois ids no mesmo lugar (fica o primeiro) são descartados, e um `caixas` que nem é objeto vira mapa vazio |
+| `tests/caixas.test.js` | criar dá o menor livre; renomear não mexe; apagar libera; **apagar e desfazer volta ao mesmo lugar**; a 17ª é recusada; **lugar apagado continua sujo, e só o aviso de programa com `ZERAR` o limpa**; mapa e sujos voltam iguais depois de gravados e lidos; **estado corrompido não quebra a página**: id que não é texto, lugar fora de 0..15 ou não inteiro, e dois ids no mesmo lugar (fica o primeiro) são descartados, e um `caixas` que nem é objeto vira mapa vazio; **`reconciliar` tira fantasma e dá lugar a quem está na tela; cinco trocas de tela sem evento nenhum não prendem lugar; 16 fantasmas gravados não impedem a caixa de verdade; a lembrança de um lugar some quando outra caixa o toma** |
 | `tests/guardar.test.js` | `{ nivel, blocos, caixas }` vai e volta; programa antigo sem `caixas` lê com mapa vazio |
 | `tests/blocos.test.js` | o nó leva o lugar do mapa e o nome; bloco com caixa sem lugar vira erro no bloco |
 | `tests/arduino.test.js` | as seis regras de limpeza; nomes `PWMA`, `delay`, `HIGH`, `__x`, `_Nome`, `3voltas`, `número de voltas` e dois nomes colidindo geram identificadores válidos e distintos; a global é `int32_t` e aparece antes de `fiacao()` e de `programa()`; `mudar` gera `somar(...)` e a função só existe quando há «mudar»; `guardar 1.6` e `guardar -1.6` escrevem `2` e `-2`, `-1.5` escreve `-1`, igual ao bytecode; `andar (1.5 + 1)` escreve os números arredondados; **um sketch gerado com «mudar», com um `main()` colado no fim, compila com `g++ -fsanitize=undefined -fno-sanitize-recover`, roda, e `somar(INT32_MAX, 1)` dá `INT32_MIN`** — o mesmo caminho do teste de sintaxe que já existe, agora linkando, porque o `fake_arduino.h` implementa as funções como `inline`. O fake ganha `#include <stdint.h>`, que o `Arduino.h` de verdade já traz |
 | `tests/es5.test.js` | `.normalize(` entra em `PROIBIDO` |
 | `tests/tarefas_ponta_a_ponta.test.js` | uma pilha conta, outra lê, no robô virtual |
-| `tests/navegador.test.js` | criar caixa pelo botão; tocar em «mudar» duas vezes e no relator mostra `2`; **PLAY de um programa sem caixa zera a caixa tocada por pilha solta**; **guardar 5, apagar a caixa, PLAY, criar outra e tocar nela mostra 0**; apagar e desfazer mantém o número; recarregar a página mantém nome e lugar |
+| `tests/navegador.test.js` | criar caixa pelo botão; tocar em «mudar» duas vezes e no relator mostra `2`; **PLAY de um programa sem caixa zera a caixa tocada por pilha solta**; **guardar 5, apagar a caixa, PLAY, criar outra e tocar nela mostra 0**; apagar e desfazer mantém o número; recarregar a página mantém nome e lugar; **trocar de nível três vezes com dez caixas na tela e depois criar 16 pelo botão dá certo, e a 17ª não abre a janelinha e escreve no cabeçalho; um mapa gravado com 16 fantasmas não impede criar e usar uma caixa depois de recarregar** |
 
 O de navegador e o firmware entram no `make test-lento` e no `make test-tudo`, e
 ele confere depois. A prova no S24 FE também é dele.
@@ -511,3 +531,11 @@ Terceira revisão (aprovada, com ajustes de teste):
 | `uint32_t` → `int32_t` fora da faixa é definido pela implementação | a spec diz que a garantia é dos compiladores usados (GCC e Clang), e não do padrão |
 | `somar_test.c` não testaria o texto que o `arduino.js` escreve | saiu; o `arduino.test.js` compila e roda o sketch gerado, com UBSan |
 | estado `caixas` corrompido no `localStorage` | descartado entrada por entrada, com teste |
+
+Revisão do plano:
+
+| achado | o que mudou |
+|---|---|
+| `workspace.clear()` não dispara `VAR_DELETE`, e a spec dizia que disparava | `reconciliar(ids)` nos dois sentidos, em todo evento não visual e antes de criar, rodar e gravar |
+| restaurar não tirava caixa fantasma do mapa | a mesma reconciliação; 16 ids inexistentes no estado gravado não seguram lugar |
+| a 17ª caixa prometia bolha, mas bolha precisa de bloco | mensagem no cabeçalho, com a batida; teste de navegador criando 16 e tentando a 17ª |

@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { spawn, spawnSync } = require('node:child_process');
 const path = require('node:path');
-const { compilar, compilarTarefas } = require('../web/compilador.js');
+const { compilar, compilarTarefas, compilarValor } = require('../web/compilador.js');
 
 const RAIZ = path.join(__dirname, '..');
 const ROBO = path.join(RAIZ, 'host', 'robo_host');
@@ -137,3 +137,40 @@ test('«quando <condição>» fica de olho e dispara quando dá verdade',
     assert.ok(girou,
       'o «quando» devia ter feito o robô girar ao chegar perto da parede');
   });
+
+/* Carrega e roda um programa, e depois — no mesmo robô, sem reiniciar o
+   processo — um segundo. É a execução viva: a caixa tem que atravessar a
+   troca de programa. */
+function rodarDois(primeiro, segundo, msPrimeiro, msSegundo) {
+  return new Promise((resolve, reject) => {
+    const robo = spawn(ROBO, [], { cwd: path.join(RAIZ, 'host') });
+    let saida = '';
+    robo.stdout.on('data', (d) => { saida += d.toString(); });
+    robo.on('error', reject);
+    robo.stdin.write('L ' + hex(primeiro) + '\nR\n');
+    setTimeout(() => {
+      robo.stdin.write('L ' + hex(segundo) + '\nR\n');
+      setTimeout(() => {
+        robo.kill();
+        resolve(saida.split('\n').filter((l) => l.length));
+      }, msSegundo);
+    }, msPrimeiro);
+  });
+}
+
+test('uma pilha conta na caixa, outra lê e responde', { timeout: 20000 }, async () => {
+  const conta = compilarTarefas([
+    { quando: 'play', corpo: [
+      { op: 'repetir', vezes: 5, corpo: [
+        { op: 'mudar', indice: 0, nome: 'voltas', valor: 1 },
+        { op: 'esperar', segundos: 0.05 } ] } ] },
+    { quando: 'condicao',
+      cond: { op: 'igual', a: { op: 'caixa', indice: 0, nome: 'voltas' }, b: 5 },
+      corpo: [{ op: 'guardar', indice: 1, nome: 'pronto', valor: 42 }] },
+  ], { zerarCaixas: true });
+  const pergunta = compilarValor({ op: 'caixa', indice: 1, nome: 'pronto' });
+  const linhas = await rodarDois(conta.bytes, pergunta.bytes, 1500, 800);
+  assert.ok(linhas.includes('V 42'),
+    'a pilha do «quando» devia ter visto a conta da outra; o robô disse:\n' +
+    linhas.filter((l) => l[0] !== 'T').join('\n'));
+});

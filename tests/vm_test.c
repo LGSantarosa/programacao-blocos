@@ -875,9 +875,12 @@ static void teste_zerar_como_primeira_instrucao(void) {
     vm.caixa[15] = 7;
     fake_trace_reset();
     vm_run(&vm);
-    /* Antes de qualquer tick: quem zera é o vm_run. */
+    /* Antes de qualquer tick: quem zera é o vm_run, e a tarefa já nasce
+       depois do ZERAR, sem executá-lo de novo. */
     CHECK(vm.caixa[2] == 0);
     CHECK(vm.caixa[15] == 0);
+    CHECK(vm.n_tarefas == 1);
+    CHECK(vm.tarefa[0].pc == 1);
     rodar_ate_parar(&vm);
     CHECK(no_trace("REPORT 0"));
 }

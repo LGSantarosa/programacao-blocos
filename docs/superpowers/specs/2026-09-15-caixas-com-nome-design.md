@@ -150,8 +150,10 @@ de qualquer `OP_TASK`.
 
 - `vm_run` zera as caixas quando `prog[0]` é um `ZERAR`, e `montar_tarefas`
   começa a ler o cabeçalho na instrução 1.
-- Executado como instrução comum — o programa de uma pilha só, sem cabeçalho,
-  começa em zero e passa por ele — também zera. Zerar duas vezes não muda nada.
+- O programa de uma pilha só, sem cabeçalho, também não passa por ele: a
+  tarefa única nasce onde o cabeçalho acabaria, na instrução 1.
+- Executado como instrução comum — um `ZERAR` fora de `prog[0]`, que o
+  compilador não emite — também zera.
 
 As duas leituras dizem a mesma coisa de propósito: não existe um jeito de o
 `ZERAR` chegar à VM em que ele signifique outra coisa.

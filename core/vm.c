@@ -80,10 +80,13 @@ static void montar_tarefas(VM *vm) {
         pc++;
     }
 
+    /* Sem cabeçalho, a tarefa única começa onde o cabeçalho acabaria: depois
+       do ZERAR, quando há um. O vm_run já zerou; passar por ele de novo não
+       mudaria nada, mas gastaria um tick e acenderia um pc sem bloco. */
     if (vm->n_tarefas == 0) {
         vm->n_tarefas = 1;
         vm->tarefa[0].quando = TAREFA_NO_PLAY;
-        vm->tarefa[0].inicio = 0;
+        vm->tarefa[0].inicio = pc;
     }
 
     /* Quem espera aviso nasce dormindo: ela só existe quando alguém chama. */

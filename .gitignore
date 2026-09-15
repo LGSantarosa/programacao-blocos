@@ -13,3 +13,5 @@ android/app/src/main/assets/
 android/.cxx/
 android/app/.cxx/
 firmware/calibrar/.pio/
+tests/protocolo_test
+tests/tarefas_test

@@ -644,3 +644,146 @@ test('tocar no relator da caixa pergunta pela caixa', () => {
   assert.deepStrictEqual(Blocos.valorDoBloco(ws.getBlockById('l')),
     { op: 'caixa', indice: 2, nome: 'voltas', blockId: 'l' });
 });
+
+/* ---------- os blocos que ela inventa ---------- */
+
+function erroDe(f) {
+  try { f(); } catch (e) { return e; }
+  assert.fail('devia ter lançado');
+}
+
+function ensinar(nome, corpo, id) {
+  return { type: 'bloco_ensinar', id: id || ('def_' + nome), x: 400, y: 30,
+           fields: { NOME: nome },
+           inputs: corpo ? { CORPO: { block: corpo } } : {} };
+}
+
+function usar(nome, id, depois) {
+  const b = { type: 'bloco_usar', id: id || ('uso_' + nome), fields: { NOME: nome } };
+  if (depois) b.next = { block: depois };
+  return b;
+}
+
+function noPlay(bloco) {
+  return { type: 'quando_play', inputs: { CORPO: { block: bloco } } };
+}
+
+test('usar traz o corpo da definição, com os blockId de dentro dela', () => {
+  const ws = carregar([
+    ensinar('dançar', { type: 'girar', id: 'g', inputs: { GRAUS: num(90) } }),
+    noPlay(usar('dançar', 'u')),
+  ]);
+  assert.deepStrictEqual(Blocos.workspaceParaAst(ws), [
+    { op: 'usar', nome: 'dançar', blockId: 'u',
+      corpo: [{ op: 'girar', graus: 90, blockId: 'g' }] },
+  ]);
+});
+
+test('dois usos da mesma definição recebem o mesmo array', () => {
+  const ws = carregar([
+    ensinar('d', { type: 'parar', id: 'p' }),
+    noPlay(usar('d', 'u1', usar('d', 'u2'))),
+  ]);
+  const ast = Blocos.workspaceParaAst(ws);
+  assert.strictEqual(ast[0].corpo, ast[1].corpo);
+});
+
+test('a usa b traduz as duas camadas', () => {
+  const ws = carregar([
+    ensinar('b', { type: 'parar', id: 'p' }),
+    ensinar('a', usar('b', 'ub')),
+    noPlay(usar('a', 'ua')),
+  ]);
+  const ast = Blocos.workspaceParaAst(ws);
+  assert.strictEqual(ast[0].corpo[0].op, 'usar');
+  assert.strictEqual(ast[0].corpo[0].corpo[0].op, 'parar');
+});
+
+test('usar a si mesmo é erro na peça que fecha o ciclo', () => {
+  const ws = carregar([
+    ensinar('d', usar('d', 'dentro')),
+    noPlay(usar('d', 'fora')),
+  ]);
+  const e = erroDe(() => Blocos.workspaceParaAst(ws));
+  assert.match(e.message, /não pode usar a si mesmo/);
+  assert.strictEqual(e.blockId, 'dentro');
+});
+
+test('ciclo de dois é erro na peça mais funda', () => {
+  const ws = carregar([
+    ensinar('a', usar('b', 'a_usa_b')),
+    ensinar('b', usar('a', 'b_usa_a')),
+    noPlay(usar('a', 'fora')),
+  ]);
+  assert.strictEqual(erroDe(() => Blocos.workspaceParaAst(ws)).blockId, 'b_usa_a');
+});
+
+test('peça sem definição é erro nela', () => {
+  const ws = carregar([noPlay(usar('sumiu', 'u'))]);
+  const e = erroDe(() => Blocos.workspaceParaAst(ws));
+  assert.match(e.message, /não existe mais/);
+  assert.strictEqual(e.blockId, 'u');
+});
+
+test('cabeça ensinar vazia é usar sem fazer nada', () => {
+  const ws = carregar([ensinar('nada'), noPlay(usar('nada', 'u'))]);
+  assert.deepStrictEqual(Blocos.workspaceParaAst(ws)[0].corpo, []);
+});
+
+test('tocar na cabeça ensinar roda o corpo, e não é o programa', () => {
+  const ws = carregar([ensinar('d', { type: 'parar', id: 'p' }, 'def')]);
+  const pilha = Blocos.pilhaDoBloco(ws.getBlockById('def'));
+  assert.deepStrictEqual(pilha, { ast: [{ op: 'parar', blockId: 'p' }], ehPrograma: false });
+  const dePeca = Blocos.pilhaDoBloco(ws.getBlockById('p'));
+  assert.strictEqual(dePeca.ehPrograma, false);
+});
+
+test('a cabeça ensinar não é tarefa', () => {
+  const ws = carregar([ensinar('d', { type: 'parar' })]);
+  assert.strictEqual(Blocos.temTarefas(ws), false);
+});
+
+test('renomear a cabeça renomeia os usos', () => {
+  const ws = carregar([ensinar('dançar', null, 'def'), noPlay(usar('dançar', 'u'))]);
+  ws.getBlockById('def').getField('NOME').setValue('pular');
+  assert.strictEqual(ws.getBlockById('u').getFieldValue('NOME'), 'pular');
+});
+
+test('nome repetido vira dançar2', () => {
+  const ws = carregar([ensinar('dançar', null, 'a'), ensinar('outro', null, 'b')]);
+  ws.getBlockById('b').getField('NOME').setValue('Dançar');
+  assert.strictEqual(ws.getBlockById('b').getFieldValue('NOME'), 'Dançar2');
+});
+
+test('o nome da peça de usar volta igual depois de salvar e carregar', () => {
+  const ws = carregar([ensinar('dançar'), noPlay(usar('dançar', 'u'))]);
+  const salvo = Blockly.serialization.workspaces.save(ws);
+  const outro = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try { Blockly.serialization.workspaces.load(salvo, outro); }
+  finally { Blockly.Events.enable(); }
+  assert.strictEqual(outro.getBlockById('u').getFieldValue('NOME'), 'dançar');
+});
+
+test('vinte definições em cadeia traduzem em milissegundos', () => {
+  const estados = [ensinar('b0', { type: 'parar' })];
+  for (let i = 1; i <= 20; i++) {
+    const anterior = 'b' + (i - 1);
+    estados.push(ensinar('b' + i, usar(anterior, 'u' + i + 'a', usar(anterior, 'u' + i + 'b'))));
+  }
+  estados.push(noPlay(usar('b20', 'fora')));
+  const ws = carregar(estados);
+  const t0 = Date.now();
+  const ast = Blocos.workspaceParaAst(ws);
+  assert.ok(Date.now() - t0 < 500, 'demorou ' + (Date.now() - t0) + ' ms');
+  assert.strictEqual(ast[0].corpo[0].corpo, ast[0].corpo[1].corpo);
+});
+
+test('acertarUsos esmaece quem perdeu a definição e acende quem a tem', () => {
+  const ws = carregar([ensinar('d', null, 'def'), noPlay(usar('d', 'u'))]);
+  Blocos.acertarUsos(ws);
+  assert.strictEqual(ws.getBlockById('u').getColour(), Blocos.COR_BLOCO);
+  ws.getBlockById('def').dispose(false);
+  Blocos.acertarUsos(ws);
+  assert.strictEqual(ws.getBlockById('u').getColour(), Blocos.COR_SEM_DEFINICAO);
+});

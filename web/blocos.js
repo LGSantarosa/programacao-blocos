@@ -24,6 +24,12 @@
      conta, não é sensor, não é o que o robô faz. Precisa bater com
      web/niveis.js. */
   var COR_CAIXA     = '#e06000';
+  /* Roxo: nenhuma família usa, e um bloco inventado não é movimento, nem laço,
+     nem conta — é da criança. Precisa bater com web/niveis.js. */
+  var COR_BLOCO         = '#a040c0';
+  /* A peça de usar cuja definição sumiu. Esmaecer é só aparência: o aviso vem
+     da tradução, porque o pilhaParaAst pula peça desligada em silêncio. */
+  var COR_SEM_DEFINICAO = '#b0b0b0';
 
   /* Num lugar só: os dois blocos de movimento oferecem as mesmas opções, e
      duplicá-las é como elas divergiriam. */
@@ -77,16 +83,18 @@
 
   var extensaoPronta = false;
 
+  /* Cada extensão conferida pelo próprio nome: com uma só, parar cedo quando
+     ela já existia bastava; com três, pararia antes de registrar as outras. */
+  function registrarUma(nome, fn) {
+    if (Blockly.Extensions.isRegistered && Blockly.Extensions.isRegistered(nome)) return;
+    Blockly.Extensions.register(nome, fn);
+  }
+
   /* GRAUS é a fonte de verdade; o menu direita/esquerda é só um editor
      amigável dela. É isso que deixa o compilador ignorar o nível. */
   function registrarExtensao() {
     if (extensaoPronta || typeof Blockly === 'undefined') return;
-    if (Blockly.Extensions.isRegistered &&
-        Blockly.Extensions.isRegistered('girar_dir_escreve_graus')) {
-      extensaoPronta = true;
-      return;
-    }
-    Blockly.Extensions.register('girar_dir_escreve_graus', function () {
+    registrarUma('girar_dir_escreve_graus', function () {
       var bloco = this;
       bloco.getField('DIR').setValidator(function (novo) {
         /* O menu escreve no shadow que mora no encaixe. Se a criança soltou
@@ -98,6 +106,31 @@
         }
         return novo;
       });
+    });
+
+    /* A cabeça «ensinar» se apresenta ao Blockly.Procedures do núcleo: é o que
+       dá de graça o nome único (findLegalName) e o renomear que alcança todos
+       os usos. Sem entrada e sem resposta: [nome, [], false]. */
+    registrarUma('bloco_ensinar_procedimento', function () {
+      this.getProcedureDef = function () {
+        return [this.getFieldValue('NOME'), [], false];
+      };
+      this.getField('NOME').setValidator(Blockly.Procedures.rename);
+    });
+
+    /* A peça de usar responde ao renomear da cabeça. O nome dela não se edita
+       aqui: é rótulo. */
+    registrarUma('bloco_usar_procedimento', function () {
+      this.getProcedureCall = function () {
+        return this.getFieldValue('NOME');
+      };
+      /* Sem maiúscula e minúscula, como o Names.equals do núcleo compara. */
+      this.renameProcedure = function (antigo, novo) {
+        if (String(antigo).toLowerCase() ===
+            String(this.getFieldValue('NOME')).toLowerCase()) {
+          this.setFieldValue(novo, 'NOME');
+        }
+      };
     });
     extensaoPronta = true;
   }
@@ -183,6 +216,30 @@
         output: 'Number',
         colour: COR_CAIXA,
         tooltip: 'O número que está guardado na caixa.',
+      },
+      {
+        type: 'bloco_ensinar',
+        message0: '🧩 ensinar %1',
+        args0: [{ type: 'field_input', name: 'NOME', text: 'meu bloco' }],
+        message1: '%1',
+        args1: [{ type: 'input_statement', name: 'CORPO' }],
+        colour: COR_BLOCO,
+        extensions: ['bloco_ensinar_procedimento'],
+        tooltip: 'Dá um nome às peças de baixo. Depois, a peça com esse nome ' +
+                 'faz tudo isso de uma vez.',
+      },
+      {
+        type: 'bloco_usar',
+        message0: '🧩 %1',
+        /* field_label_serializable e não field_label: o field_label não é
+           gravado, e a peça voltaria do localStorage — e do desfazer — sem
+           saber de qual bloco ela é. */
+        args0: [{ type: 'field_label_serializable', name: 'NOME', text: 'meu bloco' }],
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_BLOCO,
+        extensions: ['bloco_usar_procedimento'],
+        tooltip: 'Faz as peças que você ensinou com este nome.',
       },
       {
         type: 'mover_frente',
@@ -484,6 +541,59 @@
     return { op: nome, a: valorDe(b, 'A'), b: valorDe(b, 'B'), blockId: b.id };
   }
 
+  /* A tradução em curso: os nomes sendo traduzidos agora (para achar ciclo) e
+     os corpos já prontos (para traduzir cada definição uma vez só). Vive o
+     tempo de uma chamada de fora — entre duas, a criança pode ter mexido na
+     definição. */
+  var traducao = null;
+
+  function traduzindo(fn) {
+    if (traducao) return fn();
+    traducao = { abertos: {}, prontos: {} };
+    try {
+      return fn();
+    } finally {
+      traducao = null;
+    }
+  }
+
+  function erroNaPeca(mensagem, b) {
+    var e = new Error(mensagem);
+    e.blockId = b.id;
+    return e;
+  }
+
+  /* Cada definição vira o mesmo array em todos os usos. Traduzir de novo a cada
+     uso explode sem ciclo nenhum: vinte definições que usam a anterior duas
+     vezes dariam mais de um milhão de nós. */
+  function noDeUso(b) {
+    /* Quem chegou aqui sem passar por uma das entradas de fora ganha uma
+       tradução só para si, em vez de quebrar lendo traducao nula. */
+    if (!traducao) return traduzindo(function () { return noDeUso(b); });
+    var nome = b.getFieldValue('NOME');
+    var chave = ' ' + String(nome).toLowerCase();   /* Names.equals ignora caixa */
+    if (traducao.abertos[chave]) {
+      throw erroNaPeca('Um bloco não pode usar a si mesmo. Para fazer de novo, ' +
+                       'use o repetir.', b);
+    }
+    var corpo = traducao.prontos[chave];
+    if (!corpo) {
+      var def = Blockly.Procedures.getDefinition(nome, b.workspace);
+      if (!def) {
+        throw erroNaPeca('Esse bloco não existe mais. Desfaça para trazê-lo de ' +
+                         'volta, ou tire esta peça.', b);
+      }
+      traducao.abertos[chave] = true;
+      try {
+        corpo = pilhaParaAst(def.getInputTargetBlock('CORPO'));
+      } finally {
+        delete traducao.abertos[chave];
+      }
+      traducao.prontos[chave] = corpo;
+    }
+    return { op: 'usar', nome: nome, corpo: corpo, blockId: b.id };
+  }
+
   /* O mapa de lugares (web/caixas.js), entregue pelo app.js. Fica aqui e não
      como global lida por nome porque o blocos.js também roda no ipad.html e
      nos testes, onde quem decide o mapa é quem chama. */
@@ -588,6 +698,7 @@
       case 'repetir_ate':
         return { op: 'repetir_ate', cond: valorDe(b, 'COND'),
                  corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')), blockId: id };
+      case 'bloco_usar':    return noDeUso(b);
       case 'caixa_guardar': return noDeCaixa('guardar', b);
       case 'caixa_mudar':   return noDeCaixa('mudar', b);
       case 'caixa_ler':     return noDeCaixa('caixa', b);
@@ -608,9 +719,11 @@
   }
 
   function workspaceParaAst(workspace) {
-    var raizes = workspace.getBlocksByType('quando_play', false);
-    if (raizes.length === 0) return [];
-    return pilhaParaAst(raizes[0].getInputTargetBlock('CORPO'));
+    return traduzindo(function () {
+      var raizes = workspace.getBlocksByType('quando_play', false);
+      if (raizes.length === 0) return [];
+      return pilhaParaAst(raizes[0].getInputTargetBlock('CORPO'));
+    });
   }
 
   /* Toda pilha que começa por uma cabeça, na ordem em que a VM vai recebê-las:
@@ -622,28 +735,30 @@
      vida a todo pedaço largado na tela faria o PLAY rodar coisas que a criança
      tinha deixado de lado. */
   function workspaceParaTarefas(workspace) {
-    var tarefas = [];
-    var raizes = workspace.getBlocksByType('quando_play', false);
-    if (raizes.length) {
-      tarefas.push({ quando: 'play',
-                     corpo: pilhaParaAst(raizes[0].getInputTargetBlock('CORPO')),
-                     blockId: raizes[0].id });
-    }
-    var cond = workspace.getBlocksByType('quando_condicao', false);
-    for (var i = 0; i < cond.length; i++) {
-      tarefas.push({ quando: 'condicao',
-                     cond: valorDe(cond[i], 'COND'),
-                     corpo: pilhaParaAst(cond[i].getInputTargetBlock('CORPO')),
-                     blockId: cond[i].id });
-    }
-    var avisos = workspace.getBlocksByType('quando_aviso', false);
-    for (var j = 0; j < avisos.length; j++) {
-      tarefas.push({ quando: 'aviso',
-                     aviso: Number(avisos[j].getFieldValue('AVISO')),
-                     corpo: pilhaParaAst(avisos[j].getInputTargetBlock('CORPO')),
-                     blockId: avisos[j].id });
-    }
-    return tarefas;
+    return traduzindo(function () {
+      var tarefas = [];
+      var raizes = workspace.getBlocksByType('quando_play', false);
+      if (raizes.length) {
+        tarefas.push({ quando: 'play',
+                       corpo: pilhaParaAst(raizes[0].getInputTargetBlock('CORPO')),
+                       blockId: raizes[0].id });
+      }
+      var cond = workspace.getBlocksByType('quando_condicao', false);
+      for (var i = 0; i < cond.length; i++) {
+        tarefas.push({ quando: 'condicao',
+                       cond: valorDe(cond[i], 'COND'),
+                       corpo: pilhaParaAst(cond[i].getInputTargetBlock('CORPO')),
+                       blockId: cond[i].id });
+      }
+      var avisos = workspace.getBlocksByType('quando_aviso', false);
+      for (var j = 0; j < avisos.length; j++) {
+        tarefas.push({ quando: 'aviso',
+                       aviso: Number(avisos[j].getFieldValue('AVISO')),
+                       corpo: pilhaParaAst(avisos[j].getInputTargetBlock('CORPO')),
+                       blockId: avisos[j].id });
+      }
+      return tarefas;
+    });
   }
 
   /* Quantas cabeças existem além da âncora. O app.js usa isto para saber se
@@ -666,20 +781,24 @@
      bolha. */
   function pilhaDoBloco(bloco) {
     if (!bloco || bloco.outputConnection) return null;
-    var raiz = bloco.getRootBlock();
-    if (raiz.type === 'quando_play') {
-      return { ast: pilhaParaAst(raiz.getInputTargetBlock('CORPO')),
-               ehPrograma: true };
-    }
-    /* Tocar numa cabeça de evento roda o corpo dela ali mesmo, uma vez. É o
-       jeito de a criança experimentar o pedaço sem esperar a condição
-       acontecer nem mandar o aviso — e não conta como tentativa da missão,
-       porque não é o programa. */
-    if (raiz.type === 'quando_condicao' || raiz.type === 'quando_aviso') {
-      return { ast: pilhaParaAst(raiz.getInputTargetBlock('CORPO')),
-               ehPrograma: false };
-    }
-    return { ast: pilhaParaAst(raiz), ehPrograma: false };
+    return traduzindo(function () {
+      var raiz = bloco.getRootBlock();
+      if (raiz.type === 'quando_play') {
+        return { ast: pilhaParaAst(raiz.getInputTargetBlock('CORPO')),
+                 ehPrograma: true };
+      }
+      /* Tocar numa cabeça de evento roda o corpo dela ali mesmo, uma vez. É o
+         jeito de a criança experimentar o pedaço sem esperar a condição
+         acontecer nem mandar o aviso — e não conta como tentativa da missão,
+         porque não é o programa. A cabeça «ensinar» é o mesmo caso: tocar
+         nela, ou numa peça dentro dela, roda o corpo uma vez. */
+      if (raiz.type === 'quando_condicao' || raiz.type === 'quando_aviso' ||
+          raiz.type === 'bloco_ensinar') {
+        return { ast: pilhaParaAst(raiz.getInputTargetBlock('CORPO')),
+                 ehPrograma: false };
+      }
+      return { ast: pilhaParaAst(raiz), ehPrograma: false };
+    });
   }
 
   /* O nó de valor de um relator, para a bolha compilar a pergunta.
@@ -692,7 +811,7 @@
     if (bloco.type === 'numero' || bloco.type === 'numero_bolinhas') {
       return Number(bloco.getFieldValue('NUM'));
     }
-    return blocoParaNo(bloco);
+    return traduzindo(function () { return blocoParaNo(bloco); });
   }
 
   /* A gaveta «Caixas», montada na hora em que a criança a abre: o botão de
@@ -743,6 +862,46 @@
       bloco.appendChild(encaixe);
     }
     return bloco;
+  }
+
+  /* A gaveta «Meus blocos»: o botão de criar, e uma peça de usar para cada
+     definição na tela, em ordem de nome. Montada na hora, então uma definição
+     apagada some daqui sem regra nova. */
+  function gavetaDeBlocos(workspace) {
+    var xml = Blockly.utils.xml;
+    var itens = [];
+    var botao = xml.createElement('button');
+    botao.setAttribute('text', '🧩 Criar bloco');
+    botao.setAttribute('callbackKey', 'CRIAR_BLOCO');
+    itens.push(botao);
+
+    var nomes = [];
+    var defs = workspace.getBlocksByType('bloco_ensinar', false);
+    for (var i = 0; i < defs.length; i++) nomes.push(defs[i].getFieldValue('NOME'));
+    nomes.sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
+
+    for (var k = 0; k < nomes.length; k++) {
+      var bloco = xml.createElement('block');
+      bloco.setAttribute('type', 'bloco_usar');
+      var campo = xml.createElement('field');
+      campo.setAttribute('name', 'NOME');
+      campo.appendChild(xml.createTextNode(nomes[k]));
+      bloco.appendChild(campo);
+      itens.push(bloco);
+    }
+    return itens;
+  }
+
+  /* Acende a peça de usar que tem definição e esmaece a que perdeu. setColour
+     não dispara evento, então quem chama isto de um ouvinte não se chama de
+     novo. */
+  function acertarUsos(workspace) {
+    var usos = workspace.getBlocksByType('bloco_usar', false);
+    for (var i = 0; i < usos.length; i++) {
+      var tem = !!Blockly.Procedures.getDefinition(usos[i].getFieldValue('NOME'), workspace);
+      var cor = tem ? COR_BLOCO : COR_SEM_DEFINICAO;
+      if (usos[i].getColour() !== cor) usos[i].setColour(cor);
+    }
   }
 
   /* A raiz nasce fixa: a criança não precisa saber que ela existe, e não pode
@@ -826,7 +985,9 @@
               criarRaiz: criarRaiz, fixarRaiz: fixarRaiz,
               temTrabalho: temTrabalho, limpar: limpar,
               usarCaixas: usarCaixas, gavetaDeCaixas: gavetaDeCaixas,
-              COR_CAIXA: COR_CAIXA };
+              COR_CAIXA: COR_CAIXA,
+              gavetaDeBlocos: gavetaDeBlocos, acertarUsos: acertarUsos,
+              COR_BLOCO: COR_BLOCO, COR_SEM_DEFINICAO: COR_SEM_DEFINICAO };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Blocos = api;
 })(typeof self !== 'undefined' ? self : globalThis);

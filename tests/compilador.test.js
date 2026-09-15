@@ -2,8 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { compilar, compilarValor, OP, BIN, UN, MAX_INSTR } =
-  require('../web/compilador.js');
+const { compilar, compilarValor, compilarTarefas, OP, BIN, UN, MAX_INSTR,
+        N_CAIXAS } = require('../web/compilador.js');
 
 function hex(bytes) {
   return Buffer.from(bytes).toString('hex');
@@ -590,4 +590,124 @@ test('um erro sem dono não inventa um: blockId fica null', () => {
   /* O app.js decide entre a bolha e o cabeçalho olhando este campo. Um id
      inventado acenderia a bolha em cima de um bloco inocente. */
   assert.strictEqual(erroDe(() => compilar([{ op: 'nao_existe' }])).blockId, null);
+});
+
+/* ---------- as caixas com nome ---------- */
+
+test('ler uma caixa empilha o que ela guarda', () => {
+  const { bytes } = compilarValor({ op: 'caixa', indice: 3, nome: 'voltas' });
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.PUSH_VAR, 3, 0, 0],
+    [OP.REPORT, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
+});
+
+test('guardar calcula o valor e grava na caixa', () => {
+  const { bytes } = compilar([{ op: 'guardar', indice: 2, nome: 'x', valor: 7 }]);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.PUSH, 7, 0, 0],
+    [OP.STORE_VAR, 2, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
+});
+
+test('mudar soma numa instrução só, e não em quatro', () => {
+  const { bytes } = compilar([{ op: 'mudar', indice: 0, nome: 'x',
+                                valor: { op: 'mais', a: 1, b: 2 } }]);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.PUSH, 1, 0, 0],
+    [OP.PUSH, 2, 0, 0],
+    [OP.BIN, BIN.MAIS, 0, 0],
+    [OP.CHANGE_VAR, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
+});
+
+test('caixa sem lugar vira erro no bloco dela', () => {
+  for (const indice of [N_CAIXAS, -1, 1.5, undefined]) {
+    assert.throws(
+      () => compilar([{ op: 'guardar', indice, nome: 'x', valor: 1, blockId: 'g' }]),
+      (e) => e.blockId === 'g');
+  }
+});
+
+test('sem zerarCaixas o bytecode é o de sempre', () => {
+  const ast = [{ op: 'frente', segundos: 1, blockId: 'b' }];
+  assert.deepStrictEqual(Buffer.from(compilar(ast).bytes),
+                         Buffer.from(compilar(ast, { zerarCaixas: false }).bytes));
+  assert.notStrictEqual(compilar(ast).bytes[0], OP.ZERAR_CAIXAS);
+});
+
+test('zerarCaixas põe o ZERAR na frente, e o salto do repetir anda junto', () => {
+  const { bytes, pcMap } = compilar(
+    [{ op: 'repetir', vezes: 2, blockId: 'r',
+       corpo: [{ op: 'esperar', segundos: 1, blockId: 'e' }] }],
+    { zerarCaixas: true });
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.ZERAR_CAIXAS, 0, 0, 0],
+    [OP.PUSH, 2, 0, 0],
+    [OP.SET_REG, 0, 0, 0],
+    [OP.PUSH, 1000, 0, 0],
+    [OP.WAIT, 0, 0, 0],
+    [OP.DEC_JNZ, 0, 3, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
+  assert.strictEqual(pcMap[0], null);
+});
+
+test('zerarCaixas sai mesmo sem caixa nenhuma na árvore', () => {
+  const { bytes } = compilar([{ op: 'parar' }], { zerarCaixas: true });
+  assert.strictEqual(bytes[0], OP.ZERAR_CAIXAS);
+});
+
+test('com tarefas, o ZERAR vem antes do cabeçalho e os inícios somam 1', () => {
+  const { bytes } = compilarTarefas([
+    { quando: 'play', corpo: [{ op: 'avisar', aviso: 1 }] },
+    { quando: 'aviso', aviso: 1,
+      corpo: [{ op: 'guardar', indice: 0, nome: 'x', valor: 5 }] },
+  ], { zerarCaixas: true });
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.ZERAR_CAIXAS, 0, 0, 0],
+    [OP.TASK, 0, 3, 0],
+    [OP.TASK, 1, 5, 1],
+    [OP.BROADCAST, 1, 0, 0],
+    [OP.HALT, 0, 0, 0],
+    [OP.PUSH, 5, 0, 0],
+    [OP.STORE_VAR, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
+});
+
+test('com ZERAR, o «quando» lendo uma caixa salta para o lugar certo', () => {
+  const { bytes } = compilarTarefas([
+    { quando: 'condicao',
+      cond: { op: 'maior', a: { op: 'caixa', indice: 0, nome: 'x' }, b: 3 },
+      corpo: [{ op: 'parar' }] },
+  ], { zerarCaixas: true });
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.ZERAR_CAIXAS, 0, 0, 0],
+    [OP.TASK, 0, 2, 0],
+    [OP.PUSH_VAR, 0, 0, 0],
+    [OP.PUSH, 3, 0, 0],
+    [OP.BIN, BIN.MAIOR, 0, 0],
+    [OP.JMP_FALSE, 2, 0, 0],
+    [OP.HALT, 0, 0, 0],
+    [OP.JMP, 2, 0, 0],
+  ]);
+});
+
+/* Uma conta com k «mais» encaixados à direita pede k + 1 lugares na pilha. */
+function funda(k) {
+  let v = 1;
+  for (let i = 0; i < k; i++) v = { op: 'mais', a: 1, b: v, blockId: 'c' };
+  return v;
+}
+
+test('mudar aceita a conta mais funda que cabe, e recusa a seguinte', () => {
+  assert.doesNotThrow(() => compilar(
+    [{ op: 'mudar', indice: 0, nome: 'x', valor: funda(14), blockId: 'm' }]));
+  assert.throws(() => compilar(
+    [{ op: 'mudar', indice: 0, nome: 'x', valor: funda(15), blockId: 'm' }]),
+    (e) => e.blockId === 'c');
 });

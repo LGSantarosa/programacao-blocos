@@ -13,6 +13,7 @@
     SET_REG: 4, DEC_JNZ: 5, JMP: 6,
     PUSH: 8, SENSOR: 9, BIN: 10, UN: 11, JMP_FALSE: 12, REPORT: 13,
     TASK: 14, BROADCAST: 15,
+    PUSH_VAR: 16, STORE_VAR: 17, CHANGE_VAR: 18, ZERAR_CAIXAS: 19,
   };
 
   /* Quando uma tarefa começa. Precisa bater com core/bytecode.h. */
@@ -20,6 +21,9 @@
 
   /* Quantas pilhas a VM roda ao mesmo tempo. Também de bytecode.h. */
   var N_TAREFAS = 6;
+
+  /* Quantas caixas a VM guarda. Também de bytecode.h. */
+  var N_CAIXAS = 16;
 
   /* Um opcode com seletor em vez de um por conta: o campo "a" da instrução já
      existe e está sobrando. Precisa bater com core/bytecode.h. */
@@ -103,6 +107,18 @@
                         blockId: blockId || null });
     }
 
+    /* O lugar vem pronto do navegador (web/caixas.js). Chegar aqui sem um é
+       bloco de caixa que não coube — e um índice inventado gravaria por cima
+       de outra caixa da mesma tela. */
+    function lugarDe(no) {
+      var n = no.indice;
+      if (typeof n !== 'number' || Math.floor(n) !== n || n < 0 || n >= N_CAIXAS) {
+        throw erroNoBloco('Essa caixa não coube no robô. Apague uma caixa ' +
+                          'e crie esta de novo.', no.blockId);
+      }
+      return n;
+    }
+
     /* O nível Iniciante e o Básico não expõem velocidade; sem ela, vale a
        calibração da v1. Acima de 255 o driver satura, então cortamos aqui. */
     function velocidadeDe(no) {
@@ -137,6 +153,7 @@
     function profundidadeDe(v) {
       if (!v || typeof v === 'number') return 1;
       if (v.op === 'distancia') return 1;
+      if (v.op === 'caixa') return 1;
       if (v.op === 'nao') return profundidadeDe(v.a);
       /* O lado esquerdo fica na pilha enquanto o direito é calculado. */
       var ea = profundidadeDe(v.a), eb = profundidadeDe(v.b);
@@ -173,6 +190,10 @@
       var id = v.blockId || blockId;
       if (v.op === 'distancia') {
         emitir(OP.SENSOR, SENSOR_DISTANCIA, 0, 0, id);
+        return;
+      }
+      if (v.op === 'caixa') {
+        emitir(OP.PUSH_VAR, lugarDe(v), 0, 0, id);
         return;
       }
       if (v.op === 'nao') {
@@ -316,6 +337,18 @@
             emitir(OP.BROADCAST, no.aviso, 0, 0, no.blockId);
             break;
 
+          case 'guardar':
+            gerarValor(no.valor, no.blockId);
+            emitir(OP.STORE_VAR, lugarDe(no), 0, 0, no.blockId);
+            break;
+
+          /* Sem empilhar a caixa antes: quem lê o valor dela é o CHANGE_VAR,
+             por dentro. Por isso a profundidade é só a do valor. */
+          case 'mudar':
+            gerarValor(no.valor, no.blockId);
+            emitir(OP.CHANGE_VAR, lugarDe(no), 0, 0, no.blockId);
+            break;
+
           case 'repetir_sempre': {
             var inicioSempre = instrucoes.length;
             gerar(no.corpo || []);
@@ -328,6 +361,10 @@
         }
       }
     }
+
+    /* Primeira instrução, antes de qualquer outra, para o vm_run achá-la em
+       prog[0]. Quem decide pedir é o app.js; aqui só se obedece. */
+    if (opcoes && opcoes.zerarCaixas) emitir(OP.ZERAR_CAIXAS, 0, 0, 0, null);
 
     if (opcoes && opcoes.reportar !== undefined) {
       var idValor = (opcoes.reportar && opcoes.reportar.blockId) || null;
@@ -389,8 +426,9 @@
      Um programa que tem só a âncora do PLAY não passa por aqui — quem decide é
      o app.js. É de propósito: sem cabeçalho o bytecode sai idêntico ao de
      antes, e um programa que a criança guardou continua rodando igual. */
-  function compilarTarefas(tarefas) {
-    if (!tarefas.length) return compilar([]);
+  function compilarTarefas(tarefas, opcoes) {
+    var zerar = !!(opcoes && opcoes.zerarCaixas);
+    if (!tarefas.length) return compilar([], opcoes);
     if (tarefas.length > N_TAREFAS) {
       throw new Error(
         'São ' + tarefas.length + ' pilhas com cabeça, e o robô roda ' +
@@ -409,9 +447,13 @@
 
     var instrucoes = [];
     var mapa = [];
+    if (zerar) {
+      instrucoes.push({ op: OP.ZERAR_CAIXAS, a: 0, b: 0, c: 0, blockId: null });
+      mapa.push(null);
+    }
     /* O cabeçalho ocupa uma instrução por tarefa, e o corpo da primeira começa
-       logo depois dele. */
-    var base = tarefas.length;
+       logo depois dele — e depois do ZERAR, quando há um. */
+    var base = (zerar ? 1 : 0) + tarefas.length;
     var inicios = [];
     for (var i = 0; i < pedacos.length; i++) {
       inicios.push(base);
@@ -479,7 +521,7 @@
   var api = { compilar: compilar, compilarValor: compilarValor,
               compilarTarefas: compilarTarefas,
               OP: OP, BIN: BIN, UN: UN, TAREFA: TAREFA,
-              MAX_INSTR: MAX_INSTR, N_TAREFAS: N_TAREFAS };
+              MAX_INSTR: MAX_INSTR, N_TAREFAS: N_TAREFAS, N_CAIXAS: N_CAIXAS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Compilador = api;
 })(typeof self !== 'undefined' ? self : globalThis);

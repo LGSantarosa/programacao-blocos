@@ -2500,13 +2500,22 @@ test('a caixa guarda entre um toque e outro, e só o PLAY zera',
       buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
     });
     /* O emoji 📦 é field_label, que não é clicável: tocar ali vira clique de
-       bloco, e não abre editor nenhum. */
+       bloco, e não abre editor nenhum.
+
+       E o ponto tem que cair na peça mesmo: um toque que acerta outra coisa
+       por cima dela não roda nada, e a asserção seguinte culparia a caixa. */
     const tocar = async (id) => {
       const p = JSON.parse(await aval(`(() => {
-        const r = Blockly.getMainWorkspace().getBlockById(${JSON.stringify(id)})
-          .getSvgRoot().getBoundingClientRect();
-        return JSON.stringify({ x: r.left + 14, y: r.top + r.height / 2 });
+        const svg = Blockly.getMainWorkspace().getBlockById(${JSON.stringify(id)})
+          .getSvgRoot();
+        const r = svg.getBoundingClientRect();
+        const x = r.left + 14, y = r.top + r.height / 2;
+        const alvo = document.elementFromPoint(x, y);
+        return JSON.stringify({ x, y, acerta: !!alvo && svg.contains(alvo),
+          alvo: alvo ? (alvo.id || alvo.getAttribute('class') || alvo.tagName) : null });
       })()`));
+      assert.ok(p.acerta, `o toque em ${id} (${Math.round(p.x)}, ${Math.round(p.y)}) ` +
+        `caiu em ${p.alvo}, e não na peça`);
       await mouse('mousePressed', p.x, p.y);
       await mouse('mouseReleased', p.x, p.y);
       await espera(1200);
@@ -2584,7 +2593,9 @@ test('a caixa guarda entre um toque e outro, e só o PLAY zera',
       const g = Blockly.serialization.blocks.append({ type: 'caixa_guardar', id: 'g',
         fields: { CAIXA: { id } },
         inputs: { VALOR: { shadow: { type: 'numero', fields: { NUM: 5 } } } } }, ws);
-      g.moveBy(60, 580);
+      /* Ao lado, e não embaixo: a 1400×900 a área de blocos acaba antes de
+         y = 750, e um toque ali cai no <main>. */
+      g.moveBy(360, 340);
       return 1;
     })()`);
     await espera(600);
@@ -2677,7 +2688,7 @@ test('a caixa guarda entre um toque e outro, e só o PLAY zera',
       Blockly.serialization.blocks.append({ type: 'caixa_guardar', id: 'g3',
         fields: { CAIXA: { id } },
         inputs: { VALOR: { shadow: { type: 'numero', fields: { NUM: 9 } } } } }, ws)
-        .moveBy(60, 700);
+        .moveBy(360, 340);
       return 1;
     })()`);
     await espera(600);

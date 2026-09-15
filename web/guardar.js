@@ -35,11 +35,16 @@
      nível pergunta antes de apagar. Ressuscitar um programa de outro nível
      seria fazer em silêncio o que a troca de nível não se permite fazer sem
      perguntar. */
-  function gravar(estado, nivel) {
+  /* O mapa das caixas (web/caixas.js) vai na mesma chave, e não numa própria:
+     gravados juntos, não há como voltar um programa com o mapa de outro — e um
+     mapa trocado faz uma caixa mostrar o número de outra. */
+  function gravar(estado, nivel, caixas) {
     var c = caixa();
     if (!c) return false;
+    var dados = { nivel: nivel, blocos: estado };
+    if (caixas) dados.caixas = caixas;
     try {
-      c.setItem(CHAVE, JSON.stringify({ nivel: nivel, blocos: estado }));
+      c.setItem(CHAVE, JSON.stringify(dados));
       return true;
     } catch (e) {
       /* Navegação privada do Safari lança ao gravar; cota cheia também. Perder
@@ -48,11 +53,7 @@
     }
   }
 
-  /* Devolve o programa guardado, ou null — e null é resposta legítima em quatro
-     casos: nunca houve nada, o armazenamento não existe, o que estava lá é
-     ilegível, ou era de outro nível. Quem chama não precisa distinguir: em
-     todos, a tela começa como sempre começou. */
-  function ler(nivel) {
+  function lerTudo(nivel) {
     var c = caixa();
     if (!c) return null;
     var cru;
@@ -72,7 +73,23 @@
     if (!dados || typeof dados !== 'object') return null;
     if (dados.nivel !== nivel) return null;
     if (!dados.blocos || typeof dados.blocos !== 'object') return null;
-    return dados.blocos;
+    return dados;
+  }
+
+  /* Devolve o programa guardado, ou null — e null é resposta legítima em quatro
+     casos: nunca houve nada, o armazenamento não existe, o que estava lá é
+     ilegível, ou era de outro nível. Quem chama não precisa distinguir: em
+     todos, a tela começa como sempre começou. */
+  function ler(nivel) {
+    var dados = lerTudo(nivel);
+    return dados ? dados.blocos : null;
+  }
+
+  /* O mapa cru, sem conferir: quem confere entrada por entrada é o
+     Caixas.importar, que é quem sabe o que é um lugar válido. */
+  function lerCaixas(nivel) {
+    var dados = lerTudo(nivel);
+    return (dados && dados.caixas !== undefined) ? dados.caixas : null;
   }
 
   function esquecer() {
@@ -83,7 +100,8 @@
     } catch (e) { /* não deu, e não faz mal */ }
   }
 
-  var api = { gravar: gravar, ler: ler, esquecer: esquecer, CHAVE: CHAVE };
+  var api = { gravar: gravar, ler: ler, lerCaixas: lerCaixas,
+              esquecer: esquecer, CHAVE: CHAVE };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Guardar = api;
 })(typeof self !== 'undefined' ? self : globalThis);

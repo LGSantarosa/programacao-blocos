@@ -140,3 +140,38 @@ test('o programa vazio também é um estado que vale guardar', () => {
     assert.deepStrictEqual(Guardar.ler('pequeno'), vazio);
   });
 });
+
+/* ---------- o mapa das caixas vai junto ---------- */
+
+test('o mapa de caixas vai e volta junto com os blocos', () => {
+  const caixa = armazenamento();
+  com(caixa, () => {
+    const mapa = { lugar: { v1: 0 }, antigo: {}, sujo: [0] };
+    assert.strictEqual(Guardar.gravar(PROGRAMA, 'gigante', mapa), true);
+    assert.deepStrictEqual(Guardar.lerCaixas('gigante'), mapa);
+    assert.deepStrictEqual(Guardar.ler('gigante'), PROGRAMA);
+  });
+});
+
+test('programa gravado antes das caixas lê sem mapa', () => {
+  const caixa = armazenamento();
+  com(caixa, () => {
+    caixa.plantar(Guardar.CHAVE, JSON.stringify({ nivel: 'gigante', blocos: PROGRAMA }));
+    assert.strictEqual(Guardar.lerCaixas('gigante'), null);
+    assert.deepStrictEqual(Guardar.ler('gigante'), PROGRAMA);
+  });
+});
+
+test('mapa de outro nível não volta', () => {
+  const caixa = armazenamento();
+  com(caixa, () => {
+    Guardar.gravar(PROGRAMA, 'grande', { lugar: {}, antigo: {}, sujo: [] });
+    assert.strictEqual(Guardar.lerCaixas('gigante'), null);
+  });
+});
+
+test('sem armazenamento, lerCaixas devolve null sem lançar', () => {
+  com(null, () => {
+    assert.strictEqual(Guardar.lerCaixas('gigante'), null);
+  });
+});

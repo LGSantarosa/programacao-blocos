@@ -162,6 +162,37 @@
     Blockly.Variables.createVariableButtonHandler(workspace, null, '');
   });
 
+  /* ---------- os blocos que ela inventa ---------- */
+
+  workspace.registerToolboxCategoryCallback('MEUS_BLOCOS', function (ws) {
+    return Blocos.gavetaDeBlocos(ws);
+  });
+
+  /* O botão pede o nome, passa pelo findLegalName (que faz «dançar2» se já
+     existe um «dançar») e põe a cabeça no canto visível de cima à esquerda —
+     onde a criança está olhando, e não na origem do workspace, que pode estar
+     rolada para fora da tela. */
+  workspace.registerButtonCallback('CRIAR_BLOCO', function () {
+    Blockly.dialog.prompt('Nome do bloco novo:', '', function (nome) {
+      if (nome === null || nome === undefined) return;
+      nome = String(nome).trim();
+      if (!nome) return;
+      var cabeca = Blockly.serialization.blocks.append(
+        { type: 'bloco_ensinar', fields: { NOME: nome } }, workspace);
+      cabeca.setFieldValue(Blockly.Procedures.findLegalName(nome, cabeca), 'NOME');
+      var vista = workspace.getMetricsManager().getViewMetrics(true);
+      cabeca.moveTo(new Blockly.utils.Coordinate(vista.left + 40, vista.top + 40));
+      cabeca.select();
+    });
+  });
+
+  /* A peça de usar acende com definição e esmaece sem. Em todo evento que muda
+     o programa: apagar a cabeça, desfazer, renomear, trocar de nível. */
+  workspace.addChangeListener(function (e) {
+    if (e.isUiEvent) return;
+    Blocos.acertarUsos(workspace);
+  });
+
   /* ---------- o programa da criança volta como ela deixou ---------- */
 
   /* Enquanto isto está ligado, nada é gravado: carregar o programa dispara os
@@ -234,6 +265,7 @@
          mão humana no localStorage — e a carga não dispara evento para cada
          variável na hora. */
       reconciliarCaixas();
+      Blocos.acertarUsos(workspace);
     } catch (e) {
       /* Um programa guardado por uma versão anterior pode citar um bloco que
          não existe mais. Melhor começar do zero e esquecer o que não abre do

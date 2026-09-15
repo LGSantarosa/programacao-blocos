@@ -2861,3 +2861,161 @@ test('trocar de nível e mapa gravado torto não prendem lugar, e a 17ª caixa n
 
     cdp.fechar();
   });
+
+test('a criança ensina um bloco, usa, apaga a definição e desfaz',
+  { skip: PULAR, timeout: 180000 },
+  async (t) => {
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 18) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-blocos-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 18}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 18}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 18}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+    /* Mira o emoji 🧩, que é field_label, e confere que o ponto cai na peça. */
+    const tocar = async (id) => {
+      const p = JSON.parse(await aval(`(() => {
+        const svg = Blockly.getMainWorkspace().getBlockById(${JSON.stringify(id)})
+          .getSvgRoot();
+        const r = svg.getBoundingClientRect();
+        const x = r.left + 14, y = r.top + 14;
+        const alvo = document.elementFromPoint(x, y);
+        return JSON.stringify({ x, y, acerta: !!alvo && svg.contains(alvo),
+          alvo: alvo ? (alvo.id || alvo.getAttribute('class') || alvo.tagName) : null });
+      })()`));
+      assert.ok(p.acerta, `o toque em ${id} (${Math.round(p.x)}, ${Math.round(p.y)}) ` +
+        `caiu em ${p.alvo}, e não na peça`);
+      await mouse('mousePressed', p.x, p.y);
+      await mouse('mouseReleased', p.x, p.y);
+      await espera(1200);
+    };
+    const bolha = () => aval('document.getElementById("bolha").hidden ? "" : ' +
+                             'document.getElementById("bolha").textContent');
+    const url = `http://localhost:${PORTA_WEB + 18}/`;
+
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=gigante]').click();
+      window.prompt = function () { return 'relatar'; };
+      window.confirm = function () { return true; };
+      return 1;
+    })()`);
+    await espera(800);
+
+    /* Criar pelo botão: a cabeça aparece na tela. */
+    await aval(`(Blockly.getMainWorkspace().getButtonCallback('CRIAR_BLOCO')(), 1)`);
+    await espera(600);
+    const def = await aval(`(() => {
+      const d = Blockly.getMainWorkspace().getBlocksByType('bloco_ensinar', false);
+      return d.length === 1 ? d[0].id + '|' + d[0].getFieldValue('NOME') : String(d.length);
+    })()`);
+    const [defId, defNome] = def.split('|');
+    assert.strictEqual(defNome, 'relatar', 'o botão não criou a cabeça: ' + def);
+
+    /* A gaveta mostra a peça de usar. */
+    await aval(`(() => {
+      const tb = Blockly.getMainWorkspace().getToolbox();
+      tb.setSelectedItem(tb.getToolboxItems().find(i => i.getName && i.getName() === 'Meus blocos'));
+      return 1;
+    })()`);
+    await espera(700);
+    assert.strictEqual(await aval(`Blockly.getMainWorkspace().getFlyout().getWorkspace()
+      .getTopBlocks(false).map(b => b.type + ':' + b.getFieldValue('NOME')).join()`),
+      'bloco_usar:relatar');
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      ws.getFlyout().hide();
+      ws.getToolbox().clearSelection();
+      return 1;
+    })()`);
+    await espera(400);
+
+    /* A definição guarda 7 numa caixa; o uso roda a definição; ler a caixa
+       mostra 7. A caixa é o jeito de ver, no teste, que o corpo rodou. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const v = ws.createVariable('marca');
+      const d = ws.getBlockById(${JSON.stringify(defId)});
+      d.moveTo(new Blockly.utils.Coordinate(500, 60));
+      const g = Blockly.serialization.blocks.append({ type: 'caixa_guardar', id: 'dentro',
+        fields: { CAIXA: { id: v.getId() } },
+        inputs: { VALOR: { shadow: { type: 'numero', fields: { NUM: 7 } } } } }, ws);
+      d.getInput('CORPO').connection.connect(g.previousConnection);
+      Blockly.serialization.blocks.append({ type: 'bloco_usar', id: 'uso',
+        fields: { NOME: 'relatar' } }, ws).moveBy(60, 340);
+      Blockly.serialization.blocks.append({ type: 'caixa_ler', id: 'ler',
+        fields: { CAIXA: { id: v.getId() } } }, ws).moveBy(60, 440);
+      return 1;
+    })()`);
+    await espera(600);
+    await tocar('uso');
+    await tocar('ler');
+    assert.strictEqual(await bolha(), '7', 'tocar na peça de usar não rodou a definição');
+
+    /* Apagar a definição esmaece o uso, e tocar nele mostra o aviso. */
+    await aval(`(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)}).dispose(true, true), 1)`);
+    await espera(600);
+    assert.strictEqual(await aval(`Blockly.getMainWorkspace().getBlockById('uso').getColour()`),
+      '#b0b0b0', 'a peça de usar não esmaeceu');
+    await tocar('uso');
+    assert.match(await bolha(), /não existe mais/);
+
+    /* Desfazer traz a definição, e o uso acende. */
+    await aval('document.getElementById("desfazer").click(), 1');
+    await espera(800);
+    assert.strictEqual(await aval(`Blockly.getMainWorkspace().getBlockById('uso').getColour()`),
+      '#a040c0', 'desfazer não acendeu a peça de usar');
+
+    /* Usar a si mesmo. Que a bolha cai na peça de dentro, e não no uso, o
+       blocos.test.js prova pelo blockId; aqui basta a frase chegar à tela. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const d = ws.getBlocksByType('bloco_ensinar', false)[0];
+      const u = Blockly.serialization.blocks.append({ type: 'bloco_usar', id: 'dentro_de_si',
+        fields: { NOME: 'relatar' } }, ws);
+      d.getInput('CORPO').connection.connect(u.previousConnection);
+      return 1;
+    })()`);
+    await espera(600);
+    await tocar('uso');
+    assert.match(await bolha(), /a si mesmo/);
+
+    /* Recarregar traz cabeça e usos com o nome. */
+    await espera(1500);
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    assert.strictEqual(await aval(`Blockly.getMainWorkspace().getBlockById('uso').getFieldValue('NOME')`),
+      'relatar', 'o nome da peça de usar não voltou');
+    assert.strictEqual(await aval(
+      `Blockly.getMainWorkspace().getBlocksByType('bloco_ensinar', false).length`), 1);
+
+    cdp.fechar();
+  });

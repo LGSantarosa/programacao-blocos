@@ -216,6 +216,11 @@ Cheio, a janela não abre, soa a batida, e o cabeçalho diz:
 
 > O robô guarda 16 caixas. Apague uma para criar outra.
 
+A primeira versão desta spec prometia uma bolha. A troca para o cabeçalho é
+decisão de produto, e foi dele, em 2026-09-15, escolhida contra a outra saída —
+uma bolha nova presa ao botão «Criar caixa», onde o dedo está, que pediria
+código de interface a mais e um teste medindo a posição dela.
+
 No cabeçalho, e não numa bolha: a bolha do `mostrarErro` se ancora num bloco, e
 aqui não há bloco culpado — é o mesmo lugar onde já aparece "o programa ficou
 grande demais", que também é um limite do robô sem peça para apontar.
@@ -483,7 +488,7 @@ multiplica por 1000 antes de arredondar e a casa decimal é de verdade.
 | `tests/vm_test.c` | `STORE_VAR`, `PUSH_VAR` e `CHANGE_VAR` guardam, leem e somam; `CHANGE_VAR` estourando dá a volta; índice fora da faixa para a VM nos três; a caixa sobrevive a `vm_load` + `vm_run`; `ZERAR` zera como instrução e como primeira do programa |
 | `tests/tarefas_test.c` | **duas tarefas fazendo «mudar x por 1» num laço de N voltas terminam com 2N**; `ZERAR` antes do cabeçalho não desloca as tarefas |
 | `tests/compilador.test.js` | programa sem `zerarCaixas` gera bytecode idêntico ao de antes; o bytecode de `caixa`, `guardar` e `mudar`; `zerarCaixas` emite `ZERAR` mesmo sem caixa na árvore; os `inicio` somam 1 com `ZERAR`; conta de profundidade máxima dentro de `mudar` passa, e uma a mais dá o erro no bloco |
-| `tests/caixas.test.js` | criar dá o menor livre; renomear não mexe; apagar libera; **apagar e desfazer volta ao mesmo lugar**; a 17ª é recusada; **lugar apagado continua sujo, e só o aviso de programa com `ZERAR` o limpa**; mapa e sujos voltam iguais depois de gravados e lidos; **estado corrompido não quebra a página**: id que não é texto, lugar fora de 0..15 ou não inteiro, e dois ids no mesmo lugar (fica o primeiro) são descartados, e um `caixas` que nem é objeto vira mapa vazio; **`reconciliar` tira fantasma e dá lugar a quem está na tela; cinco trocas de tela sem evento nenhum não prendem lugar; 16 fantasmas gravados não impedem a caixa de verdade; a lembrança de um lugar some quando outra caixa o toma** |
+| `tests/caixas.test.js` | criar dá o menor livre; renomear não mexe; apagar libera; **apagar e desfazer volta ao mesmo lugar**; a 17ª é recusada; **lugar apagado continua sujo, e só o aviso de programa com `ZERAR` o limpa**; mapa e sujos voltam iguais depois de gravados e lidos; **estado corrompido não quebra a página**: id que não é texto, lugar fora de 0..15 ou não inteiro, e dois ids no mesmo lugar (fica o primeiro) são descartados, e um `caixas` que nem é objeto vira mapa vazio; **`reconciliar` tira fantasma e dá lugar a quem está na tela; cinco trocas de tela sem evento nenhum não prendem lugar; 16 fantasmas gravados não impedem a caixa de verdade; a lembrança de um lugar some quando outra caixa o toma; várias lembranças gravadas no mesmo lugar voltam como uma só** |
 | `tests/guardar.test.js` | `{ nivel, blocos, caixas }` vai e volta; programa antigo sem `caixas` lê com mapa vazio |
 | `tests/blocos.test.js` | o nó leva o lugar do mapa e o nome; bloco com caixa sem lugar vira erro no bloco |
 | `tests/arduino.test.js` | as seis regras de limpeza; nomes `PWMA`, `delay`, `HIGH`, `__x`, `_Nome`, `3voltas`, `número de voltas` e dois nomes colidindo geram identificadores válidos e distintos; a global é `int32_t` e aparece antes de `fiacao()` e de `programa()`; `mudar` gera `somar(...)` e a função só existe quando há «mudar»; `guardar 1.6` e `guardar -1.6` escrevem `2` e `-2`, `-1.5` escreve `-1`, igual ao bytecode; `andar (1.5 + 1)` escreve os números arredondados; **um sketch gerado com «mudar», com um `main()` colado no fim, compila com `g++ -fsanitize=undefined -fno-sanitize-recover`, roda, e `somar(INT32_MAX, 1)` dá `INT32_MIN`** — o mesmo caminho do teste de sintaxe que já existe, agora linkando, porque o `fake_arduino.h` implementa as funções como `inline`. O fake ganha `#include <stdint.h>`, que o `Arduino.h` de verdade já traz |
@@ -538,4 +543,11 @@ Revisão do plano:
 |---|---|
 | `workspace.clear()` não dispara `VAR_DELETE`, e a spec dizia que disparava | `reconciliar(ids)` nos dois sentidos, em todo evento não visual e antes de criar, rodar e gravar |
 | restaurar não tirava caixa fantasma do mapa | a mesma reconciliação; 16 ids inexistentes no estado gravado não seguram lugar |
-| a 17ª caixa prometia bolha, mas bolha precisa de bloco | mensagem no cabeçalho, com a batida; teste de navegador criando 16 e tentando a 17ª |
+| a 17ª caixa prometia bolha, mas bolha precisa de bloco | mensagem no cabeçalho, com a batida — decisão de produto dele, não correção interna; teste de navegador criando 16 e tentando a 17ª |
+
+Segunda revisão do plano:
+
+| achado | o que mudou |
+|---|---|
+| o teste do mapa corrompido adulterava só no `pagehide`, e o `unload` do app gravava por cima | a adulteração escuta `visibilitychange`, `pagehide` e `unload`, registrada depois do app; se ainda perder, o teste falha em vez de passar |
+| `importar` não marcava o lugar de uma lembrança aceita, e centenas podiam apontar para o mesmo | marca; teste com 300 lembranças no mesmo lugar |

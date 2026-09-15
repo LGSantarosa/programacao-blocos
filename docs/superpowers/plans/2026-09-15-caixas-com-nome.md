@@ -889,6 +889,15 @@ test('quando uma caixa toma um lugar, a lembrança antiga dele some', () => {
   const lido = Caixas.importar({ lugar: { b: 0 }, antigo: { a: 0, c: 4 } });
   assert.deepStrictEqual(lido.exportar().antigo, { c: 4 });
 });
+
+test('estado gravado com várias lembranças no mesmo lugar guarda só a primeira', () => {
+  const antigo = {};
+  for (let i = 0; i < 300; i++) antigo['velho' + i] = 4;
+  antigo.outro = 9;
+  const m = Caixas.importar({ lugar: {}, antigo });
+  assert.deepStrictEqual(m.exportar().antigo, { velho0: 4, outro: 9 });
+  assert.strictEqual(m.criada('velho0'), 4, 'a lembrança que ficou ainda vale');
+});
 ```
 
 Em `tests/es5.test.js`, acrescente ao fim da lista `PROIBIDO`, depois da entrada de `.repeat`:
@@ -1063,7 +1072,12 @@ Expected: FAIL — `Cannot find module '../web/caixas.js'`.
         if (!temDono(dados.antigo, id) || id === '' || temDono(m.lugar, id)) continue;
         /* Lembrança de um lugar que já tem dono não serve mais para nada. */
         n = dados.antigo[id];
-        if (lugarValido(n) && !usados[n]) m.antigo[id] = n;
+        /* Uma lembrança por lugar, como em tempo de uso: é o que segura a
+           lista em N_CAIXAS entradas mesmo com um estado gravado torto. */
+        if (lugarValido(n) && !usados[n]) {
+          usados[n] = true;
+          m.antigo[id] = n;
+        }
       }
     }
 
@@ -2331,10 +2345,18 @@ test('trocar de nível e mapa gravado torto não prendem lugar, e a 17ª caixa n
     assert.match(await aval('document.getElementById("erro").textContent'),
       /guarda 16 caixas/);
 
-    /* O mapa gravado com 16 fantasmas. O ouvinte entra depois do app.js no
-       pagehide, então escreve por cima do que o app acabou de gravar. */
+    /* O mapa gravado com 16 fantasmas. O app.js grava a página que vai embora
+       três vezes — visibilitychange, pagehide e unload (web/app.js:155-166) —
+       e o último, o unload, escreveria o estado de verdade por cima de uma
+       adulteração feita só no pagehide. Então a adulteração escuta os três:
+       registrada depois do app, em cada evento ela roda por último, e o
+       unload dela é a última escrita antes da página nova.
+
+       Se ainda assim o app gravar por último, o teste não passa por engano:
+       as 16 caixas de verdade voltariam, e o quantasCaixas() === 0 abaixo
+       falha. */
     await aval(`(() => {
-      window.addEventListener('pagehide', function () {
+      const estragar = function () {
         const d = JSON.parse(localStorage.getItem('robo_programa'));
         const lugar = {};
         for (let i = 0; i < 16; i++) lugar['fantasma' + i] = i;
@@ -2343,7 +2365,10 @@ test('trocar de nível e mapa gravado torto não prendem lugar, e a 17ª caixa n
         d.blocos.blocks = { languageVersion: 0,
                             blocks: [{ type: 'quando_play', x: 40, y: 30 }] };
         localStorage.setItem('robo_programa', JSON.stringify(d));
-      });
+      };
+      document.addEventListener('visibilitychange', estragar);
+      window.addEventListener('pagehide', estragar);
+      window.addEventListener('unload', estragar);
       return 1;
     })()`);
     await cdp.envia('Page.navigate', { url });

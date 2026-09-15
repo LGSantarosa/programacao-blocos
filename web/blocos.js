@@ -20,6 +20,10 @@
      nova, e precisavam de uma cor que não fosse nem movimento, nem laço, nem
      sensor. */
   var COR_CONTA     = '#002080';
+  /* Laranja: nenhuma outra família usa, e a caixa é uma coisa nova — não é
+     conta, não é sensor, não é o que o robô faz. Precisa bater com
+     web/niveis.js. */
+  var COR_CAIXA     = '#e06000';
 
   /* Num lugar só: os dois blocos de movimento oferecem as mesmas opções, e
      duplicá-las é como elas divergiriam. */
@@ -145,6 +149,40 @@
         colour: COR_INICIO,
         tooltip: 'Acorda quem estiver esperando este aviso. Não espera ' +
                  'ninguém responder: o robô segue no próximo bloco.',
+      },
+      {
+        type: 'caixa_guardar',
+        message0: '📦 guardar %1 na caixa %2',
+        args0: [
+          { type: 'input_value', name: 'VALOR', check: 'Number' },
+          { type: 'field_variable', name: 'CAIXA' },
+        ],
+        inputsInline: true,
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_CAIXA,
+        tooltip: 'Põe o número na caixa. O que estava lá dentro sai.',
+      },
+      {
+        type: 'caixa_mudar',
+        message0: '📦 mudar %1 por %2',
+        args0: [
+          { type: 'field_variable', name: 'CAIXA' },
+          { type: 'input_value', name: 'VALOR', check: 'Number' },
+        ],
+        inputsInline: true,
+        previousStatement: null,
+        nextStatement: null,
+        colour: COR_CAIXA,
+        tooltip: 'Soma o número ao que já está na caixa. Número negativo tira.',
+      },
+      {
+        type: 'caixa_ler',
+        message0: '📦 %1',
+        args0: [{ type: 'field_variable', name: 'CAIXA' }],
+        output: 'Number',
+        colour: COR_CAIXA,
+        tooltip: 'O número que está guardado na caixa.',
       },
       {
         type: 'mover_frente',
@@ -446,6 +484,33 @@
     return { op: nome, a: valorDe(b, 'A'), b: valorDe(b, 'B'), blockId: b.id };
   }
 
+  /* O mapa de lugares (web/caixas.js), entregue pelo app.js. Fica aqui e não
+     como global lida por nome porque o blocos.js também roda no ipad.html e
+     nos testes, onde quem decide o mapa é quem chama. */
+  var caixas = null;
+
+  function usarCaixas(mapa) {
+    caixas = mapa;
+  }
+
+  /* O nó de uma peça de caixa. O compilador usa o lugar e o arduino.js usa o
+     nome — a árvore leva os dois. */
+  function noDeCaixa(op, b) {
+    var id = b.getFieldValue('CAIXA');
+    var variavel = id ? b.workspace.getVariableById(id) : null;
+    var lugar = (id && caixas) ? caixas.lugarDe(id) : null;
+    if (lugar === null) {
+      var e = new Error('Essa caixa não coube no robô. Apague uma caixa e ' +
+                        'crie esta de novo.');
+      e.blockId = b.id;
+      throw e;
+    }
+    var no = { op: op, indice: lugar,
+               nome: variavel ? variavel.name : 'caixa', blockId: b.id };
+    if (op !== 'caixa') no.valor = valorDe(b, 'VALOR');
+    return no;
+  }
+
   function blocoParaNo(b) {
     var id = b.id;
     switch (b.type) {
@@ -523,6 +588,9 @@
       case 'repetir_ate':
         return { op: 'repetir_ate', cond: valorDe(b, 'COND'),
                  corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')), blockId: id };
+      case 'caixa_guardar': return noDeCaixa('guardar', b);
+      case 'caixa_mudar':   return noDeCaixa('mudar', b);
+      case 'caixa_ler':     return noDeCaixa('caixa', b);
       default:
         throw new Error('Bloco sem tradução: ' + b.type);
     }
@@ -627,6 +695,56 @@
     return blocoParaNo(bloco);
   }
 
+  /* A gaveta «Caixas», montada na hora em que a criança a abre: o botão de
+     criar em cima, e as três peças já apontando para a última caixa criada.
+     Sem caixa nenhuma, só o botão — um bloco sem variável faria o Blockly
+     inventar uma chamada "item", que gastaria um lugar sem a criança pedir.
+
+     Em XML, e não em JSON, porque é o caminho que a própria categoria de
+     variáveis do Blockly 8 usa para a gaveta; e montado com createElement,
+     que escapa o nome que a criança digitou. */
+  function gavetaDeCaixas(workspace) {
+    var xml = Blockly.utils.xml;
+    var itens = [];
+    var botao = xml.createElement('button');
+    botao.setAttribute('text', '📦 Criar caixa');
+    botao.setAttribute('callbackKey', 'CRIAR_CAIXA');
+    itens.push(botao);
+
+    var variaveis = workspace.getAllVariables();
+    if (!variaveis.length) return itens;
+    var ultima = variaveis[variaveis.length - 1];
+
+    itens.push(pecaDeCaixa('caixa_guardar', ultima, 0));
+    itens.push(pecaDeCaixa('caixa_mudar', ultima, 1));
+    itens.push(pecaDeCaixa('caixa_ler', ultima, null));
+    return itens;
+  }
+
+  function pecaDeCaixa(tipo, variavel, numero) {
+    var xml = Blockly.utils.xml;
+    var bloco = xml.createElement('block');
+    bloco.setAttribute('type', tipo);
+    var campo = xml.createElement('field');
+    campo.setAttribute('name', 'CAIXA');
+    campo.setAttribute('id', variavel.getId());
+    campo.appendChild(xml.createTextNode(variavel.name));
+    bloco.appendChild(campo);
+    if (numero !== null) {
+      var encaixe = xml.createElement('value');
+      encaixe.setAttribute('name', 'VALOR');
+      var sombra = xml.createElement('shadow');
+      sombra.setAttribute('type', 'numero');
+      var num = xml.createElement('field');
+      num.setAttribute('name', 'NUM');
+      num.appendChild(xml.createTextNode(String(numero)));
+      sombra.appendChild(num);
+      encaixe.appendChild(sombra);
+      bloco.appendChild(encaixe);
+    }
+    return bloco;
+  }
+
   /* A raiz nasce fixa: a criança não precisa saber que ela existe, e não pode
      apagá-la sem querer — sem ela o PLAY não tem por onde começar. */
   function criarRaiz(workspace) {
@@ -706,7 +824,9 @@
               pilhaDoBloco: pilhaDoBloco,
               valorDoBloco: valorDoBloco,
               criarRaiz: criarRaiz, fixarRaiz: fixarRaiz,
-              temTrabalho: temTrabalho, limpar: limpar };
+              temTrabalho: temTrabalho, limpar: limpar,
+              usarCaixas: usarCaixas, gavetaDeCaixas: gavetaDeCaixas,
+              COR_CAIXA: COR_CAIXA };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Blocos = api;
 })(typeof self !== 'undefined' ? self : globalThis);

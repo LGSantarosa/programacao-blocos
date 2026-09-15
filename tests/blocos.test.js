@@ -8,6 +8,7 @@ const Blockly = require('../web/vendor/blockly_compressed.js');
 globalThis.Blockly = Blockly;
 const Campos = require('../web/campos.js');
 const Blocos = require('../web/blocos.js');
+const Caixas = require('../web/caixas.js');
 
 Campos.registrar();
 Blocos.definir();
@@ -576,4 +577,70 @@ test('o girar diz o lado, que é o que a seta da peça mostra', () => {
   const [d, e] = ws.getBlocksByType('girar', false);
   assert.strictEqual(Blocos.descrever(d), 'girar para a direita');
   assert.strictEqual(Blocos.descrever(e), 'girar para a esquerda');
+});
+
+/* ---------- as caixas com nome ---------- */
+
+function carregarComCaixas(variaveis, estados) {
+  const ws = new Blockly.Workspace();
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.workspaces.load(
+      { variables: variaveis,
+        blocks: { languageVersion: 0, blocks: estados } }, ws);
+  } finally {
+    Blockly.Events.enable();
+  }
+  return ws;
+}
+
+function programaComCaixa(bloco) {
+  return carregarComCaixas([{ name: 'voltas', id: 'v1' }],
+    [{ type: 'quando_play', inputs: { CORPO: { block: bloco } } }]);
+}
+
+test('guardar leva o lugar do mapa e o nome da caixa', () => {
+  Blocos.usarCaixas(Caixas.importar({ lugar: { v1: 3 } }));
+  const ws = programaComCaixa({ type: 'caixa_guardar', id: 'g',
+    fields: { CAIXA: { id: 'v1' } }, inputs: { VALOR: num(7) } });
+  assert.deepStrictEqual(Blocos.workspaceParaAst(ws),
+    [{ op: 'guardar', indice: 3, nome: 'voltas', valor: 7, blockId: 'g' }]);
+});
+
+test('mudar e ler viram os nós deles', () => {
+  Blocos.usarCaixas(Caixas.importar({ lugar: { v1: 0 } }));
+  const ws = programaComCaixa({ type: 'caixa_mudar', id: 'm',
+    fields: { CAIXA: { id: 'v1' } },
+    inputs: { VALOR: { block: { type: 'caixa_ler', id: 'l',
+                                fields: { CAIXA: { id: 'v1' } } } } } });
+  assert.deepStrictEqual(Blocos.workspaceParaAst(ws), [{
+    op: 'mudar', indice: 0, nome: 'voltas', blockId: 'm',
+    valor: { op: 'caixa', indice: 0, nome: 'voltas', blockId: 'l' },
+  }]);
+});
+
+test('renomear mantém o lugar e troca o nome', () => {
+  Blocos.usarCaixas(Caixas.importar({ lugar: { v1: 5 } }));
+  const ws = programaComCaixa({ type: 'caixa_guardar', id: 'g',
+    fields: { CAIXA: { id: 'v1' } }, inputs: { VALOR: num(1) } });
+  Blockly.Events.disable();
+  try { ws.renameVariableById('v1', 'pontos'); } finally { Blockly.Events.enable(); }
+  const no = Blocos.workspaceParaAst(ws)[0];
+  assert.strictEqual(no.indice, 5);
+  assert.strictEqual(no.nome, 'pontos');
+});
+
+test('caixa sem lugar no mapa vira erro no bloco dela', () => {
+  Blocos.usarCaixas(Caixas.importar(null));
+  const ws = programaComCaixa({ type: 'caixa_guardar', id: 'g',
+    fields: { CAIXA: { id: 'v1' } }, inputs: { VALOR: num(1) } });
+  assert.throws(() => Blocos.workspaceParaAst(ws), (e) => e.blockId === 'g');
+});
+
+test('tocar no relator da caixa pergunta pela caixa', () => {
+  Blocos.usarCaixas(Caixas.importar({ lugar: { v1: 2 } }));
+  const ws = carregarComCaixas([{ name: 'voltas', id: 'v1' }],
+    [{ type: 'caixa_ler', id: 'l', fields: { CAIXA: { id: 'v1' } } }]);
+  assert.deepStrictEqual(Blocos.valorDoBloco(ws.getBlockById('l')),
+    { op: 'caixa', indice: 2, nome: 'voltas', blockId: 'l' });
 });

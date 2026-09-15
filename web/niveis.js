@@ -12,6 +12,7 @@
      bloco que sai dela são a mesma coisa para a criança. */
   var COR_MOVIMENTO = '#0050f0', COR_LACO = '#f0c000', COR_SENSOR = '#20b0f0';
   var COR_CONTA = '#002080';
+  var COR_CAIXA = '#e06000';
   /* O mesmo verde da âncora do PLAY: é a família de quem começa uma pilha. */
   var COR_INICIO = '#37c26b';
 
@@ -116,6 +117,10 @@
          porque exigem entender que duas coisas acontecem juntas — e porque o
          «quando» pede uma condição, que é peça de conta. */
       'quando_condicao', 'quando_aviso', 'avisar',
+      /* As caixas com nome. No Avançado porque «mudar voltas por 1» só diz
+         alguma coisa para quem já faz conta — e porque é aqui que duas pilhas
+         precisam de um lugar em comum. */
+      'caixa_guardar', 'caixa_mudar', 'caixa_ler',
     ]),
     campos: DEFINICOES.grande.campos,
     bolinhas: false,
@@ -216,6 +221,13 @@
     if (contas) {
       xml += '<category name="Contas" colour="' + COR_CONTA + '">' +
              contas + '</category>';
+    }
+    /* A gaveta das caixas depende de quais caixas a criança já criou, e o XML
+       é fixo: quem a monta, na hora de abrir, é o Blocos.gavetaDeCaixas,
+       registrado pelo app.js com este nome. */
+    if (tem('caixa_guardar')) {
+      xml += '<category name="Caixas" colour="' + COR_CAIXA +
+             '" custom="CAIXAS"></category>';
     }
     xml += '</xml>';
     return xml;

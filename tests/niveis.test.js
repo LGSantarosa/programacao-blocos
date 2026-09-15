@@ -456,3 +456,23 @@ test('nenhuma peça do Iniciante ou do Básico fica sem descrição falada', () 
   }
   assert.deepStrictEqual(mudos, [], 'peça sem voz num nível que fala');
 });
+
+/* ---------- as caixas ---------- */
+
+test('só o Avançado tem as caixas', () => {
+  for (const nivel of ['pequeno', 'medio', 'grande']) {
+    const b = Niveis.definicao(nivel).blocos;
+    assert.ok(b.indexOf('caixa_guardar') < 0, nivel + ' não deveria ter caixas');
+    assert.ok(!Niveis.caixaXml(nivel).includes('custom="CAIXAS"'));
+  }
+  const g = Niveis.definicao('gigante').blocos;
+  for (const t of ['caixa_guardar', 'caixa_mudar', 'caixa_ler']) {
+    assert.ok(g.indexOf(t) >= 0, 'faltou ' + t + ' no Avançado');
+  }
+});
+
+test('a gaveta das caixas é montada na hora, e não escrita no XML', () => {
+  const xml = Niveis.caixaXml('gigante');
+  assert.ok(xml.includes('<category name="Caixas" colour="#e06000" custom="CAIXAS"></category>'), xml);
+  assert.ok(!xml.includes('type="caixa_'), 'as peças vêm da gaveta, não do XML');
+});

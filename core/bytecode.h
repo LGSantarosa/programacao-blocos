@@ -37,7 +37,19 @@ enum {
     OP_TASK      = 14,
     /* Manda o aviso a = número. Toda tarefa que espera por ele recomeça do
        princípio. Não empilha nem desempilha nada: aviso não é valor. */
-    OP_BROADCAST = 15
+    OP_BROADCAST = 15,
+    /* As caixas com nome. a = o lugar da caixa, de 0 a N_CAIXAS-1; o nome
+       fica no navegador, e aqui só chega o número. */
+    OP_PUSH_VAR  = 16,
+    OP_STORE_VAR = 17,
+    /* Desempilha n e soma n à caixa, dentro de uma instrução só. Não é uma
+       conta a mais: é o que impede duas tarefas de lerem o mesmo valor antes
+       de uma delas gravar, e a caixa perder uma das somas. */
+    OP_CHANGE_VAR = 18,
+    /* Zera todas as caixas. Só o programa do PLAY o emite, e sempre como a
+       primeira instrução — antes do cabeçalho de tarefas, que o vm_run lê
+       pulando-o. */
+    OP_ZERAR_CAIXAS = 19
 };
 
 /* Quando uma tarefa começa. */
@@ -60,6 +72,10 @@ enum { UN_NAO = 0 };
    de um tablet sem a criança perder de vista o que montou — e porque cada uma
    custa 88 bytes de RAM na placa, que é barato mas não é de graça. */
 #define N_TAREFAS        6
+
+/* Quantas caixas com nome o robô guarda. 64 bytes de RAM, que é mais caixa
+   do que uma criança nomeia numa tela de tablet. */
+#define N_CAIXAS         16
 
 #define MAX_INSTR        1024
 #define INSTR_BYTES      7

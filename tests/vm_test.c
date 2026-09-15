@@ -766,6 +766,136 @@ static void teste_report_com_pilha_vazia_para_a_vm(void) {
     checar_trace(esperado, 1);
 }
 
+/* Procura uma linha exata no trace. O vm_stop do fim deixa "MOTOR 0 0" lá
+   dentro, então comparar o trace inteiro amarraria o teste a um detalhe que
+   não é dele. */
+static int no_trace(const char *linha) {
+    for (int i = 0; i < fake_trace_count(); i++)
+        if (strcmp(fake_trace_get(i), linha) == 0) return 1;
+    return 0;
+}
+
+static void teste_caixa_guarda_e_le(void) {
+    uint8_t prog[7 * 5], *p = prog;
+    p = emit(p, OP_PUSH, 42, 0, 0);
+    p = emit(p, OP_STORE_VAR, 3, 0, 0);
+    p = emit(p, OP_PUSH_VAR, 3, 0, 0);
+    p = emit(p, OP_REPORT, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    VM vm;
+    preparar(&vm, prog, (uint16_t)(p - prog));
+    rodar_ate_parar(&vm);
+    CHECK(no_trace("REPORT 42"));
+    CHECK(vm.caixa[3] == 42);
+}
+
+static void teste_mudar_soma_na_caixa(void) {
+    uint8_t prog[7 * 7], *p = prog;
+    p = emit(p, OP_PUSH, 5, 0, 0);
+    p = emit(p, OP_STORE_VAR, 0, 0, 0);
+    p = emit(p, OP_PUSH, 3, 0, 0);
+    p = emit(p, OP_CHANGE_VAR, 0, 0, 0);
+    p = emit(p, OP_PUSH_VAR, 0, 0, 0);
+    p = emit(p, OP_REPORT, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    VM vm;
+    preparar(&vm, prog, (uint16_t)(p - prog));
+    rodar_ate_parar(&vm);
+    CHECK(no_trace("REPORT 8"));
+}
+
+static void teste_mudar_estourando_da_a_volta(void) {
+    uint8_t prog[7 * 3], *p = prog;
+    p = emit(p, OP_PUSH, 1, 0, 0);
+    p = emit(p, OP_CHANGE_VAR, 1, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    VM vm;
+    preparar(&vm, prog, (uint16_t)(p - prog));
+    vm.caixa[1] = 2147483647;
+    rodar_ate_parar(&vm);
+    CHECK(vm.caixa[1] == (int32_t)(-2147483647 - 1));
+}
+
+/* Os três opcodes com índice fora da faixa param a VM antes do REPORT. */
+static void teste_caixa_fora_da_faixa_para_a_vm(void) {
+    const uint8_t ops[3] = { OP_PUSH_VAR, OP_STORE_VAR, OP_CHANGE_VAR };
+    const int16_t indices[2] = { N_CAIXAS, -1 };
+    for (int k = 0; k < 3; k++) {
+        for (int j = 0; j < 2; j++) {
+            uint8_t prog[7 * 5], *p = prog;
+            p = emit(p, OP_PUSH, 1, 0, 0);
+            p = emit(p, ops[k], indices[j], 0, 0);
+            p = emit(p, OP_PUSH, 99, 0, 0);
+            p = emit(p, OP_REPORT, 0, 0, 0);
+            p = emit(p, OP_HALT, 0, 0, 0);
+            VM vm;
+            preparar(&vm, prog, (uint16_t)(p - prog));
+            rodar_ate_parar(&vm);
+            CHECK(!no_trace("REPORT 99"));
+        }
+    }
+}
+
+/* É o que faz tocar em «mudar» e depois em «voltas» mostrar o número: a
+   execução viva carrega um programa novo a cada toque. */
+static void teste_caixa_sobrevive_a_outro_programa(void) {
+    uint8_t guarda[7 * 3], *p = guarda;
+    p = emit(p, OP_PUSH, 6, 0, 0);
+    p = emit(p, OP_STORE_VAR, 2, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    uint16_t n_guarda = (uint16_t)(p - guarda);
+
+    uint8_t le[7 * 3], *q = le;
+    q = emit(q, OP_PUSH_VAR, 2, 0, 0);
+    q = emit(q, OP_REPORT, 0, 0, 0);
+    q = emit(q, OP_HALT, 0, 0, 0);
+    uint16_t n_le = (uint16_t)(q - le);
+
+    VM vm;
+    preparar(&vm, guarda, n_guarda);
+    rodar_ate_parar(&vm);
+    CHECK(vm_load(&vm, le, n_le) == 1);
+    fake_trace_reset();
+    vm_run(&vm);
+    rodar_ate_parar(&vm);
+    CHECK(no_trace("REPORT 6"));
+}
+
+static void teste_zerar_como_primeira_instrucao(void) {
+    uint8_t prog[7 * 4], *p = prog;
+    p = emit(p, OP_ZERAR_CAIXAS, 0, 0, 0);
+    p = emit(p, OP_PUSH_VAR, 2, 0, 0);
+    p = emit(p, OP_REPORT, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    VM vm;
+    fake_clock_set(1000);
+    vm_init(&vm);
+    CHECK(vm_load(&vm, prog, (uint16_t)(p - prog)) == 1);
+    vm.caixa[2] = 5;
+    vm.caixa[15] = 7;
+    fake_trace_reset();
+    vm_run(&vm);
+    /* Antes de qualquer tick: quem zera é o vm_run. */
+    CHECK(vm.caixa[2] == 0);
+    CHECK(vm.caixa[15] == 0);
+    rodar_ate_parar(&vm);
+    CHECK(no_trace("REPORT 0"));
+}
+
+static void teste_zerar_no_meio_zera_ao_executar(void) {
+    uint8_t prog[7 * 6], *p = prog;
+    p = emit(p, OP_PUSH, 4, 0, 0);
+    p = emit(p, OP_STORE_VAR, 0, 0, 0);
+    p = emit(p, OP_ZERAR_CAIXAS, 0, 0, 0);
+    p = emit(p, OP_PUSH_VAR, 0, 0, 0);
+    p = emit(p, OP_REPORT, 0, 0, 0);
+    p = emit(p, OP_HALT, 0, 0, 0);
+    VM vm;
+    preparar(&vm, prog, (uint16_t)(p - prog));
+    rodar_ate_parar(&vm);
+    CHECK(no_trace("REPORT 0"));
+}
+
 int main(void) {
     teste_programa_vazio();
     teste_sequencia_linear();
@@ -798,6 +928,13 @@ int main(void) {
     teste_desempilhar_vazio_para_o_programa();
     teste_report_devolve_o_topo_da_pilha();
     teste_report_com_pilha_vazia_para_a_vm();
+    teste_caixa_guarda_e_le();
+    teste_mudar_soma_na_caixa();
+    teste_mudar_estourando_da_a_volta();
+    teste_caixa_fora_da_faixa_para_a_vm();
+    teste_caixa_sobrevive_a_outro_programa();
+    teste_zerar_como_primeira_instrucao();
+    teste_zerar_no_meio_zera_ao_executar();
     teste_dourado();
     if (falhas == 0) { printf("\ntodos os testes passaram\n"); return 0; }
     printf("\n%d verificacao(oes) falharam\n", falhas);

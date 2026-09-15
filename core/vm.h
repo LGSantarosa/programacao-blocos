@@ -49,6 +49,10 @@ typedef struct {
        semente têm que andar iguais sem uma mexer na outra, senão um teste
        passa a depender da ordem em que os testes rodam. */
     uint32_t semente;
+    /* As caixas moram na VM e não na tarefa: é o que as faz de todas as
+       pilhas. E o vm_load não as toca, porque a execução viva carrega um
+       programa novo a cada toque — só o vm_init e o OP_ZERAR_CAIXAS zeram. */
+    int32_t  caixa[N_CAIXAS];
 } VM;
 
 #ifdef __cplusplus

@@ -68,7 +68,9 @@ static void montar_tarefas(VM *vm) {
     memset(vm->tarefa, 0, sizeof(vm->tarefa));
     vm->n_tarefas = 0;
 
+    /* O ZERAR do PLAY vem antes do cabeçalho; quem o executa é o vm_run. */
     uint16_t pc = 0;
+    if (vm->n_instr > 0 && vm->prog[0].op == OP_ZERAR_CAIXAS) pc = 1;
     while (pc < vm->n_instr && vm->prog[pc].op == OP_TASK &&
            vm->n_tarefas < N_TAREFAS) {
         Tarefa *t = &vm->tarefa[vm->n_tarefas++];
@@ -93,6 +95,8 @@ static void montar_tarefas(VM *vm) {
 }
 
 void vm_run(VM *vm) {
+    if (vm->n_instr > 0 && vm->prog[0].op == OP_ZERAR_CAIXAS)
+        memset(vm->caixa, 0, sizeof(vm->caixa));
     montar_tarefas(vm);
     vm->vez         = 0;
     vm->pc          = 0;
@@ -318,6 +322,34 @@ void vm_tick(VM *vm) {
            recomeça do princípio, e não do lugar onde estava. */
         t->pc++;
         vm_avisar(vm, i->a);
+        break;
+    case OP_PUSH_VAR:
+        if (i->a < 0 || i->a >= N_CAIXAS) { vm_stop(vm); break; }
+        empilhar(vm, t, vm->caixa[i->a]);
+        t->pc++;
+        break;
+    case OP_STORE_VAR: {
+        int32_t v = desempilhar(vm, t);
+        if (!vm->rodando) break;
+        if (i->a < 0 || i->a >= N_CAIXAS) { vm_stop(vm); break; }
+        vm->caixa[i->a] = v;
+        t->pc++;
+        break;
+    }
+    case OP_CHANGE_VAR: {
+        int32_t n = desempilhar(vm, t);
+        if (!vm->rodando) break;
+        if (i->a < 0 || i->a >= N_CAIXAS) { vm_stop(vm); break; }
+        /* Pela soma sem sinal, que dá a volta sem ser comportamento
+           indefinido. A volta para int32_t é definida pela implementação, e
+           módulo 2^32 no GCC e no Clang, que são os compiladores do projeto. */
+        vm->caixa[i->a] = (int32_t)((uint32_t)vm->caixa[i->a] + (uint32_t)n);
+        t->pc++;
+        break;
+    }
+    case OP_ZERAR_CAIXAS:
+        memset(vm->caixa, 0, sizeof(vm->caixa));
+        t->pc++;
         break;
     default:
         vm_stop(vm);

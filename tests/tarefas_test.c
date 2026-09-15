@@ -495,6 +495,58 @@ static void teste_sem_halt_a_tarefa_invade_a_seguinte(void) {
     CHECK(contar("REPORT 2") == 2);   /* a de cima caiu na de baixo */
 }
 
+/* O programa que motiva o ciclo: duas pilhas contando na mesma caixa. Com
+   «mudar» feito em quatro instruções, o rodízio por instrução intercala as
+   leituras e as escritas, e a caixa termina com menos do que as duas somaram. */
+static void teste_duas_tarefas_mudando_a_mesma_caixa(void) {
+    uint8_t prog[7 * 14], *p = prog;
+    p = emit(p, OP_TASK, TAREFA_NO_PLAY, 2, 0);
+    p = emit(p, OP_TASK, TAREFA_NO_PLAY, 8, 0);
+    /* 2 */ p = emit(p, OP_PUSH, 100, 0, 0);
+    /* 3 */ p = emit(p, OP_SET_REG, 0, 0, 0);
+    /* 4 */ p = emit(p, OP_PUSH, 1, 0, 0);
+    /* 5 */ p = emit(p, OP_CHANGE_VAR, 0, 0, 0);
+    /* 6 */ p = emit(p, OP_DEC_JNZ, 0, 4, 0);
+    /* 7 */ p = emit(p, OP_HALT, 0, 0, 0);
+    /* 8 */ p = emit(p, OP_PUSH, 100, 0, 0);
+    /* 9 */ p = emit(p, OP_SET_REG, 0, 0, 0);
+    /*10 */ p = emit(p, OP_PUSH, 1, 0, 0);
+    /*11 */ p = emit(p, OP_CHANGE_VAR, 0, 0, 0);
+    /*12 */ p = emit(p, OP_DEC_JNZ, 0, 10, 0);
+    /*13 */ p = emit(p, OP_HALT, 0, 0, 0);
+    VM vm;
+    preparar(&vm, prog, (uint16_t)(p - prog));
+    for (int k = 0; k < 5000 && vm.rodando; k++) vm_tick(&vm);
+    CHECK(!vm.rodando);
+    CHECK(vm.caixa[0] == 200);
+}
+
+static void teste_zerar_antes_do_cabecalho(void) {
+    uint8_t prog[7 * 9], *p = prog;
+    /* 0 */ p = emit(p, OP_ZERAR_CAIXAS, 0, 0, 0);
+    /* 1 */ p = emit(p, OP_TASK, TAREFA_NO_PLAY, 3, 0);
+    /* 2 */ p = emit(p, OP_TASK, TAREFA_NO_PLAY, 6, 0);
+    /* 3 */ p = emit(p, OP_PUSH, 7, 0, 0);
+    /* 4 */ p = emit(p, OP_REPORT, 0, 0, 0);
+    /* 5 */ p = emit(p, OP_HALT, 0, 0, 0);
+    /* 6 */ p = emit(p, OP_PUSH, 9, 0, 0);
+    /* 7 */ p = emit(p, OP_REPORT, 0, 0, 0);
+    /* 8 */ p = emit(p, OP_HALT, 0, 0, 0);
+    VM vm;
+    fake_clock_set(1000);
+    fake_dist_set(400);
+    vm_init(&vm);
+    CHECK(vm_load(&vm, prog, (uint16_t)(p - prog)) == 1);
+    vm.caixa[4] = 5;
+    fake_trace_reset();
+    vm_run(&vm);
+    CHECK(vm.caixa[4] == 0);
+    CHECK(vm.n_tarefas == 2);
+    for (int k = 0; k < 100 && vm.rodando; k++) vm_tick(&vm);
+    CHECK(contar("REPORT 7") == 1);
+    CHECK(contar("REPORT 9") == 1);
+}
+
 int main(void) {
     teste_programa_velho_sem_cabecalho();
     teste_cabecalho_cria_uma_tarefa_por_task();
@@ -516,6 +568,8 @@ int main(void) {
     teste_registradores_nao_se_misturam();
     teste_pilhas_nao_se_misturam();
     teste_sem_halt_a_tarefa_invade_a_seguinte();
+    teste_duas_tarefas_mudando_a_mesma_caixa();
+    teste_zerar_antes_do_cabecalho();
 
     if (falhas) {
         printf("\n%d verificação(ões) falharam\n", falhas);

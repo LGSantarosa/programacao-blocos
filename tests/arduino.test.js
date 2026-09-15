@@ -419,3 +419,98 @@ test('número sozinho no campo de segundos continua com uma casa', () => {
   assert.strictEqual(programa([{ op: 'esperar', segundos: 0.5 }]),
                      '  esperar(0.5);');
 });
+
+/* ---------- as caixas ---------- */
+
+const { limparNome } = require('../web/arduino.js');
+
+test('o nome da caixa vira identificador com prefixo', () => {
+  assert.strictEqual(limparNome('voltas'), 'caixa_voltas');
+  assert.strictEqual(limparNome('número de voltas'), 'caixa_numero_de_voltas');
+  assert.strictEqual(limparNome('Ação!'), 'caixa_Acao');
+  assert.strictEqual(limparNome('3voltas'), 'caixa_3voltas');
+  assert.strictEqual(limparNome('__x'), 'caixa_x');
+  assert.strictEqual(limparNome('_Nome'), 'caixa_Nome');
+  assert.strictEqual(limparNome('a  --  b'), 'caixa_a_b');
+  assert.strictEqual(limparNome('???'), 'caixa_caixa');
+  assert.strictEqual(limparNome('PWMA'), 'caixa_PWMA');
+});
+
+test('a caixa é int32_t, declarada antes da primeira função', () => {
+  const texto = gerar([{ op: 'guardar', indice: 0, nome: 'voltas', valor: 3 }]);
+  const decl = texto.indexOf('int32_t caixa_voltas = 0;');
+  assert.ok(decl >= 0, texto);
+  assert.ok(decl < texto.indexOf('void fiacao()'));
+  assert.ok(decl < texto.indexOf('void programa()'));
+  assert.ok(texto.includes('  caixa_voltas = 3;'));
+});
+
+test('mudar passa pela somar, e a somar só existe quando há mudar', () => {
+  const com = gerar([{ op: 'mudar', indice: 0, nome: 'voltas',
+                       valor: { op: 'caixa', indice: 1, nome: 'passo' } }]);
+  assert.ok(com.includes('  caixa_voltas = somar(caixa_voltas, caixa_passo);'), com);
+  assert.ok(com.includes('int32_t somar(int32_t caixa, int32_t n) {'));
+  assert.ok(com.includes('int32_t caixa_passo = 0;'), 'caixa só lida também é declarada');
+  const sem = gerar([{ op: 'guardar', indice: 0, nome: 'voltas', valor: 1 }]);
+  assert.ok(!sem.includes('somar('));
+});
+
+test('guardar 1.6 e -1.6 arredondam como o bytecode', () => {
+  const texto = gerar([
+    { op: 'guardar', indice: 0, nome: 'a', valor: 1.6 },
+    { op: 'guardar', indice: 1, nome: 'b', valor: -1.6 },
+    { op: 'guardar', indice: 2, nome: 'c', valor: -1.5 },
+  ]);
+  assert.ok(texto.includes('  caixa_a = 2;'));
+  assert.ok(texto.includes('  caixa_b = -2;'));
+  assert.ok(texto.includes('  caixa_c = -1;'));
+});
+
+test('dois nomes que dão no mesmo identificador ficam distintos', () => {
+  const texto = gerar([
+    { op: 'guardar', indice: 0, nome: 'número', valor: 1 },
+    { op: 'guardar', indice: 1, nome: 'numero', valor: 2 },
+    { op: 'guardar', indice: 2, nome: 'número!', valor: 3 },
+  ]);
+  assert.ok(texto.includes('  caixa_numero = 1;'), texto);
+  assert.ok(texto.includes('  caixa_numero_2 = 2;'), texto);
+  assert.ok(texto.includes('  caixa_numero_3 = 3;'), texto);
+});
+
+test('nomes perigosos geram um sketch que compila',
+  { skip: temGpp() ? false : 'sem g++ nesta máquina' }, () => {
+    const nomes = ['PWMA', 'delay', 'HIGH', '__x', '_Nome', '3voltas',
+                   'número de voltas', 'somar', 'int'];
+    const ast = nomes.map((nome, i) => ({ op: 'mudar', indice: i, nome, valor: i }));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ino-'));
+    const arq = path.join(dir, 'caixas.cpp');
+    fs.writeFileSync(arq, '#include "fake_arduino.h"\n' + gerar(ast));
+    const r = spawnSync('g++', ['-fsyntax-only', '-Wall', '-I', __dirname, arq],
+      { encoding: 'utf8' });
+    fs.rmSync(dir, { recursive: true, force: true });
+    assert.strictEqual(r.status, 0, 'o sketch não compilou:\n' + r.stderr);
+  });
+
+/* Não basta compilar: a somar tem que dar a volta como o CHANGE_VAR da VM, e
+   sem comportamento indefinido. O UBSan com -fno-sanitize-recover derruba o
+   programa se a soma com sinal estourar. */
+test('a somar do sketch gerado dá a volta sem comportamento indefinido',
+  { skip: temGpp() ? false : 'sem g++ nesta máquina' }, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ino-'));
+    const arq = path.join(dir, 'somar.cpp');
+    const bin = path.join(dir, 'somar');
+    fs.writeFileSync(arq,
+      '#include "fake_arduino.h"\n' +
+      gerar([{ op: 'mudar', indice: 0, nome: 'x', valor: 1 }]) +
+      '\nint main() {\n' +
+      '  if (somar(INT32_MAX, 1) != INT32_MIN) return 1;\n' +
+      '  if (somar(INT32_MIN, -1) != INT32_MAX) return 2;\n' +
+      '  if (somar(40, 2) != 42) return 3;\n' +
+      '  return 0;\n}\n');
+    const c = spawnSync('g++', ['-fsanitize=undefined', '-fno-sanitize-recover=all',
+                                '-I', __dirname, '-o', bin, arq], { encoding: 'utf8' });
+    assert.strictEqual(c.status, 0, 'não compilou:\n' + c.stderr);
+    const r = spawnSync(bin, [], { encoding: 'utf8' });
+    fs.rmSync(dir, { recursive: true, force: true });
+    assert.strictEqual(r.status, 0, 'a somar errou (código ' + r.status + '):\n' + r.stderr);
+  });

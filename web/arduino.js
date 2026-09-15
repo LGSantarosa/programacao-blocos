@@ -34,6 +34,65 @@
      na tela dissesse por quê. */
   var NOMES_LACO = ['i', 'j', 'k', 'l'];
 
+  /* Tirar acento por tabela, e não por String.prototype.normalize: o Safari do
+     iOS 9 não tem, e o tests/es5.test.js o proíbe. */
+  var SEM_ACENTO = {
+    'á': 'a', 'à': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a',
+    'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+    'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+    'ó': 'o', 'ò': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
+    'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
+    'ç': 'c', 'ñ': 'n'
+  };
+
+  /* O nome que a criança deu vira identificador de C++.
+
+     Sempre com "caixa_" na frente. Guardar só as palavras reservadas não
+     fecha: o arquivo declara PWMA e TRIG, chama delay e pinMode, usa HIGH e
+     OUTPUT, e o C++ reserva todo nome com "__" ou começado por "_" e
+     maiúscula. Uma lista que acompanhasse tudo isso ficaria para trás no
+     primeiro bloco novo; o prefixo fecha tudo de uma vez, e ainda diz a quem
+     lê que aquilo é a caixa que ela criou. */
+  function limparNome(nome) {
+    var s = String(nome === null || nome === undefined ? '' : nome);
+    var fora = '', i, c, baixo, troca;
+    for (i = 0; i < s.length; i++) {
+      c = s.charAt(i);
+      baixo = c.toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(SEM_ACENTO, baixo)) {
+        troca = SEM_ACENTO[baixo];
+        fora += (c === baixo) ? troca : troca.toUpperCase();
+      } else {
+        fora += c;
+      }
+    }
+    fora = fora.replace(/[^A-Za-z0-9_]/g, '_')
+               .replace(/_+/g, '_')
+               .replace(/^_+|_+$/g, '');
+    return 'caixa_' + (fora || 'caixa');
+  }
+
+  /* Nome da caixa → identificador, para o gerar() em curso. Refeito a cada
+     gerar(), na ordem em que as caixas aparecem, para que dois nomes que
+     dão no mesmo virem _2, _3 sempre na mesma ordem. */
+  var identificadores = {};
+  var identificadoresUsados = {};
+
+  function identificadorDe(nome) {
+    var chave = ' ' + nome;   /* o espaço impede "constructor" e parentes */
+    if (Object.prototype.hasOwnProperty.call(identificadores, chave)) {
+      return identificadores[chave];
+    }
+    var base = limparNome(nome), ident = base, k = 2;
+    while (Object.prototype.hasOwnProperty.call(identificadoresUsados, ident)) {
+      ident = base + '_' + k;
+      k++;
+    }
+    identificadores[chave] = ident;
+    identificadoresUsados[ident] = true;
+    return ident;
+  }
+
   function recuo(n) {
     var s = '', i;
     for (i = 0; i < n; i++) s += '  ';
@@ -66,6 +125,7 @@
        porque ali a VM multiplica por 1000 antes de arredondar. */
     if (typeof v === 'number') return String(Math.round(v));
     if (v.op === 'distancia') return 'distanciaCm()';
+    if (v.op === 'caixa') return identificadorDe(v.nome);
     if (v.op === 'nao') return '!(' + valor(v.a) + ')';
     if (v.op === 'aleatorio') {
       return 'aleatorio(' + valor(v.a) + ', ' + valor(v.b) + ')';
@@ -78,7 +138,8 @@
   /* Número e chamada não precisam de parênteses; conta precisa. */
   function parte(v) {
     if (v === null || v === undefined || typeof v === 'number') return valor(v);
-    if (v.op === 'distancia' || v.op === 'nao' || v.op === 'aleatorio') {
+    if (v.op === 'distancia' || v.op === 'nao' || v.op === 'aleatorio' ||
+        v.op === 'caixa') {
       return valor(v);
     }
     return '(' + valor(v) + ')';
@@ -126,6 +187,7 @@
     if (!v || typeof v === 'number') return;
     if (v.op === 'distancia') uso.sensor = true;
     if (v.op === 'aleatorio') uso.aleatorio = true;
+    if (v.op === 'caixa') identificadorDe(v.nome);
     usoDeValor(v.a, uso);
     usoDeValor(v.b, uso);
   }
@@ -140,6 +202,9 @@
       usoDeValor(no.vezes, uso);
       usoDeValor(no.cm, uso);
       usoDeValor(no.cond, uso);
+      usoDeValor(no.valor, uso);
+      if (no.op === 'guardar' || no.op === 'mudar') identificadorDe(no.nome);
+      if (no.op === 'mudar') uso.somar = true;
       if (no.op === 'frente') uso.frente = true;
       if (no.op === 'tras') uso.tras = true;
       if (no.op === 'girar') uso.girar = true;
@@ -243,6 +308,14 @@
           gerarNos(no.senao || [], nivel + 1, profundidade, linhas);
           linhas.push(r + '}');
           break;
+        case 'guardar':
+          linhas.push(r + identificadorDe(no.nome) + ' = ' + valor(no.valor) + ';');
+          break;
+        case 'mudar': {
+          var caixa = identificadorDe(no.nome);
+          linhas.push(r + caixa + ' = somar(' + caixa + ', ' + valor(no.valor) + ');');
+          break;
+        }
         /* O .ino é um programa só, com um setup() e um loop(): não há pc
            extra para dar a uma segunda pilha. Traduzir o aviso sem ter para
            quem avisar geraria um código que compila e não faz nada — pior que
@@ -398,6 +471,31 @@
     ''
   ];
 
+  /* A soma direta, "x = x + n", era a mais legível, e foi recusada: estouro de
+     inteiro com sinal é comportamento indefinido em C++, e a caixa da VM dá a
+     volta. A conversão final para int32_t é definida pela implementação, e
+     módulo 2^32 no GCC da ESP32 — que é o compilador do Arduino IDE para
+     esta placa. */
+  var SOMAR = [
+    '/* Soma que dá a volta, como a caixa do robô: passar de 2147483647 volta',
+    '   para -2147483648, em vez de fazer o que o C++ quiser. */',
+    'int32_t somar(int32_t caixa, int32_t n) {',
+    '  return (int32_t)((uint32_t)caixa + (uint32_t)n);',
+    '}',
+    ''
+  ];
+
+  function declaracoes() {
+    var fora = [], ident;
+    for (ident in identificadoresUsados) {
+      if (Object.prototype.hasOwnProperty.call(identificadoresUsados, ident)) {
+        fora.push('int32_t ' + ident + ' = 0;');
+      }
+    }
+    if (!fora.length) return [];
+    return ['/* As caixas que você criou. */'].concat(fora, ['']);
+  }
+
   var FIM = [
     'void setup() {',
     '  fiacao();',
@@ -416,19 +514,22 @@
      baixo. */
   function gerar(ast) {
     var nos = ast || [];
+    identificadores = {};
+    identificadoresUsados = {};
     var uso = usoDe(nos);
     var corpo = [];
     var linhas = [];
 
     gerarNos(nos, 1, 0, corpo);
 
-    linhas = linhas.concat(CABECALHO, pinos(uso), fiacao(uso), MOTORES);
+    linhas = linhas.concat(CABECALHO, pinos(uso), declaracoes(), fiacao(uso), MOTORES);
     if (uso.frente) linhas = linhas.concat(ANDAR_FRENTE);
     if (uso.tras) linhas = linhas.concat(ANDAR_TRAS);
     if (uso.girar) linhas = linhas.concat(GIRAR);
     if (uso.esperar) linhas = linhas.concat(ESPERAR);
     if (uso.aleatorio) linhas = linhas.concat(ALEATORIO);
     if (uso.sensor) linhas = linhas.concat(SENSOR);
+    if (uso.somar) linhas = linhas.concat(SOMAR);
     linhas.push('void programa() {');
     linhas = linhas.concat(corpo);
     linhas.push('}');
@@ -438,7 +539,8 @@
     return linhas.join('\n') + '\n';
   }
 
-  var api = { gerar: gerar, VEL_GIRO: VEL_GIRO, MS_POR_GRAU: MS_POR_GRAU,
+  var api = { gerar: gerar, limparNome: limparNome,
+              VEL_GIRO: VEL_GIRO, MS_POR_GRAU: MS_POR_GRAU,
               TRIM_DIR: TRIM_DIR,
               PINOS: PINOS };
   if (typeof module === 'object' && module.exports) module.exports = api;

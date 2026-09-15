@@ -9,6 +9,7 @@
 #define FAKE_ARDUINO_H
 
 #include <stdlib.h>   /* abs */
+#include <stdint.h>   /* int32_t, que o Arduino.h de verdade já traz */
 
 #define OUTPUT 1
 #define INPUT  0

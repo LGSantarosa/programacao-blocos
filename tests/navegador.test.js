@@ -2930,26 +2930,67 @@ test('a criança ensina um bloco, usa, apaga a definição e desfaz',
     })()`);
     await espera(800);
 
-    /* Criar pelo botão: a cabeça aparece na tela. */
-    await aval(`(Blockly.getMainWorkspace().getButtonCallback('CRIAR_BLOCO')(), 1)`);
-    await espera(600);
-    const def = await aval(`(() => {
-      const d = Blockly.getMainWorkspace().getBlocksByType('bloco_ensinar', false);
-      return d.length === 1 ? d[0].id + '|' + d[0].getFieldValue('NOME') : String(d.length);
-    })()`);
-    const [defId, defNome] = def.split('|');
-    assert.strictEqual(defNome, 'relatar', 'o botão não criou a cabeça: ' + def);
-
-    /* A gaveta mostra a peça de usar. */
+    /* O botão mora dentro da gaveta, então a gaveta já está aberta quando a
+       criança cria. Ela tem que mostrar a peça nova ali mesmo, sem fechar e
+       abrir de novo. */
+    const pecasDaGaveta = () => aval(`Blockly.getMainWorkspace().getFlyout().getWorkspace()
+      .getTopBlocks(false).map(b => b.type + ':' + b.getFieldValue('NOME')).join()`);
     await aval(`(() => {
       const tb = Blockly.getMainWorkspace().getToolbox();
       tb.setSelectedItem(tb.getToolboxItems().find(i => i.getName && i.getName() === 'Meus blocos'));
       return 1;
     })()`);
     await espera(700);
-    assert.strictEqual(await aval(`Blockly.getMainWorkspace().getFlyout().getWorkspace()
-      .getTopBlocks(false).map(b => b.type + ':' + b.getFieldValue('NOME')).join()`),
-      'bloco_usar:relatar');
+    assert.strictEqual(await pecasDaGaveta(), '', 'sem definição, a gaveta só tem o botão');
+
+    /* Criar pelo botão, com a gaveta aberta: a cabeça aparece na tela. */
+    await aval(`(Blockly.getMainWorkspace().getButtonCallback('CRIAR_BLOCO')(), 1)`);
+    await espera(700);
+    const def = await aval(`(() => {
+      const d = Blockly.getMainWorkspace().getBlocksByType('bloco_ensinar', false);
+      return d.length === 1 ? d[0].id + '|' + d[0].getFieldValue('NOME') : String(d.length);
+    })()`);
+    const [defId, defNome] = def.split('|');
+    assert.strictEqual(defNome, 'relatar', 'o botão não criou a cabeça: ' + def);
+    assert.strictEqual(await pecasDaGaveta(), 'bloco_usar:relatar',
+      'a gaveta aberta não mostrou a peça nova');
+
+    /* Renomear e apagar com a gaveta aberta também a atualizam. */
+    await aval(`(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)})
+      .getField('NOME').setValue('contar'), 1)`);
+    await espera(700);
+    assert.strictEqual(await pecasDaGaveta(), 'bloco_usar:contar',
+      'a gaveta aberta não mostrou o nome novo');
+    await aval(`(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)})
+      .getField('NOME').setValue('relatar'), 1)`);
+    await espera(700);
+    assert.strictEqual(await pecasDaGaveta(), 'bloco_usar:relatar');
+
+    /* Uma segunda definição, criada com a gaveta aberta, não pode renomear os
+       usos da primeira: a carga do nome não é renomear. */
+    await aval(`(() => {
+      Blockly.serialization.blocks.append({ type: 'bloco_usar', id: 'uso_antigo',
+        fields: { NOME: 'relatar' } }, Blockly.getMainWorkspace()).moveBy(700, 400);
+      window.prompt = function () { return 'outro'; };
+      Blockly.getMainWorkspace().getButtonCallback('CRIAR_BLOCO')();
+      return 1;
+    })()`);
+    await espera(700);
+    assert.strictEqual(await aval(
+      `Blockly.getMainWorkspace().getBlockById('uso_antigo').getFieldValue('NOME')`),
+      'relatar', 'criar «outro» renomeou um uso de «relatar»');
+    assert.strictEqual(await pecasDaGaveta(), 'bloco_usar:outro,bloco_usar:relatar');
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      ws.getBlocksByType('bloco_ensinar', false)
+        .filter(b => b.getFieldValue('NOME') === 'outro')[0].dispose(false);
+      ws.getBlockById('uso_antigo').dispose(false);
+      window.prompt = function () { return 'relatar'; };
+      return 1;
+    })()`);
+    await espera(700);
+    assert.strictEqual(await pecasDaGaveta(), 'bloco_usar:relatar',
+      'a gaveta aberta não tirou a definição apagada');
     await aval(`(() => {
       const ws = Blockly.getMainWorkspace();
       ws.getFlyout().hide();

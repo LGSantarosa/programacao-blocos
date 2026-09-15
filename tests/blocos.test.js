@@ -749,6 +749,32 @@ test('renomear a cabeça renomeia os usos', () => {
   assert.strictEqual(ws.getBlockById('u').getFieldValue('NOME'), 'pular');
 });
 
+/* O campo nasce com o nome padrão, e a carga põe o nome de verdade por cima.
+   Se o validador tomasse isso por renomear, trocaria o nome de todos os usos
+   de uma outra definição que por acaso se chama «meu bloco». */
+test('carregar uma definição não renomeia os usos de outra', () => {
+  const ws = carregar([ensinar('meu bloco', null, 'velha'), noPlay(usar('meu bloco', 'u'))]);
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.blocks.append(ensinar('outro', null, 'nova'), ws);
+  } finally {
+    Blockly.Events.enable();
+  }
+  assert.strictEqual(ws.getBlockById('nova').getFieldValue('NOME'), 'outro');
+  assert.strictEqual(ws.getBlockById('u').getFieldValue('NOME'), 'meu bloco');
+});
+
+test('carregar numa tela vazia de usos também não renomeia ninguém', () => {
+  const ws = carregar([noPlay(usar('meu bloco', 'u'))]);
+  Blockly.Events.disable();
+  try {
+    Blockly.serialization.blocks.append(ensinar('dançar', null, 'def'), ws);
+  } finally {
+    Blockly.Events.enable();
+  }
+  assert.strictEqual(ws.getBlockById('u').getFieldValue('NOME'), 'meu bloco');
+});
+
 test('nome repetido vira dançar2', () => {
   const ws = carregar([ensinar('dançar', null, 'a'), ensinar('outro', null, 'b')]);
   ws.getBlockById('b').getField('NOME').setValue('Dançar');

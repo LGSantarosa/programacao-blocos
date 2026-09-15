@@ -183,14 +183,43 @@
       var vista = workspace.getMetricsManager().getViewMetrics(true);
       cabeca.moveTo(new Blockly.utils.Coordinate(vista.left + 40, vista.top + 40));
       cabeca.select();
+      atualizarGavetaDeBlocos();
     });
   });
+
+  /* O botão mora dentro da gaveta «Meus blocos», então ela está aberta quando a
+     criança cria — e a gaveta é montada na hora de abrir. Sem remontar, ela
+     continuaria mostrando só o botão até ser fechada e aberta de novo. O mesmo
+     vale para renomear e apagar com ela aberta.
+
+     Remonta só quando a lista de nomes muda, e não a cada evento: arrastar uma
+     peça da própria gaveta dispara evento, e remontar ali seria mexer na gaveta
+     debaixo do dedo. (O refreshToolboxSelection já se recusa durante um gesto;
+     comparar os nomes é para não remontar à toa fora dele.) */
+  var nomesNaGaveta = '';
+
+  function nomesDosBlocos() {
+    var defs = workspace.getBlocksByType('bloco_ensinar', false);
+    var nomes = [];
+    for (var i = 0; i < defs.length; i++) {
+      nomes.push(String(defs[i].getFieldValue('NOME')).toLowerCase());
+    }
+    return nomes.sort().join('\n');
+  }
+
+  function atualizarGavetaDeBlocos() {
+    var agora = nomesDosBlocos();
+    if (agora === nomesNaGaveta) return;
+    nomesNaGaveta = agora;
+    workspace.refreshToolboxSelection();
+  }
 
   /* A peça de usar acende com definição e esmaece sem. Em todo evento que muda
      o programa: apagar a cabeça, desfazer, renomear, trocar de nível. */
   workspace.addChangeListener(function (e) {
     if (e.isUiEvent) return;
     Blocos.acertarUsos(workspace);
+    atualizarGavetaDeBlocos();
   });
 
   /* ---------- o programa da criança volta como ela deixou ---------- */

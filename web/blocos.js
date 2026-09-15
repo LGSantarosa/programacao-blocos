@@ -109,13 +109,36 @@
     });
 
     /* A cabeça «ensinar» se apresenta ao Blockly.Procedures do núcleo: é o que
-       dá de graça o nome único (findLegalName) e o renomear que alcança todos
-       os usos. Sem entrada e sem resposta: [nome, [], false]. */
+       dá de graça o nome único (findLegalName) e deixa os usos responderem ao
+       renomear. Sem entrada e sem resposta: [nome, [], false]. */
     registrarUma('bloco_ensinar_procedimento', function () {
-      this.getProcedureDef = function () {
-        return [this.getFieldValue('NOME'), [], false];
+      var bloco = this;
+      bloco.getProcedureDef = function () {
+        return [bloco.getFieldValue('NOME'), [], false];
       };
-      this.getField('NOME').setValidator(Blockly.Procedures.rename);
+      /* O Procedures.rename do núcleo, mas sem espalhar na carga.
+
+         O campo nasce com o nome padrão, e criar, recarregar, desfazer e colar
+         põem o nome de verdade por cima. O rename do núcleo toma isso por
+         renomear «meu bloco» — e troca o nome de todo uso de uma outra
+         definição que por acaso se chame assim. A primeira vez que o campo
+         recebe um nome é a carga: só garante o nome único. Da segunda em
+         diante é a criança renomeando, e aí os usos acompanham. */
+      bloco.getField('NOME').setValidator(function (novo) {
+        var legal = Blockly.Procedures.findLegalName(String(novo).trim(), bloco);
+        if (!bloco.nomeCarregado_) {
+          bloco.nomeCarregado_ = true;
+          return legal;
+        }
+        var antigo = this.getValue();
+        if (antigo !== legal) {
+          var todos = bloco.workspace.getAllBlocks(false);
+          for (var i = 0; i < todos.length; i++) {
+            if (todos[i].renameProcedure) todos[i].renameProcedure(antigo, legal);
+          }
+        }
+        return legal;
+      });
     });
 
     /* A peça de usar responde ao renomear da cabeça. O nome dela não se edita

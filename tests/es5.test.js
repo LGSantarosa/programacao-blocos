@@ -76,6 +76,8 @@ const PROIBIDO = [
     porque: 'escreva "nome: nome"' },
   { nome: 'String.prototype.repeat', re: /\.repeat\s*\(/,
     porque: 'é ES6; use um laço (ver "vezes" em campos.js)' },
+  { nome: 'String.prototype.normalize', re: /\.normalize\s*\(/,
+    porque: 'não existe no Safari do iOS 9; tire acento por tabela (ver arduino.js)' },
 ];
 
 for (const arq of ARQUIVOS) {
@@ -112,6 +114,7 @@ test('o detector realmente detecta, senão não guarda nada', () => {
     'for…of': 'for (var x of lista) { y(x); }',
     'propriedade abreviada': 'var api = { tocar, mudo };',
     'String.prototype.repeat': "var s = 'a'.repeat(3);",
+    'String.prototype.normalize': "var s = nome.normalize('NFD');",
   };
   for (const p of PROIBIDO) {
     const amostra = amostras[p.nome];

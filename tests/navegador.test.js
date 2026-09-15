@@ -2461,3 +2461,392 @@ test('sem voz no aparelho, os Ajustes dizem por que os blocos não falam',
 
     cdp.fechar();
   });
+
+test('a caixa guarda entre um toque e outro, e só o PLAY zera',
+  { skip: PULAR, timeout: 180000 },
+  async (t) => {
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 16) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-caixas-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 16}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 16}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 16}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+    /* O emoji 📦 é field_label, que não é clicável: tocar ali vira clique de
+       bloco, e não abre editor nenhum. */
+    const tocar = async (id) => {
+      const p = JSON.parse(await aval(`(() => {
+        const r = Blockly.getMainWorkspace().getBlockById(${JSON.stringify(id)})
+          .getSvgRoot().getBoundingClientRect();
+        return JSON.stringify({ x: r.left + 14, y: r.top + r.height / 2 });
+      })()`));
+      await mouse('mousePressed', p.x, p.y);
+      await mouse('mouseReleased', p.x, p.y);
+      await espera(1200);
+    };
+    const bolha = () => aval('document.getElementById("bolha").textContent');
+    const url = `http://localhost:${PORTA_WEB + 16}/`;
+
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=gigante]').click();
+      return 1;
+    })()`);
+    await espera(800);
+
+    /* O prompt e o confirm do Blockly viram window.prompt e window.confirm, e
+       um diálogo nativo aberto trava o headless. O confirm aparece ao apagar
+       uma caixa com mais de um uso. */
+    await aval(`(() => {
+      window.prompt = function () { return 'voltas'; };
+      window.confirm = function () { return true; };
+      return 1;
+    })()`);
+
+    const abrirCaixas = () => aval(`(() => {
+      const tb = Blockly.getMainWorkspace().getToolbox();
+      const c = tb.getToolboxItems().find(i => i.getName && i.getName() === 'Caixas');
+      tb.setSelectedItem(c);
+      return 1;
+    })()`);
+    const pecasNaGaveta = () => aval(`(() => {
+      const f = Blockly.getMainWorkspace().getFlyout();
+      return f.getWorkspace().getTopBlocks(false).map(b => b.type).sort().join();
+    })()`);
+
+    /* Sem caixa nenhuma, a gaveta só tem o botão. */
+    await abrirCaixas();
+    await espera(700);
+    assert.strictEqual(await pecasNaGaveta(), '', 'gaveta sem caixa não devia ter peça');
+
+    /* O botão, pelo mesmo callback que o toque nele chama. */
+    await aval(`(() => {
+      Blockly.getMainWorkspace().getButtonCallback('CRIAR_CAIXA')();
+      return 1;
+    })()`);
+    await espera(600);
+    assert.strictEqual(await aval(
+      'Blockly.getMainWorkspace().getAllVariables().map((v) => v.name).join()'),
+      'voltas', 'o botão não criou a caixa');
+
+    /* Reabrir a gaveta mostra as três peças, já apontando para «voltas». */
+    await abrirCaixas();
+    await espera(700);
+    assert.strictEqual(await pecasNaGaveta(), 'caixa_guardar,caixa_ler,caixa_mudar');
+    /* Fecha a gaveta do mesmo jeito que o fecharPaleta do app.js: sem isso
+       ela fica por cima do lugar onde as peças vão ser soltas. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      ws.getFlyout().hide();
+      ws.getToolbox().clearSelection();
+      return 1;
+    })()`);
+    await espera(400);
+
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const id = ws.getAllVariables()[0].getId();
+      const m = Blockly.serialization.blocks.append({ type: 'caixa_mudar', id: 'm',
+        fields: { CAIXA: { id } },
+        inputs: { VALOR: { shadow: { type: 'numero', fields: { NUM: 1 } } } } }, ws);
+      m.moveBy(60, 340);
+      const l = Blockly.serialization.blocks.append({ type: 'caixa_ler', id: 'l',
+        fields: { CAIXA: { id } } }, ws);
+      l.moveBy(60, 460);
+      const g = Blockly.serialization.blocks.append({ type: 'caixa_guardar', id: 'g',
+        fields: { CAIXA: { id } },
+        inputs: { VALOR: { shadow: { type: 'numero', fields: { NUM: 5 } } } } }, ws);
+      g.moveBy(60, 580);
+      return 1;
+    })()`);
+    await espera(600);
+
+    await tocar('m');
+    await tocar('m');
+    await tocar('l');
+    assert.strictEqual(await bolha(), '2', 'a caixa não guardou entre um toque e outro');
+
+    /* PLAY de um programa que não usa caixa nenhuma: a caixa tocada por pilha
+       solta tem que voltar a zero. */
+    await aval('document.getElementById("play").click(), 1');
+    await espera(1500);
+    await tocar('l');
+    assert.strictEqual(await bolha(), '0', 'o PLAY não zerou a caixa da pilha solta');
+
+    /* Guardar 5, apagar a caixa, PLAY, criar outra no mesmo lugar: tem que
+       mostrar 0, e não o 5 que ficou na VM. */
+    await tocar('g');
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      ws.deleteVariableById(ws.getAllVariables()[0].getId());
+      return 1;
+    })()`);
+    await espera(400);
+    await aval('document.getElementById("play").click(), 1');
+    await espera(1500);
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const v = ws.createVariable('pontos');
+      const l = Blockly.serialization.blocks.append({ type: 'caixa_ler', id: 'l2',
+        fields: { CAIXA: { id: v.getId() } } }, ws);
+      l.moveBy(60, 340);
+      return 1;
+    })()`);
+    await espera(600);
+    await tocar('l2');
+    assert.strictEqual(await bolha(), '0', 'a caixa nova mostrou a sobra da apagada');
+
+    /* Apagar e desfazer mantém o número. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const id = ws.getAllVariables()[0].getId();
+      const m = Blockly.serialization.blocks.append({ type: 'caixa_mudar', id: 'm2',
+        fields: { CAIXA: { id } },
+        inputs: { VALOR: { shadow: { type: 'numero', fields: { NUM: 3 } } } } }, ws);
+      m.moveBy(60, 460);
+      return 1;
+    })()`);
+    await espera(600);
+    await tocar('m2');
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      ws.deleteVariableById(ws.getAllVariables()[0].getId());
+      return 1;
+    })()`);
+    await espera(400);
+    await aval('document.getElementById("desfazer").click(), 1');
+    await espera(800);
+    await tocar('l2');
+    assert.strictEqual(await bolha(), '3', 'desfazer trocou a caixa de lugar');
+
+    /* Recarregar. O número não entra nesta conta: o bridge sobe um robô
+       virtual por conexão, então a página recarregada fala com uma VM nova,
+       de caixas zeradas. (Na placa a VM continua ligada, e é lá que o número
+       volta — prova dele, no aparelho.) O que tem que voltar aqui é o nome e
+       o lugar. */
+    const lugarAntes = await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      return ws.getAllVariables()[0].getId();
+    })()`);
+    await espera(1500);   /* o segundo de silêncio antes de gravar */
+    const gravado = await aval(
+      `JSON.parse(localStorage.getItem('robo_programa')).caixas.lugar[${JSON.stringify(lugarAntes)}]`);
+    assert.strictEqual(gravado, 0, 'o lugar de «pontos» não foi gravado');
+
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    assert.strictEqual(await aval(
+      'Blockly.getMainWorkspace().getAllVariables().map((v) => v.name).join()'),
+      'pontos', 'a caixa não voltou depois de recarregar');
+    assert.strictEqual(await aval(
+      `Blockly.getMainWorkspace().getAllVariables()[0].getId()`),
+      lugarAntes, 'a caixa voltou com outro id');
+    /* O mapa voltou: guardar na caixa e ler dá o número, e não erro de caixa
+       sem lugar. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const id = ws.getAllVariables()[0].getId();
+      Blockly.serialization.blocks.append({ type: 'caixa_guardar', id: 'g3',
+        fields: { CAIXA: { id } },
+        inputs: { VALOR: { shadow: { type: 'numero', fields: { NUM: 9 } } } } }, ws)
+        .moveBy(60, 700);
+      return 1;
+    })()`);
+    await espera(600);
+    await tocar('g3');
+    await tocar('l2');
+    assert.strictEqual(await bolha(), '9', 'depois de recarregar, a caixa perdeu o lugar');
+
+    cdp.fechar();
+  });
+
+test('trocar de nível e mapa gravado torto não prendem lugar, e a 17ª caixa não nasce',
+  { skip: PULAR, timeout: 180000 },
+  async (t) => {
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 17) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-caixas-limite-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 17}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 17}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 17}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+    const tocar = async (id) => {
+      const p = JSON.parse(await aval(`(() => {
+        const r = Blockly.getMainWorkspace().getBlockById(${JSON.stringify(id)})
+          .getSvgRoot().getBoundingClientRect();
+        return JSON.stringify({ x: r.left + 14, y: r.top + r.height / 2 });
+      })()`));
+      await mouse('mousePressed', p.x, p.y);
+      await mouse('mouseReleased', p.x, p.y);
+      await espera(1200);
+    };
+    const nivel = async (n) => {
+      await aval(`(() => {
+        document.querySelector('#niveis button[data-nivel=${n}]').click();
+        return 1;
+      })()`);
+      await espera(800);
+    };
+    /* Cada janelinha conta, e cada uma dá um nome diferente. */
+    const dialogos = () => aval(`(() => {
+      window.__prompts = window.__prompts || 0;
+      window.prompt = function () { window.__prompts++; return 'caixa' + window.__prompts; };
+      window.confirm = function () { return true; };
+      return 1;
+    })()`);
+    const criarPeloBotao = () => aval(`(() => {
+      Blockly.getMainWorkspace().getButtonCallback('CRIAR_CAIXA')();
+      return 1;
+    })()`);
+    const quantasCaixas = () => aval('Blockly.getMainWorkspace().getAllVariables().length');
+    /* Usa a última caixa: guarda n nela e toca, depois lê e toca. Uma caixa sem
+       lugar daria o erro "não coube" em vez do número. */
+    const usarUltima = async (n, sufixo) => {
+      await aval(`(() => {
+        const ws = Blockly.getMainWorkspace();
+        const vars = ws.getAllVariables();
+        const id = vars[vars.length - 1].getId();
+        Blockly.serialization.blocks.append({ type: 'caixa_guardar', id: 'g${sufixo}',
+          fields: { CAIXA: { id } },
+          inputs: { VALOR: { shadow: { type: 'numero', fields: { NUM: ${n} } } } } }, ws)
+          .moveBy(60, 340);
+        Blockly.serialization.blocks.append({ type: 'caixa_ler', id: 'l${sufixo}',
+          fields: { CAIXA: { id } } }, ws).moveBy(60, 460);
+        return 1;
+      })()`);
+      await espera(600);
+      await tocar('g' + sufixo);
+      await tocar('l' + sufixo);
+      return aval('document.getElementById("bolha").textContent');
+    };
+    const url = `http://localhost:${PORTA_WEB + 17}/`;
+
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    await nivel('gigante');
+    await dialogos();
+
+    /* Três trocas de nível com dez caixas na tela. Sem bloco nenhum, a troca
+       não pergunta — e o clear() leva as trinta caixas sem um VAR_DELETE. */
+    for (let volta = 0; volta < 3; volta++) {
+      await aval(`(() => {
+        const ws = Blockly.getMainWorkspace();
+        for (let i = 0; i < 10; i++) ws.createVariable('v${volta}_' + i);
+        return 1;
+      })()`);
+      await espera(400);
+      await nivel('grande');
+      await nivel('gigante');
+      assert.strictEqual(await quantasCaixas(), 0, 'a troca de nível devia apagar as caixas');
+    }
+
+    /* Com os trinta fantasmas, a primeira caixa pelo botão já bateria no teto. */
+    for (let i = 0; i < 16; i++) {
+      await criarPeloBotao();
+      await espera(150);
+    }
+    assert.strictEqual(await quantasCaixas(), 16, 'nem todas as 16 nasceram');
+    assert.strictEqual(await aval('window.__prompts'), 16);
+    assert.strictEqual(await usarUltima(7, 'a'), '7', 'a 16ª caixa ficou sem lugar');
+
+    /* A 17ª: nem abre a janelinha, e o cabeçalho explica. */
+    await criarPeloBotao();
+    await espera(300);
+    assert.strictEqual(await aval('window.__prompts'), 16, 'a janelinha da 17ª abriu');
+    assert.strictEqual(await quantasCaixas(), 16);
+    assert.match(await aval('document.getElementById("erro").textContent'),
+      /guarda 16 caixas/);
+
+    /* O mapa gravado com 16 fantasmas. O app.js grava a página que vai embora
+       três vezes — visibilitychange, pagehide e unload — e o último, o unload,
+       escreveria o estado de verdade por cima de uma adulteração feita só no
+       pagehide. Então a adulteração escuta os três: registrada depois do app,
+       em cada evento ela roda por último, e o unload dela é a última escrita
+       antes da página nova.
+
+       Se ainda assim o app gravar por último, o teste não passa por engano:
+       as 16 caixas de verdade voltariam, e o quantasCaixas() === 0 abaixo
+       falha. */
+    await aval(`(() => {
+      const estragar = function () {
+        const d = JSON.parse(localStorage.getItem('robo_programa'));
+        const lugar = {};
+        for (let i = 0; i < 16; i++) lugar['fantasma' + i] = i;
+        d.caixas = { lugar: lugar, antigo: {}, sujo: [] };
+        d.blocos.variables = [];
+        d.blocos.blocks = { languageVersion: 0,
+                            blocks: [{ type: 'quando_play', x: 40, y: 30 }] };
+        localStorage.setItem('robo_programa', JSON.stringify(d));
+      };
+      document.addEventListener('visibilitychange', estragar);
+      window.addEventListener('pagehide', estragar);
+      window.addEventListener('unload', estragar);
+      return 1;
+    })()`);
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    await dialogos();
+    assert.strictEqual(await quantasCaixas(), 0);
+
+    await criarPeloBotao();
+    await espera(400);
+    assert.strictEqual(await quantasCaixas(), 1, 'os fantasmas impediram a caixa de nascer');
+    assert.strictEqual(await usarUltima(4, 'b'), '4', 'a caixa nova ficou sem lugar');
+
+    cdp.fechar();
+  });

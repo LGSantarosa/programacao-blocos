@@ -112,6 +112,56 @@
      cópias da mesma regra é como elas divergem. */
   Blocos.criarRaiz(workspace);
 
+  /* ---------- as caixas com nome ---------- */
+
+  /* O lugar de cada caixa na VM. Volta do armazenamento antes do programa,
+     porque carregar o programa recria as variáveis — e cada uma tem que cair
+     no lugar onde estava, senão tocar em «voltas» depois de recarregar a
+     página mostraria o número de outra caixa. */
+  var caixas = Caixas.importar(Guardar.lerCaixas(nivel));
+  Blocos.usarCaixas(caixas);
+
+  /* O mapa acompanha as variáveis que existem na tela, nos dois sentidos.
+
+     Não dá para contar com VAR_CREATE e VAR_DELETE: o workspace.clear() do
+     Blockly — trocar de nível, restaurar, abrir o gabarito — esvazia as
+     variáveis sem disparar evento nenhum, e as caixas da tela apagada
+     segurariam lugar para sempre. Reconciliar é barato (16 lugares), então se
+     reconcilia em todo evento que muda o programa e, de novo, logo antes de
+     cada decisão que depende do mapa: criar, rodar, tocar, gravar. */
+  function reconciliarCaixas() {
+    var vars = workspace.getAllVariables();
+    var ids = [];
+    for (var i = 0; i < vars.length; i++) ids.push(vars[i].getId());
+    caixas.reconciliar(ids);
+  }
+
+  workspace.addChangeListener(function (e) {
+    if (e.isUiEvent) return;
+    reconciliarCaixas();
+  });
+
+  workspace.registerToolboxCategoryCallback('CAIXAS', function (ws) {
+    return Blocos.gavetaDeCaixas(ws);
+  });
+
+  /* A 17ª caixa não nasce: a janelinha nem abre. O menu do campo de caixa só
+     renomeia e apaga, então este botão é a única porta de criação.
+
+     A frase vai no cabeçalho, e não em bolha: a bolha do mostrarErro se ancora
+     num bloco, e aqui não há bloco culpado — como no "programa grande demais",
+     que também é limite do robô sem peça para apontar. */
+  workspace.registerButtonCallback('CRIAR_CAIXA', function () {
+    reconciliarCaixas();
+    if (!caixas.temLugar()) {
+      spErro.textContent = 'O robô guarda ' + Caixas.N_CAIXAS +
+                           ' caixas. Apague uma para criar outra.';
+      Som.tocar('batida');
+      return;
+    }
+    Blockly.Variables.createVariableButtonHandler(workspace, null, '');
+  });
+
   /* ---------- o programa da criança volta como ela deixou ---------- */
 
   /* Enquanto isto está ligado, nada é gravado: carregar o programa dispara os
@@ -122,7 +172,11 @@
 
   function gravarPrograma() {
     if (restaurando) return;
-    Guardar.gravar(Blockly.serialization.workspaces.save(workspace), nivel);
+    /* Reconciliado antes de gravar: um mapa com fantasmas gravado aqui
+       voltaria cheio na próxima visita. */
+    reconciliarCaixas();
+    Guardar.gravar(Blockly.serialization.workspaces.save(workspace), nivel,
+                   caixas.exportar());
   }
 
   /* Um segundo de silêncio antes de gravar. O Blockly dispara um evento por
@@ -176,12 +230,17 @@
          reabrisse a página ganharia um "▶ quando apertar PLAY" que dá para
          apagar. */
       Blocos.fixarRaiz(workspace);
+      /* O mapa gravado pode ter fantasma — de uma versão com defeito, ou de
+         mão humana no localStorage — e a carga não dispara evento para cada
+         variável na hora. */
+      reconciliarCaixas();
     } catch (e) {
       /* Um programa guardado por uma versão anterior pode citar um bloco que
          não existe mais. Melhor começar do zero e esquecer o que não abre do
          que deixar a criança olhando uma tela quebrada para sempre. */
       Guardar.esquecer();
       Blocos.limpar(workspace);
+      reconciliarCaixas();
       restaurando = false;
       return false;
     }
@@ -819,14 +878,24 @@
 
      ehPrograma diz o que rodou, não por onde foi pedido — é essa distinção
      que a contagem de tentativas usa. */
+  /* O PLAY zera as caixas quando alguma pode ter número na VM — e "pode ter"
+     é o caixas.js quem sabe, porque a caixa apagada com número dentro já não
+     está na tela nem na árvore. */
+  function opcoesDoPrograma(ehPrograma) {
+    if (!ehPrograma) return undefined;
+    reconciliarCaixas();
+    return caixas.temSujo() ? { zerarCaixas: true } : undefined;
+  }
+
   function rodar(ast, ehPrograma) {
     spErro.textContent = '';
     esconderBolha();
     relatorEsperado = null;
     Som.tocar('play');
+    var opcoes = opcoesDoPrograma(ehPrograma);
     var compilado;
     try {
-      compilado = Compilador.compilar(ast);
+      compilado = Compilador.compilar(ast, opcoes);
     } catch (e) {
       mostrarErro(e);
       return;
@@ -835,6 +904,7 @@
     mapaPc = compilado.pcMap;
     robo.carregar(compilado.bytes);
     robo.rodar();
+    if (opcoes) caixas.zerou();
   }
 
   /* O PLAY manda tudo que tem cabeça, e não só a âncora: com «quando» ou
@@ -845,16 +915,27 @@
      muda de forma por causa de um bloco que ela ainda não usou. */
   function rodarPrograma() {
     if (!Blocos.temTarefas(workspace)) {
-      rodar(Blocos.workspaceParaAst(workspace), true);
+      /* Montar a árvore pode lançar — uma caixa que não coube — e o erro tem
+         que virar bolha, e não exceção solta no console. */
+      var ast;
+      try {
+        ast = Blocos.workspaceParaAst(workspace);
+      } catch (e) {
+        mostrarErro(e);
+        return;
+      }
+      rodar(ast, true);
       return;
     }
     spErro.textContent = '';
     esconderBolha();
     relatorEsperado = null;
     Som.tocar('play');
+    var opcoes = opcoesDoPrograma(true);
     var compilado;
     try {
-      compilado = Compilador.compilarTarefas(Blocos.workspaceParaTarefas(workspace));
+      compilado = Compilador.compilarTarefas(Blocos.workspaceParaTarefas(workspace),
+                                             opcoes);
     } catch (e) {
       mostrarErro(e);
       return;
@@ -863,6 +944,7 @@
     mapaPc = compilado.pcMap;
     robo.carregar(compilado.bytes);
     robo.rodar();
+    if (opcoes) caixas.zerou();
   }
 
   btPlay.addEventListener('click', rodarPrograma);
@@ -879,10 +961,25 @@
     if (!robo || !robo.pronto()) return;
     var bloco = workspace.getBlockById(e.blockId);
     if (!bloco) return;
-    var pilha = Blocos.pilhaDoBloco(bloco);
+    /* A caixa criada agora mesmo pode não ter passado ainda pelo ouvinte de
+       eventos, que o Blockly dispara depois. */
+    reconciliarCaixas();
+    var pilha;
+    try {
+      pilha = Blocos.pilhaDoBloco(bloco);
+    } catch (err) {
+      mostrarErro(err);
+      return;
+    }
     if (!pilha) {
       /* Relator: não roda, relata. */
-      var no = Blocos.valorDoBloco(bloco);
+      var no;
+      try {
+        no = Blocos.valorDoBloco(bloco);
+      } catch (err) {
+        mostrarErro(err);
+        return;
+      }
       if (no === null) return;
       var perg;
       try {

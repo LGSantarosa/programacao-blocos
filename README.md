@@ -74,6 +74,12 @@ o próprio Blockly, e não um raio de arrasto nosso.
 > não existe é acrescentar uma pilha a um programa em curso, porque carregar
 > troca o programa inteiro. Levantar isso é trabalho de outro dia.
 
+> **Caixa nova pode mostrar sobra.** Apagar uma caixa e criar outra logo em
+> seguida, sem apertar PLAY no meio, dá à nova o lugar da apagada — e, até o
+> próximo PLAY, o número que ficou lá. Uma caixa que já existia nunca troca de
+> número: cada uma tem um lugar fixo na VM (`web/caixas.js`), e o PLAY zera
+> todo lugar que pode ter número.
+
 O seletor **nível** no cabeçalho troca entre Pequeno, Médio e Grande. Trocar de
 nível nunca desmonta o programa: os campos somem e voltam com os valores
 intactos. O botão 🔊 corta o som e lembra a escolha.

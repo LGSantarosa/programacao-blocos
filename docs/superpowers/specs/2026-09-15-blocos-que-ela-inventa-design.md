@@ -92,14 +92,22 @@ definição some. Usando só o núcleo, apagar a definição não leva ninguém 
 
 ### `bloco_usar`
 
-Comando com `previousStatement` e `nextStatement`. O nome é um `field_label`
-`NOME` — não editável na peça: renomear é na cabeça, e o `rename` espalha.
+Comando com `previousStatement` e `nextStatement`. O nome é um
+`field_label_serializable` `NOME` — não editável na peça: renomear é na cabeça,
+e o `rename` espalha.
+
+`field_label_serializable`, e não `field_label`: o `field_label` herda
+`SERIALIZABLE = false` do campo base, e o nome dele não vai para o
+`serialization.workspaces.save`. A peça voltaria da gravação — e do desfazer,
+que também passa pela serialização — com o nome padrão, sem dizer de qual
+definição ela é. O `field_label_serializable` do núcleo (8.0.5) é o mesmo
+rótulo, com `EDITABLE = false` e `SERIALIZABLE = true`.
 
 Métodos para o núcleo: `getProcedureCall()` devolve o nome;
 `renameProcedure(antigo, novo)` troca o rótulo quando o antigo é o dela.
 
-O rótulo é `field_label`, e não clicável: tocar no nome roda a peça (ver a
-memória do gesto do Blockly).
+O rótulo não é editável, então também não é clicável: tocar no nome roda a
+peça (ver a memória do gesto do Blockly).
 
 ### A gaveta «Meus blocos»
 
@@ -133,6 +141,26 @@ então, com o robô rodando «dançar», o `T_PC` acende as peças dentro da cab
 
 O `blockId` do nó `usar` é o da peça de usar. É nele que caem os dois erros
 abaixo.
+
+### Cada definição é traduzida uma vez
+
+Traduzir de novo o corpo a cada uso explode sem ciclo nenhum: se `b1` usa `b0`
+duas vezes, `b2` usa `b1` duas vezes, e assim por diante, vinte definições dão
+mais de um milhão de nós — e o navegador trava montando a árvore, antes de
+qualquer teto conseguir falar.
+
+Então a tradução guarda, por programa traduzido, o `corpo` de cada definição já
+pronta, pelo nome. O segundo uso de «dançar» recebe **o mesmo array** do
+primeiro. A árvore vira um grafo sem ciclo em que cada definição aparece uma
+vez: o tamanho dela é o das peças na tela, e não o da expansão.
+
+A lembrança dura uma tradução — um `workspaceParaAst`, um `workspaceParaTarefas`,
+um `pilhaDoBloco`, um `valorDoBloco` — e é jogada fora no fim. Entre duas
+traduções a criança pode ter mexido na dança.
+
+Ciclo e lembrança não se atrapalham: a lista de nomes "sendo traduzidos agora"
+detecta o ciclo antes de a definição ficar pronta, e só definição pronta entra
+na lembrança.
 
 ### Os dois erros
 
@@ -201,6 +229,26 @@ definição.
 
 A profundidade da pilha de valores não muda: cada conta é conferida no nó dela.
 
+### O teto confere enquanto emite
+
+Com a árvore compartilhada, o que cresce é a emissão: cada uso gera o corpo de
+novo. Hoje o teto só é conferido depois de todas as instruções prontas
+(`naoPassaDoTeto`), e a cadeia de vinte definições geraria um milhão de
+instruções antes de ouvir que passou de 1024.
+
+O `emitir` passa a lançar o erro do teto **na instrução 1025** do pedaço:
+
+> O programa ficou grande demais: o robô só guarda 1024 instruções.
+
+O erro sai sem `blockId`, e o `case 'usar'` o apanha, põe o `blockId` da peça
+de usar e o lança de novo — sobrescrevendo o que um uso de dentro tenha posto.
+Assim a bolha cai na peça de usar **mais de fora**, que é a que está no
+programa que a criança montou, e não numa peça escondida dentro de outra
+definição.
+
+O `naoPassaDoTeto` do fim continua existindo: o `compilarTarefas` costura até
+seis pedaços, cada um dentro do teto, e a soma ainda pode passar.
+
 ---
 
 ## O `.ino` — `web/arduino.js`
@@ -228,7 +276,10 @@ void bloco_dancar() {
 - **Laços:** dentro da função o `repetir` recomeça em `i`; as variáveis são
   locais da função.
 - **Varredura:** `usoDe` entra no `corpo` de cada `usar`, senão uma dança que
-  lê o sensor geraria um arquivo chamando `distanciaCm()` sem declará-la.
+  lê o sensor geraria um arquivo chamando `distanciaCm()` sem declará-la. Entra
+  **uma vez por nome**: a árvore compartilhada tem a mesma definição em muitos
+  lugares, e visitá-la em cada um refaria a explosão que a tradução evitou. O
+  mesmo vale para gerar as funções — cada nome, uma função, gerada uma vez.
 
 ### O «parar» dentro de uma função
 
@@ -262,8 +313,9 @@ seco dispara o watchdog da tarefa e reinicia a placa.
 
 | arquivo | o que prova |
 |---|---|
-| `tests/blocos.test.js` | `usar` traz o corpo da definição com os `blockId` de dentro dela; «a» usa «b» traduz as duas camadas; usar a si mesmo e ciclo de dois dão erro no `blockId` da peça que fecha o ciclo; peça sem definição dá erro no `blockId` dela; `pilhaDoBloco` numa cabeça `ensinar` roda o corpo com `ehPrograma: false`; renomear a cabeça renomeia os usos; nome repetido vira «dançar2»; `temTarefas` ignora a cabeça `ensinar` |
-| `tests/compilador.test.js` | `usar` gera o corpo no lugar; dois usos geram duas cópias; o `pcMap` aponta as peças da definição; repetir dentro de uso dentro de repetir conta dois níveis, e o quinto dá o erro que já existe |
+| `tests/blocos.test.js` | `usar` traz o corpo da definição com os `blockId` de dentro dela; «a» usa «b» traduz as duas camadas; usar a si mesmo e ciclo de dois dão erro no `blockId` da peça que fecha o ciclo; peça sem definição dá erro no `blockId` dela; `pilhaDoBloco` numa cabeça `ensinar` roda o corpo com `ehPrograma: false`; renomear a cabeça renomeia os usos; nome repetido vira «dançar2»; `temTarefas` ignora a cabeça `ensinar`; **o nome da peça de usar volta igual depois de salvar e carregar o workspace; vinte definições em cadeia, cada uma usando a anterior duas vezes, traduzem em milissegundos e dois usos da mesma definição recebem o mesmo array** |
+| `tests/compilador.test.js` | `usar` gera o corpo no lugar; dois usos geram duas cópias; o `pcMap` aponta as peças da definição; repetir dentro de uso dentro de repetir conta dois níveis, e o quinto dá o erro que já existe; **a cadeia de vinte definições com fan-out 2 dá o erro do teto em milissegundos, com o `blockId` do uso mais de fora** |
+| `tests/arduino.test.js` (fan-out) | a mesma cadeia de vinte gera o `.ino` em milissegundos, com vinte funções e cada uma declarada uma vez |
 | `tests/arduino.test.js` | `usar` vira `bloco_x();` e a função é declarada uma vez só; a função usada por outra vem antes dela; «parar» dentro de função gera `fim()` e a função `fim` só existe então; sensor lido só dentro de um bloco inventado declara `distanciaCm`; o sketch com dois blocos encadeados e um `parar` compila com g++ |
 | `tests/niveis.test.js` | só o Avançado tem os dois blocos e a categoria `custom="MEUS_BLOCOS"` |
 | `tests/tarefas_ponta_a_ponta.test.js` | um bloco inventado usado dentro de uma tarefa «quando» anda no robô virtual |
@@ -281,3 +333,10 @@ peça, e as peças ficam em y ≤ ~460 — lição do ciclo 4.
 - **Exportar e importar blocos entre programas** — cada programa tem os seus.
 - **A peça de usar mostrando por dentro o que ela faz** — tocar na cabeça já
   mostra, e rodando o `T_PC` acende as peças da definição.
+
+## O que a revisão mudou
+
+| achado | o que mudou |
+|---|---|
+| o nome da peça de usar era `field_label`, que não é serializado, e sumia ao recarregar e ao desfazer | `field_label_serializable`; teste de salvar e carregar |
+| traduzir o corpo de novo a cada uso explode com fan-out, e trava o navegador antes do teto | cada definição traduzida uma vez por tradução, compartilhada; o `emitir` para na instrução 1025; o `.ino` visita cada nome uma vez; testes com vinte definições em cadeia |

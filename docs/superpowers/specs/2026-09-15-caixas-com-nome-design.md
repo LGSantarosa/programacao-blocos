@@ -228,6 +228,12 @@ O robô de verdade continua com os números na RAM depois que a página recarreg
 Com o mapa gravado, `voltas` volta para o mesmo lugar, e tocar nela mostra o
 número que ela tinha.
 
+O robô virtual não: o `bridge/server.js` sobe um `robo_host` por conexão, e a
+página recarregada fala com uma VM nova, de caixas zeradas. O mapa volta igual
+mesmo assim — o que some é só o número, e o próximo PLAY zeraria de qualquer
+jeito. O teste de navegador prova o nome e o lugar; o número atravessando a
+recarga se prova na placa.
+
 ---
 
 ## O compilador — `web/compilador.js`
@@ -339,7 +345,10 @@ O botão abre a janelinha de nome do Blockly (`Blockly.dialog.prompt`). No app
 Android ela aparece porque o `MainActivity.kt` já instala um `WebChromeClient`.
 
 O `app.js` ouve `VAR_CREATE` e `VAR_DELETE` e repassa ao `caixas.js`. Limpar a
-tela e trocar de nível zeram o mapa junto com os blocos.
+tela e trocar de nível **não** recomeçam o mapa: o `workspace.clear()` do Blockly
+apaga as variáveis uma a uma, cada uma dispara `VAR_DELETE`, e os lugares ficam
+livres e sujos — que é o certo, porque a VM ainda tem os números. Recomeçar o
+mapa esqueceria os sujos e reabriria o caso do PLAY que não zera.
 
 A reaplicação do nível durante um arrasto (memória do ciclo 1) vale para os
 blocos novos sem regra nova: eles não têm campo escondido por nível.

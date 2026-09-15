@@ -58,7 +58,13 @@
 
   function valor(v) {
     if (v === null || v === undefined) return '0';
-    if (typeof v === 'number') return String(v);
+    /* Arredondado como o compilador arredonda cada PUSH: a VM só conhece
+       inteiros, e um .ino que faz conta com 1.5 anda diferente do robô. O
+       Math.round e não o round do C++, porque os dois discordam nos
+       negativos (-1.5 dá -1 aqui e -2 lá), e quem manda é a VM. O número
+       sozinho num campo de segundos não passa por aqui: vai pelo seg(),
+       porque ali a VM multiplica por 1000 antes de arredondar. */
+    if (typeof v === 'number') return String(Math.round(v));
     if (v.op === 'distancia') return 'distanciaCm()';
     if (v.op === 'nao') return '!(' + valor(v.a) + ')';
     if (v.op === 'aleatorio') {

@@ -399,3 +399,23 @@ test('o sensor escondido dentro de uma conta também é encontrado', () => {
   assert.ok(txt.includes('int distanciaCm()'), 'faltou distanciaCm');
   assert.ok(txt.includes('girar(distanciaCm() * 2);'), txt);
 });
+
+/* ---------- números arredondados como na VM ---------- */
+
+test('número decimal dentro de uma conta sai arredondado, como no bytecode', () => {
+  assert.strictEqual(
+    programa([{ op: 'frente', segundos: { op: 'mais', a: 1.5, b: 1 },
+                velocidade: 200 }]),
+    '  andarFrente(2 + 1, 200);');
+});
+
+test('arredonda negativo pelo Math.round, que é o do compilador', () => {
+  const texto = gerar([{ op: 'se', cond: { op: 'maior', a: -1.6, b: -1.5 },
+                         corpo: [{ op: 'parar' }] }]);
+  assert.ok(texto.includes('if (-2 > -1) {'), texto);
+});
+
+test('número sozinho no campo de segundos continua com uma casa', () => {
+  assert.strictEqual(programa([{ op: 'esperar', segundos: 0.5 }]),
+                     '  esperar(0.5);');
+});

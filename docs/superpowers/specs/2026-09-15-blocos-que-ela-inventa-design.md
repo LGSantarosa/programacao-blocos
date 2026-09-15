@@ -240,11 +240,22 @@ O `emitir` passa a lançar o erro do teto **na instrução 1025** do pedaço:
 
 > O programa ficou grande demais: o robô só guarda 1024 instruções.
 
-O erro sai sem `blockId`, e o `case 'usar'` o apanha, põe o `blockId` da peça
-de usar e o lança de novo — sobrescrevendo o que um uso de dentro tenha posto.
-Assim a bolha cai na peça de usar **mais de fora**, que é a que está no
-programa que a criança montou, e não numa peça escondida dentro de outra
-definição.
+O erro sai sem `blockId` e com uma marca própria, `codigo: 'programa_grande'`.
+O `case 'usar'` apanha o que vier de dentro e olha a marca:
+
+- **com a marca**, põe o `blockId` da peça de usar e lança de novo —
+  sobrescrevendo o que um uso de dentro tenha posto. Assim a bolha cai na peça
+  de usar **mais de fora**, que é a que está no programa que a criança montou:
+  o programa não ficou grande por causa de uma peça de dentro, e sim porque ela
+  usou aquilo tudo ali.
+- **sem a marca**, lança de novo sem tocar em nada. Um «repetir aninhados
+  demais», um número que não cabe, uma conta funda demais dentro da definição
+  continuam apontando a peça de dentro, que é a que está errada — como a seção
+  acima promete.
+
+Olhar a marca, e não a frase nem a falta de `blockId`: um erro sem dono
+legítimo (`blockId: null`) de dentro da definição não é o teto, e ganharia um
+dono inventado.
 
 O `naoPassaDoTeto` do fim continua existindo: o `compilarTarefas` costura até
 seis pedaços, cada um dentro do teto, e a soma ainda pode passar.
@@ -314,7 +325,7 @@ seco dispara o watchdog da tarefa e reinicia a placa.
 | arquivo | o que prova |
 |---|---|
 | `tests/blocos.test.js` | `usar` traz o corpo da definição com os `blockId` de dentro dela; «a» usa «b» traduz as duas camadas; usar a si mesmo e ciclo de dois dão erro no `blockId` da peça que fecha o ciclo; peça sem definição dá erro no `blockId` dela; `pilhaDoBloco` numa cabeça `ensinar` roda o corpo com `ehPrograma: false`; renomear a cabeça renomeia os usos; nome repetido vira «dançar2»; `temTarefas` ignora a cabeça `ensinar`; **o nome da peça de usar volta igual depois de salvar e carregar o workspace; vinte definições em cadeia, cada uma usando a anterior duas vezes, traduzem em milissegundos e dois usos da mesma definição recebem o mesmo array** |
-| `tests/compilador.test.js` | `usar` gera o corpo no lugar; dois usos geram duas cópias; o `pcMap` aponta as peças da definição; repetir dentro de uso dentro de repetir conta dois níveis, e o quinto dá o erro que já existe; **a cadeia de vinte definições com fan-out 2 dá o erro do teto em milissegundos, com o `blockId` do uso mais de fora** |
+| `tests/compilador.test.js` | `usar` gera o corpo no lugar; dois usos geram duas cópias; o `pcMap` aponta as peças da definição; repetir dentro de uso dentro de repetir conta dois níveis, e o quinto dá o erro que já existe; **a cadeia de vinte definições com fan-out 2 dá o erro do teto em milissegundos, com o `blockId` do uso mais de fora e `codigo: 'programa_grande'`; um repetir aninhado demais e um número que não cabe dentro de uma definição usada continuam com o `blockId` da peça de dentro** |
 | `tests/arduino.test.js` (fan-out) | a mesma cadeia de vinte gera o `.ino` em milissegundos, com vinte funções e cada uma declarada uma vez |
 | `tests/arduino.test.js` | `usar` vira `bloco_x();` e a função é declarada uma vez só; a função usada por outra vem antes dela; «parar» dentro de função gera `fim()` e a função `fim` só existe então; sensor lido só dentro de um bloco inventado declara `distanciaCm`; o sketch com dois blocos encadeados e um `parar` compila com g++ |
 | `tests/niveis.test.js` | só o Avançado tem os dois blocos e a categoria `custom="MEUS_BLOCOS"` |
@@ -340,3 +351,4 @@ peça, e as peças ficam em y ≤ ~460 — lição do ciclo 4.
 |---|---|
 | o nome da peça de usar era `field_label`, que não é serializado, e sumia ao recarregar e ao desfazer | `field_label_serializable`; teste de salvar e carregar |
 | traduzir o corpo de novo a cada uso explode com fan-out, e trava o navegador antes do teto | cada definição traduzida uma vez por tradução, compartilhada; o `emitir` para na instrução 1025; o `.ino` visita cada nome uma vez; testes com vinte definições em cadeia |
+| o `case 'usar'` sobrescreveria o `blockId` de qualquer erro, e o repetir de dentro passaria a apontar o uso | só o erro com `codigo: 'programa_grande'` troca de dono; os outros atravessam intactos; teste com erro comum dentro da definição |

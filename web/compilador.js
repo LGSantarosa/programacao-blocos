@@ -94,6 +94,17 @@
     }
 
     function emitir(op, a, b, c, blockId) {
+      /* Com blocos inventados, a árvore é pequena mas a emissão pode dobrar a
+         cada uso encadeado. Conferir só no fim (naoPassaDoTeto) deixaria gerar
+         um milhão de instruções antes de ouvir que passou de 1024. A marca é
+         o que o case 'usar' olha para trocar o dono do erro. */
+      if (instrucoes.length >= MAX_INSTR) {
+        var teto = new Error('O programa ficou grande demais: o robô só guarda ' +
+                             MAX_INSTR + ' instruções.');
+        teto.blockId = null;
+        teto.codigo = 'programa_grande';
+        throw teto;
+      }
       if (!cabeNaInstrucao(a) || !cabeNaInstrucao(b) || !cabeNaInstrucao(c)) {
         /* Duas frases, porque são duas coisas diferentes para quem lê: um
            número que não cabe é escolha da criança e ela pode escolher outro;
@@ -347,6 +358,23 @@
           case 'mudar':
             gerarValor(no.valor, no.blockId);
             emitir(OP.CHANGE_VAR, lugarDe(no), 0, 0, no.blockId);
+            break;
+
+          /* O corpo já vem traduzido e compartilhado (web/blocos.js); aqui ele
+             é gerado no lugar, como se a criança o tivesse montado ali.
+
+             Só o erro do teto troca de dono ao subir: a culpa é de quem usou
+             aquilo tudo, e cada uso de fora sobrescreve o de dentro, até a
+             bolha cair na peça que está no programa. Qualquer outro erro — um
+             repetir fundo demais, um número que não cabe — atravessa intacto e
+             aponta a peça de dentro, que é a que está errada. */
+          case 'usar':
+            try {
+              gerar(no.corpo || []);
+            } catch (e) {
+              if (e && e.codigo === 'programa_grande') e.blockId = no.blockId || null;
+              throw e;
+            }
             break;
 
           case 'repetir_sempre': {

@@ -711,3 +711,72 @@ test('mudar aceita a conta mais funda que cabe, e recusa a seguinte', () => {
     [{ op: 'mudar', indice: 0, nome: 'x', valor: funda(15), blockId: 'm' }]),
     (e) => e.blockId === 'c');
 });
+
+/* ---------- os blocos que ela inventa ---------- */
+
+test('usar gera o corpo da definição no lugar', () => {
+  const corpo = [{ op: 'girar', graus: 90, blockId: 'dentro' }];
+  const { bytes, pcMap } = compilar([{ op: 'usar', nome: 'dançar', corpo, blockId: 'uso' }]);
+  assert.deepStrictEqual(instrucoes(bytes), [
+    [OP.PUSH, 90, 0, 0],
+    [OP.TURN, 0, 0, 0],
+    [OP.HALT, 0, 0, 0],
+  ]);
+  /* Rodando «dançar», acende a peça de dentro da definição. */
+  assert.deepStrictEqual(pcMap, ['dentro', 'dentro', null]);
+});
+
+test('dois usos do mesmo corpo geram duas cópias', () => {
+  const corpo = [{ op: 'esperar', segundos: 1, blockId: 'e' }];
+  const { bytes } = compilar([
+    { op: 'usar', nome: 'd', corpo, blockId: 'u1' },
+    { op: 'usar', nome: 'd', corpo, blockId: 'u2' },
+  ]);
+  assert.strictEqual(instrucoes(bytes).length, 5);
+});
+
+test('repetir dentro de uso dentro de repetir conta dois níveis', () => {
+  const fundo = (n, dentro) => n === 0 ? dentro
+    : [{ op: 'repetir', vezes: 2, blockId: 'r' + n, corpo: fundo(n - 1, dentro) }];
+  const corpo = [{ op: 'repetir', vezes: 2, blockId: 'dentro', corpo: [] }];
+  /* Três repetir por fora mais um dentro da definição: quatro, cabe. */
+  assert.doesNotThrow(() => compilar(fundo(3, [{ op: 'usar', nome: 'd', corpo, blockId: 'u' }])));
+  /* Quatro por fora mais um dentro: cinco, e o erro aponta o repetir de dentro. */
+  const e = erroDe(() => compilar(fundo(4, [{ op: 'usar', nome: 'd', corpo, blockId: 'u' }])));
+  assert.strictEqual(e.blockId, 'dentro');
+  assert.strictEqual(e.codigo, undefined);
+});
+
+test('número que não cabe dentro de uma definição aponta a peça de dentro', () => {
+  const corpo = [{ op: 'girar', graus: 99999, blockId: 'dentro' }];
+  const e = erroDe(() => compilar([{ op: 'usar', nome: 'd', corpo, blockId: 'uso' }]));
+  assert.strictEqual(e.blockId, 'dentro');
+});
+
+/* b0 é uma peça; b1 usa b0 duas vezes; b2 usa b1 duas vezes... O corpo é
+   compartilhado, então a árvore é pequena — mas a emissão dobra a cada nível. */
+function cadeia(n) {
+  let corpo = [{ op: 'girar', graus: 1, blockId: 'b0' }];
+  for (let i = 1; i <= n; i++) {
+    const uso = { op: 'usar', nome: 'b' + (i - 1), corpo, blockId: 'uso' + i };
+    corpo = [uso, uso];
+  }
+  return corpo;
+}
+
+test('a cadeia de vinte definições para no teto em milissegundos, no uso de fora', () => {
+  const programa = [{ op: 'usar', nome: 'b20', corpo: cadeia(20), blockId: 'fora' }];
+  const t0 = Date.now();
+  const e = erroDe(() => compilar(programa));
+  assert.ok(Date.now() - t0 < 500, 'demorou ' + (Date.now() - t0) + ' ms');
+  assert.strictEqual(e.codigo, 'programa_grande');
+  assert.strictEqual(e.blockId, 'fora');
+  assert.match(e.message, /1024/);
+});
+
+test('programa sem uso nenhum continua com o bytecode de sempre', () => {
+  const ast = [{ op: 'girar', graus: 45, blockId: 'g' }];
+  assert.deepStrictEqual(instrucoes(compilar(ast).bytes), [
+    [OP.PUSH, 45, 0, 0], [OP.TURN, 0, 0, 0], [OP.HALT, 0, 0, 0],
+  ]);
+});

@@ -174,3 +174,22 @@ test('uma pilha conta na caixa, outra lê e responde', { timeout: 20000 }, async
     'a pilha do «quando» devia ter visto a conta da outra; o robô disse:\n' +
     linhas.filter((l) => l[0] !== 'T').join('\n'));
 });
+
+test('um bloco inventado anda dentro de uma pilha «quando»', { timeout: 20000 }, async () => {
+  /* O mesmo «quando perto, gira» do teste acima, com o giro dentro de um bloco
+     inventado. Se a cópia do corpo errar um salto dentro da tarefa, o robô não
+     gira. */
+  const girarUmPouco = [{ op: 'girar', graus: 90, blockId: 'g' }];
+  const { bytes } = compilarTarefas([
+    { quando: 'play', blockId: 'p',
+      corpo: [{ op: 'frente', segundos: 5, blockId: 'f' }] },
+    { quando: 'condicao', blockId: 'q',
+      cond: { op: 'menor', a: { op: 'distancia' }, b: 40, blockId: 'c' },
+      corpo: [{ op: 'usar', nome: 'desviar', corpo: girarUmPouco, blockId: 'u' }] },
+  ]);
+  const linhas = await rodar(bytes, 4000);
+  const thetas = linhas.filter((l) => l[0] === 'T')
+                       .map((l) => Number(l.split(' ')[3]));
+  assert.ok(thetas.some((t) => Math.abs(t - thetas[0]) > 300),
+    'o bloco inventado devia ter feito o robô girar ao chegar perto da parede');
+});

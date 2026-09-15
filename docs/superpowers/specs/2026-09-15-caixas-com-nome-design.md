@@ -1,7 +1,8 @@
 # Caixas com nome — design
 
-Data: 2026-09-15 · revisada no mesmo dia, depois de uma revisão com sete achados
-(ver [O que a revisão mudou](#o-que-a-revisão-mudou))
+Data: 2026-09-15 · revisada duas vezes no mesmo dia, depois de uma revisão com
+sete achados e uma segunda com três (ver
+[O que a revisão mudou](#o-que-a-revisão-mudou))
 
 Quarto da série iniciada em
 [`2026-08-17-numeros-que-se-calculam-design.md`](2026-08-17-numeros-que-se-calculam-design.md).
@@ -37,8 +38,11 @@ tocar na caixa para ver quanto tem sempre daria zero, e a execução viva — o 
 do ciclo 2 — perderia a graça justamente com a peça nova.
 
 **Só o PLAY zera — e zera todas.** Rodar o programa começa do zero, inclusive a
-caixa que só uma pilha solta tocou. Tocar numa peça solta, ou numa cabeça de
-evento, não zera.
+caixa que só uma pilha solta tocou, e inclusive o lugar de uma caixa que já foi
+apagada. Tocar numa peça solta, ou numa cabeça de evento, não zera.
+
+**O `.ino` anda como o robô.** Onde a VM arredonda, o código arredonda; onde a
+caixa da VM dá a volta, a do código também dá.
 
 **Uma caixa ocupa sempre o mesmo lugar.** Criar, renomear, apagar ou desfazer
 não fazem uma caixa passar a mostrar o número de outra.
@@ -170,20 +174,25 @@ Ele guarda `id da variável → lugar`, de 0 a 15, e responde a quatro eventos:
 
 | evento | o que acontece |
 |---|---|
-| caixa criada | ganha o lugar que já foi dela, se ainda estiver livre; senão, o menor livre |
+| caixa criada | ganha o lugar que já foi dela, se ainda estiver livre; senão, o menor livre; o lugar fica **sujo** |
 | caixa renomeada | nada: o id é o mesmo |
-| caixa apagada | o lugar fica livre, e o mapa lembra que foi dela |
-| programa carregado | o mapa volta como foi gravado |
+| caixa apagada | o lugar fica livre, e o mapa lembra que foi dela; **continua sujo** |
+| programa rodado com `ZERAR` | só os lugares ocupados continuam sujos |
+| programa carregado | o mapa e os sujos voltam como foram gravados |
+
+"Sujo" quer dizer "pode ter número na VM". É o que responde se o PLAY precisa
+zerar (ver o compilador).
 
 "O lugar que já foi dela" é o que faz desfazer funcionar: o `VarCreate` do
 Blockly recria a variável **com o mesmo id** (`Events.VarCreate.prototype.run`,
 em `web/vendor/blockly_compressed.js`), e ela cai no lugar de onde saiu.
 
-O que sobra, e fica escrito: apagar `voltas` e criar `pontos` logo depois dá a
-`pontos` o lugar livre — e, até o próximo PLAY, o número que `voltas` tinha
-deixado na VM. É uma caixa nova mostrando sobra, e não uma caixa existente
-trocando de número; zerar um lugar pede instrução, e instrução só chega com o
-próximo programa.
+O que sobra, e fica escrito: apagar `voltas` e criar `pontos` logo depois, **sem
+PLAY no meio**, dá a `pontos` o lugar livre e o número que `voltas` tinha deixado
+na VM. É uma caixa nova mostrando sobra, e não uma caixa existente trocando de
+número; zerar um lugar pede instrução, e instrução só chega com um programa. Um
+PLAY entre apagar e criar já limpa, porque o lugar apagado continua sujo e o PLAY
+zera.
 
 ### A 17ª caixa não nasce
 
@@ -199,7 +208,8 @@ cuja caixa não tem lugar vira erro no bloco dele, e não índice inventado.
 ### Onde o mapa é gravado
 
 Junto com o programa. `Guardar.gravar(estado, nivel, caixas)` grava
-`{ nivel, blocos, caixas }`, e `Guardar.ler` devolve os dois. Gravado e lido na
+`{ nivel, blocos, caixas }` — `caixas` levando o mapa, a lembrança dos lugares
+apagados e os sujos — e `Guardar.ler` devolve os dois. Gravado e lido na
 mesma chave, o mapa não tem como voltar de um programa e os blocos de outro.
 
 Um programa guardado antes deste ciclo não tem `caixas` — e também não tem
@@ -248,10 +258,12 @@ Uma opção nova, `zerarCaixas: true`. Com ela, o `ZERAR` sai **sempre** — use
 pilha caixa ou não.
 
 Quem decide passá-la é o `app.js`: quando roda o programa (o PLAY, ou o dedo na
-pilha da âncora — `ehPrograma` do ciclo 2) **e o workspace tem alguma caixa**,
-mesmo que nenhuma apareça na pilha do PLAY.
+pilha da âncora — `ehPrograma` do ciclo 2) **e o `caixas.js` tem algum lugar
+sujo**. Depois de mandar o programa, o `app.js` avisa o `caixas.js`, que limpa os
+lugares livres.
 
-A regra olha o workspace e não a árvore por um motivo que só aparece em uso:
+A regra não olha a árvore, e também não olha as caixas que existem na tela. Dois
+casos, cada um derrubando um dos jeitos:
 
 ```
 tocar em «mudar x por 1» solto    → x = 1
@@ -263,8 +275,18 @@ O PLAY compila só o que tem cabeça (`rodarPrograma`, em `web/app.js`), e a pil
 solta que mexeu na caixa está fora da árvore. Decidido pela árvore, o PLAY não
 zeraria.
 
-Sem caixa nenhuma no workspace, a opção não vai, e o bytecode é o de hoje, byte
-por byte — a regra que o ciclo 3 seguiu com o cabeçalho, e pela mesma razão.
+```
+guardar 5 em x, apagar x          → a tela não tem caixa, a VM tem 5
+PLAY num programa que só anda
+criar y, que cai no lugar de x
+tocar em «y»                      → tem que mostrar 0
+```
+
+Decidido pelas caixas da tela, este PLAY também não zeraria.
+
+Um workspace que nunca teve caixa não tem lugar sujo, a opção não vai, e o
+bytecode é o de hoje, byte por byte — a regra que o ciclo 3 seguiu com o
+cabeçalho, e pela mesma razão.
 
 ### O deslocamento
 
@@ -331,7 +353,7 @@ Cada caixa usada vira uma global, declarada **antes da primeira função do
 arquivo** — antes de `fiacao()` e de `programa()`, e não só antes de `setup()`:
 
 ```cpp
-long caixa_voltas = 0;
+int32_t caixa_voltas = 0;
 ```
 
 A primeira versão mantinha o nome puro e reservava palavras do C++ e as funções
@@ -344,8 +366,8 @@ a API do Arduino é uma lista que vai ficar para trás.
 `caixa_` na frente fecha todas de uma vez, e ainda diz a quem lê de onde aquilo
 veio: é a caixa que ela criou.
 
-`long` e não `int`: no ESP32 os dois têm 32 bits, mas `long` diz isso a quem lê
-em qualquer placa.
+`int32_t`, e não `int` nem `long`: a linguagem não garante a largura de nenhum
+dos dois, e a caixa da VM tem 32 bits exatos. O nome do tipo diz isso a quem lê.
 
 ### A limpeza do nome
 
@@ -365,10 +387,50 @@ Começar por dígito deixa de ser caso: depois do prefixo, nunca começa.
 
 ### Os comandos
 
-`guardar` vira `caixa_voltas = <valor>;` e `mudar` vira
-`caixa_voltas = caixa_voltas + <valor>;` — e não `+=`, pela mesma regra dos
-parênteses: a leitura ganha da esperteza. O `.ino` roda um programa só, então lá
-não há duas pilhas para se atropelar.
+`guardar` vira `caixa_voltas = <valor>;`.
+
+`mudar` vira `caixa_voltas = somar(caixa_voltas, <valor>);`, com a função de
+apoio declarada só quando algum «mudar» existe — mesma regra do sensor e do
+aleatório:
+
+```cpp
+/* Soma que dá a volta, como a caixa do robô: passar de 2147483647 volta
+   para -2147483648, em vez de fazer o que o C++ quiser. */
+int32_t somar(int32_t caixa, int32_t n) {
+  return (int32_t)((uint32_t)caixa + (uint32_t)n);
+}
+```
+
+A soma direta, `caixa_voltas + <valor>`, era a mais legível, e foi recusada:
+estouro de inteiro com sinal é comportamento indefinido no C++, e a VM passou a
+garantir a volta. Um `.ino` que anda igual ao robô até o dia em que a conta
+estoura é um `.ino` que não anda igual. O nome `somar` fica fora do alcance das
+caixas, porque toda caixa começa por `caixa_`.
+
+O `.ino` roda um programa só, então lá não há duas pilhas para se atropelar.
+
+### Os números, arredondados como na VM
+
+A VM só conhece inteiros: o compilador faz `Math.round` em todo número solto que
+vira `PUSH` (`gerarValorInterno`, em `web/compilador.js`). O `valor()` do
+`arduino.js` escreve o número como veio (`String(v)`). Com caixas:
+
+```
+guardar 1.6 em x
+VM:   x = 2
+.ino: caixa_x = 1.6;   → 1, porque int32_t trunca
+```
+
+O `valor()` passa a escrever `String(Math.round(v))` para todo número solto,
+o mesmo arredondamento do compilador — `Math.round`, e não o do C++, porque os
+dois discordam nos negativos (`Math.round(-1.5)` é `-1`; `lround(-1.5)` é `-2`),
+e quem manda é a VM.
+
+Isso também fecha uma divergência que já existia antes das caixas: um número
+decimal dentro de uma conta em segundos, `andar frente (1.5 + 1) s`, anda 3 s no
+robô (o compilador arredonda cada parte) e 2,5 s no `.ino`. O número sozinho
+num campo de segundos continua saindo com uma casa pelo `seg()`, porque ali a VM
+multiplica por 1000 antes de arredondar e a casa decimal é de verdade.
 
 ---
 
@@ -379,13 +441,14 @@ não há duas pilhas para se atropelar.
 | `tests/vm_test.c` | `STORE_VAR`, `PUSH_VAR` e `CHANGE_VAR` guardam, leem e somam; `CHANGE_VAR` estourando dá a volta; índice fora da faixa para a VM nos três; a caixa sobrevive a `vm_load` + `vm_run`; `ZERAR` zera como instrução e como primeira do programa |
 | `tests/tarefas_test.c` | **duas tarefas fazendo «mudar x por 1» num laço de N voltas terminam com 2N**; `ZERAR` antes do cabeçalho não desloca as tarefas |
 | `tests/compilador.test.js` | programa sem `zerarCaixas` gera bytecode idêntico ao de antes; o bytecode de `caixa`, `guardar` e `mudar`; `zerarCaixas` emite `ZERAR` mesmo sem caixa na árvore; os `inicio` somam 1 com `ZERAR`; conta de profundidade máxima dentro de `mudar` passa, e uma a mais dá o erro no bloco |
-| `tests/caixas.test.js` | criar dá o menor livre; renomear não mexe; apagar libera; **apagar e desfazer volta ao mesmo lugar**; a 17ª é recusada; o mapa volta igual depois de gravado e lido |
+| `tests/caixas.test.js` | criar dá o menor livre; renomear não mexe; apagar libera; **apagar e desfazer volta ao mesmo lugar**; a 17ª é recusada; **lugar apagado continua sujo, e só o aviso de programa com `ZERAR` o limpa**; mapa e sujos voltam iguais depois de gravados e lidos |
 | `tests/guardar.test.js` | `{ nivel, blocos, caixas }` vai e volta; programa antigo sem `caixas` lê com mapa vazio |
 | `tests/blocos.test.js` | o nó leva o lugar do mapa e o nome; bloco com caixa sem lugar vira erro no bloco |
-| `tests/arduino.test.js` | as seis regras de limpeza; nomes `PWMA`, `delay`, `HIGH`, `__x`, `_Nome`, `3voltas`, `número de voltas` e dois nomes colidindo geram identificadores válidos e distintos; a global aparece antes de `fiacao()` e de `programa()`; `x = x + v` |
+| `tests/arduino.test.js` | as seis regras de limpeza; nomes `PWMA`, `delay`, `HIGH`, `__x`, `_Nome`, `3voltas`, `número de voltas` e dois nomes colidindo geram identificadores válidos e distintos; a global é `int32_t` e aparece antes de `fiacao()` e de `programa()`; `mudar` gera `somar(...)` e a função só existe quando há «mudar»; `guardar 1.6` e `guardar -1.6` escrevem `2` e `-2`, `-1.5` escreve `-1`, igual ao bytecode; `andar (1.5 + 1)` escreve os números arredondados |
+| `tests/somar_test.c` | a `somar` exatamente como o `arduino.js` a escreve (lida do arquivo, como o `arduino.test.js` já lê os pinos) compilada no teste de mesa: `2147483647 + 1` dá `-2147483648`, igual ao `CHANGE_VAR` |
 | `tests/es5.test.js` | `.normalize(` entra em `PROIBIDO` |
 | `tests/tarefas_ponta_a_ponta.test.js` | uma pilha conta, outra lê, no robô virtual |
-| `tests/navegador.test.js` | criar caixa pelo botão; tocar em «mudar» duas vezes e no relator mostra `2`; **PLAY de um programa sem caixa zera a caixa tocada por pilha solta**; apagar e desfazer mantém o número; recarregar a página mantém nome e lugar |
+| `tests/navegador.test.js` | criar caixa pelo botão; tocar em «mudar» duas vezes e no relator mostra `2`; **PLAY de um programa sem caixa zera a caixa tocada por pilha solta**; **guardar 5, apagar a caixa, PLAY, criar outra e tocar nela mostra 0**; apagar e desfazer mantém o número; recarregar a página mantém nome e lugar |
 
 O de navegador e o firmware entram no `make test-lento` e no `make test-tudo`, e
 ele confere depois. A prova no S24 FE também é dele.
@@ -411,3 +474,11 @@ ele confere depois. A prova no S24 FE também é dele.
 | tabela do `vm_run` contradizia o texto | tabela corrigida |
 | profundidade de «mudar» mal descrita | com `CHANGE_VAR`, é a do valor; teste no limite |
 | faltavam testes de regressão | todos os pedidos, na tabela acima |
+
+Segunda revisão:
+
+| achado | o que mudou |
+|---|---|
+| PLAY sem caixa na tela deixava número no lugar de uma caixa apagada | `caixas.js` guarda lugares sujos, apagados inclusive, e grava junto; o PLAY zera quando há sujo |
+| `.ino` não arredondava como a VM | `valor()` faz `Math.round` em todo número solto; teste com 1.6, -1.6 e -1.5 |
+| estouro do «mudar» indefinido no `.ino` | `somar()` por `uint32_t`, compilada num teste de mesa; `int32_t` no lugar de `long` |

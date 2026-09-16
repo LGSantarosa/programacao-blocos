@@ -257,6 +257,76 @@
       });
     });
 
+    /* Os quatro ganchos de estado da peça de usar, todos sobre a mesma lista
+       `encaixes_`, para não existirem duas verdades.
+
+       Os quatro, e não dois: o caminho XML do Blockly — que é o da gaveta —
+       só chama domToMutation e nunca consulta o loadExtraState
+       (Xml_applyMutationTagNodes). Sem o par XML, a peça sairia da gaveta sem
+       buraco nenhum, em silêncio. O par JSON serve para gravar e para desfazer,
+       que preferem loadExtraState quando ele existe. */
+    var ESTADO_DO_USO = {
+      saveExtraState: function () {
+        var fora = [], k;
+        for (k = 0; k < this.encaixes_.length; k++) {
+          fora.push({ id: this.encaixes_[k].id, nome: this.encaixes_[k].nome });
+        }
+        return { encaixes: fora };
+      },
+
+      loadExtraState: function (estado) {
+        var lista = (estado && estado.encaixes) || [], k, e, limpos = [];
+        for (k = 0; k < lista.length; k++) {
+          e = lista[k];
+          if (!e || !e.id) continue;
+          limpos.push({ id: String(e.id), nome: String(e.nome || '') });
+        }
+        this.encaixes_ = [];
+        this.acertarEncaixes_(limpos);
+      },
+
+    };
+
+    registrarMutador('bloco_usar_estado', ESTADO_DO_USO, function () {
+      var bloco = this;
+      bloco.encaixes_ = [];
+
+      /* Só mexe no que mudou: encaixe que continua fica de pé com o que a
+         criança pôs dentro. É isto que faz renomear não jogar fora o número. */
+      bloco.acertarEncaixes_ = function (lista) {
+        var tem = {}, k, e, encaixe;
+        for (k = 0; k < lista.length; k++) tem[' ' + lista[k].id] = true;
+        for (k = bloco.encaixes_.length - 1; k >= 0; k--) {
+          if (!tem[' ' + bloco.encaixes_[k].id]) {
+            if (bloco.getInput('ENT_' + bloco.encaixes_[k].id)) {
+              bloco.removeInput('ENT_' + bloco.encaixes_[k].id);
+            }
+            bloco.encaixes_.splice(k, 1);
+          }
+        }
+        for (k = 0; k < lista.length; k++) {
+          e = lista[k];
+          encaixe = bloco.getInput('ENT_' + e.id);
+          if (!encaixe) {
+            encaixe = bloco.appendValueInput('ENT_' + e.id);
+            encaixe.setCheck('Number');
+            bloco.encaixes_.push({ id: e.id, nome: e.nome });
+            comShadowDeNumero(encaixe);
+          }
+          encaixe.removeField('ROT_' + e.id, true);
+          encaixe.appendField(new Blockly.FieldLabel(e.nome), 'ROT_' + e.id);
+          bloco.renomearEncaixe_(e.id, e.nome);
+        }
+      };
+
+      bloco.renomearEncaixe_ = function (id, nome) {
+        var k;
+        for (k = 0; k < bloco.encaixes_.length; k++) {
+          if (bloco.encaixes_[k].id === id) bloco.encaixes_[k].nome = nome;
+        }
+      };
+    });
+
     /* A peça roxa guarda o id da entrada, e não só o nome: renomear a entrada
        não pode fazer a peça perder de quem ela é. O rótulo é o que aparece; o
        id é quem manda. Mutador pelo mesmo motivo da cabeça. */
@@ -454,6 +524,10 @@
         nextStatement: null,
         colour: COR_BLOCO,
         extensions: ['bloco_usar_procedimento'],
+        /* Os dois convivem: a extensão cuida do getProcedureCall e do
+           renameProcedure, que não são propriedades de mutador; o mutador cuida
+           dos buracos. */
+        mutator: 'bloco_usar_estado',
         tooltip: 'Faz as peças que você ensinou com este nome.',
       },
       {
@@ -817,7 +891,22 @@
       }
       traducao.prontos[chave] = corpo;
     }
-    return { op: 'usar', nome: nome, corpo: corpo, blockId: b.id };
+    var args = [], encaixes = b.encaixes_ || [], j;
+    for (j = 0; j < encaixes.length; j++) {
+      args.push({ id: encaixes[j].id, nome: encaixes[j].nome,
+                  valor: valorDe(b, 'ENT_' + encaixes[j].id) });
+    }
+    return { op: 'usar', nome: nome, corpo: corpo, args: args, blockId: b.id };
+  }
+
+  /* O mesmo shadow de número dos outros encaixes do projeto: até a criança
+     soltar uma conta em cima, ele parece o campo de sempre. */
+  function comShadowDeNumero(encaixe) {
+    var bloco = encaixe.getSourceBlock();
+    var sombra = Blockly.serialization.blocks.append(
+      { type: 'numero', fields: { NUM: 1 } }, bloco.workspace);
+    sombra.setShadow(true);
+    encaixe.connection.connect(sombra.outputConnection);
   }
 
   /* A peça roxa só vale dentro da cabeça que a criou: fora dela não há
@@ -1117,27 +1206,38 @@
   /* A gaveta «Meus blocos»: o botão de criar, e uma peça de usar para cada
      definição na tela, em ordem de nome. Montada na hora, então uma definição
      apagada some daqui sem regra nova. */
-  function gavetaDeBlocos(workspace) {
-    var xml = Blockly.utils.xml;
-    var itens = [];
-    var botao = xml.createElement('button');
-    botao.setAttribute('text', '🧩 Criar bloco');
-    botao.setAttribute('callbackKey', 'CRIAR_BLOCO');
-    itens.push(botao);
+  /* Itens em JSON, e não em XML como a das caixas.
 
-    var nomes = [];
+     O flyout decide o caminho pelo que recebe: array de nós DOM vira `blockxml`
+     e é montado por Xml.domToBlock, que só chama domToMutation; array de
+     objetos vai direto para serialization.blocks.append, que usa o
+     loadExtraState. Como os buracos da peça de usar vivem no extraState, só o
+     caminho JSON os carrega — em XML a peça sairia da gaveta sem buraco
+     nenhum, calada. (O botão aceita callbackKey e callbackkey: o FlyoutButton
+     lê os dois.) */
+  function gavetaDeBlocos(workspace) {
+    var itens = [{ kind: 'button', text: '🧩 Criar bloco',
+                   callbackKey: 'CRIAR_BLOCO' }];
+
     var defs = workspace.getBlocksByType('bloco_ensinar', false);
-    for (var i = 0; i < defs.length; i++) nomes.push(defs[i].getFieldValue('NOME'));
+    var nomes = [], i;
+    for (i = 0; i < defs.length; i++) nomes.push(defs[i].getFieldValue('NOME'));
     nomes.sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
 
     for (var k = 0; k < nomes.length; k++) {
-      var bloco = xml.createElement('block');
-      bloco.setAttribute('type', 'bloco_usar');
-      var campo = xml.createElement('field');
-      campo.setAttribute('name', 'NOME');
-      campo.appendChild(xml.createTextNode(nomes[k]));
-      bloco.appendChild(campo);
-      itens.push(bloco);
+      var def = Blockly.Procedures.getDefinition(nomes[k], workspace);
+      var entradas = def ? entradasDe(def) : [];
+      var item = { kind: 'block', type: 'bloco_usar',
+                   fields: { NOME: nomes[k] } };
+      if (entradas.length) {
+        item.extraState = { encaixes: entradas };
+        item.inputs = {};
+        for (var j = 0; j < entradas.length; j++) {
+          item.inputs['ENT_' + entradas[j].id] =
+            { shadow: { type: 'numero', fields: { NUM: 1 } } };
+        }
+      }
+      itens.push(item);
     }
     return itens;
   }

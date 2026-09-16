@@ -673,8 +673,10 @@ test('usar traz o corpo da definição, com os blockId de dentro dela', () => {
     ensinar('dançar', { type: 'girar', id: 'g', inputs: { GRAUS: num(90) } }),
     noPlay(usar('dançar', 'u')),
   ]);
+  /* args vem vazio, e não ausente: um bloco sem entradas tem lista de
+     argumentos vazia, e quem lê a árvore não precisa desconfiar de undefined. */
   assert.deepStrictEqual(Blocos.workspaceParaAst(ws), [
-    { op: 'usar', nome: 'dançar', blockId: 'u',
+    { op: 'usar', nome: 'dançar', blockId: 'u', args: [],
       corpo: [{ op: 'girar', graus: 90, blockId: 'g' }] },
   ]);
 });
@@ -936,4 +938,85 @@ test('a peça roxa segue a entrada renomeada, porque guarda o id', () => {
   const ws = carregar([ensinarComPecaRoxa([{ id: 'e1', nome: 'tamanho' }], 'e1')]);
   const ast = Blocos.pilhaDoBloco(ws.getBlockById('def')).ast;
   assert.strictEqual(ast[0].graus.nome, 'tamanho');
+});
+
+/* ---------- os buracos da peça de usar ---------- */
+
+function usoCom(encaixes, entradas) {
+  const estados = [
+    { type: 'bloco_ensinar', id: 'def', fields: { NOME: 'quadrado' },
+      extraState: { entradas: entradas || encaixes } },
+    { type: 'bloco_usar', id: 'u', fields: { NOME: 'quadrado' },
+      extraState: { encaixes: encaixes },
+      inputs: encaixes.length ? { ['ENT_' + encaixes[0].id]: num(30) } : {} },
+  ];
+  return carregar(estados);
+}
+
+test('o uso ganha um encaixe por entrada, com o shadow de número', () => {
+  const ws = usoCom([{ id: 'e1', nome: 'lado' }]);
+  const uso = ws.getBlockById('u');
+  assert.ok(uso.getInput('ENT_e1'), 'faltou o encaixe da entrada');
+  assert.strictEqual(
+    Number(uso.getInputTargetBlock('ENT_e1').getFieldValue('NUM')), 30);
+});
+
+test('o nó de uso leva os argumentos na ordem da definição', () => {
+  const ws = carregar([
+    { type: 'bloco_ensinar', id: 'def', fields: { NOME: 'quadrado' },
+      extraState: { entradas: [{ id: 'e1', nome: 'lado' }] },
+      inputs: { CORPO: { block: { type: 'girar', inputs: { GRAUS: num(90) } } } } },
+    noPlay({ type: 'bloco_usar', id: 'u', fields: { NOME: 'quadrado' },
+             extraState: { encaixes: [{ id: 'e1', nome: 'lado' }] },
+             inputs: { ENT_e1: num(30) } }),
+  ]);
+  const ast = Blocos.workspaceParaAst(ws);
+  assert.strictEqual(ast[0].op, 'usar');
+  assert.deepStrictEqual(ast[0].args, [{ id: 'e1', nome: 'lado', valor: 30 }]);
+});
+
+/* O encaixe se chama pelo id, e não pelo nome: é isto que faz renomear a
+   entrada não jogar fora o número que a criança já digitou no buraco. */
+test('renomear a entrada preserva o número já digitado no buraco', () => {
+  const ws = usoCom([{ id: 'e1', nome: 'lado' }]);
+  const uso = ws.getBlockById('u');
+  uso.acertarEncaixes_([{ id: 'e1', nome: 'tamanho' }]);
+  assert.strictEqual(
+    Number(uso.getInputTargetBlock('ENT_e1').getFieldValue('NUM')), 30,
+    'o número tinha que ficar: o encaixe é pelo id, não pelo nome');
+});
+
+test('apagar a entrada tira o encaixe do uso', () => {
+  const ws = usoCom([{ id: 'e1', nome: 'lado' }]);
+  const uso = ws.getBlockById('u');
+  uso.acertarEncaixes_([]);
+  assert.ok(!uso.getInput('ENT_e1'), 'o encaixe devia ter sumido');
+});
+
+/* A gaveta entrega JSON, e não XML: o flyout monta item DOM por
+   Xml.domToBlock, que só chama domToMutation, e os buracos vivem no
+   extraState. Em XML a peça sairia da gaveta sem buraco nenhum, calada. */
+test('a gaveta oferece a peça de usar com um buraco por entrada', () => {
+  const ws = carregar([
+    { type: 'bloco_ensinar', id: 'def', fields: { NOME: 'quadrado' },
+      extraState: { entradas: [{ id: 'e1', nome: 'lado' }] } },
+  ]);
+  const itens = Blocos.gavetaDeBlocos(ws);
+  assert.strictEqual(itens[0].kind, 'button');
+  assert.ok(!itens[0].nodeType, 'item DOM força o caminho XML do flyout');
+  const peca = itens[1];
+  assert.strictEqual(peca.kind, 'block');
+  assert.strictEqual(peca.type, 'bloco_usar');
+  assert.deepStrictEqual(peca.extraState, { encaixes: [{ id: 'e1', nome: 'lado' }] });
+  assert.ok(peca.inputs.ENT_e1.shadow, 'faltou o numerinho dentro do buraco');
+});
+
+test('sem entradas, a peça da gaveta não carrega buraco nenhum', () => {
+  const ws = carregar([
+    { type: 'bloco_ensinar', id: 'def', fields: { NOME: 'dançar' },
+      extraState: { entradas: [] } },
+  ]);
+  const peca = Blocos.gavetaDeBlocos(ws)[1];
+  assert.strictEqual(peca.extraState, undefined);
+  assert.strictEqual(peca.inputs, undefined);
 });

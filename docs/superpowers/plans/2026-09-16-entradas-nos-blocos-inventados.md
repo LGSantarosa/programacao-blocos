@@ -105,6 +105,31 @@ não n. O ajudante da casa é `funda(k)` em `tests/compilador.test.js`
 `funda(14)` cabe, `funda(15)` não. Use o ajudante; e prove a fronteira nos dois
 sentidos, porque só a recusa também passaria com uma guarda estrita demais.
 
+## A lição da Task 7: estado extra tem de avisar o Blockly
+
+Mexer em `entradas_` e redesenhar **não** basta. O desfazer não enxerga mudança
+de estado extra que não tenha sido anunciada: a criança apagava uma entrada,
+apertava desfazer, e não voltava nada. Foi a prova de navegador que pegou —
+nenhum teste headless alcança isso, porque o `app.js` só roda ali.
+
+O jeito certo é o que os mutadores do próprio Blockly fazem, e a API existe
+nesta versão: guardar `Blockly.Events.BlockChange.getExtraBlockState_(bloco)`
+antes, mudar, e disparar
+`new Blockly.Events.BlockChange(bloco, 'mutation', null, antes, depois)`. O
+caminho de desfazer relê isso pelo `loadExtraState`. Em `web/blocos.js` isso
+está no ajudante `comMutacao`, e os três pontos que mudam a lista (`novaEntrada_`,
+renomear e apagar) passam por ele.
+
+**E restaurar a cabeça não restaura quem depende dela.** O `loadExtraState`
+redesenha a cabeça e não sabe dos usos, então o desfazer devolvia a entrada sem
+devolver os buracos — a tela contando duas histórias. Por isso o ouvinte do
+`app.js` re-sincroniza os usos de toda cabeça a cada evento, e não só ao ligá-la;
+converge, porque o `acertarEncaixes_` só mexe no que está diferente.
+
+**Armadilha de ordem:** ao apagar, o estado de «antes» precisa ser lido **antes**
+de mexer na lista. Como remontar a fileira mata o campo que está sendo validado,
+a remoção inteira vive dentro do `setTimeout`, e não só o redesenho.
+
 ## Estrutura de arquivos
 
 | arquivo | responsabilidade nova |

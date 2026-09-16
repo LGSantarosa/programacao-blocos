@@ -242,11 +242,13 @@
         if (k < 0) return null;
         var e = bloco.entradas_[k];
         var peca = Blockly.serialization.blocks.append(
-          { type: 'bloco_entrada', extraState: { id: e.id, nome: e.nome } },
+          { type: 'bloco_entrada',
+            extraState: { id: e.id, nome: e.nome, def: bloco.id } },
           bloco.workspace);
         var daCabeca = bloco.getRelativeToSurfaceXY();
         var dela = peca.getRelativeToSurfaceXY();
         peca.moveBy(daCabeca.x + 40 - dela.x, daCabeca.y + 70 - dela.y);
+        peca.definicaoId_ = bloco.id;
         if (peca.select) peca.select();
         return peca;
       };
@@ -373,16 +375,22 @@
        id é quem manda. Mutador pelo mesmo motivo da cabeça. */
     var ESTADO_DA_PECA = {
       saveExtraState: function () {
-        return { id: this.entradaId_ || '', nome: this.getFieldValue('NOME') };
+        return { id: this.entradaId_ || '', nome: this.getFieldValue('NOME'),
+                 def: this.definicaoId_ || '' };
       },
       loadExtraState: function (estado) {
         this.entradaId_ = (estado && String(estado.id)) || '';
+        this.definicaoId_ = (estado && estado.def && String(estado.def)) || '';
         if (estado && estado.nome) this.setFieldValue(String(estado.nome), 'NOME');
       },
     };
 
     registrarMutador('bloco_entrada_estado', ESTADO_DA_PECA, function () {
       this.entradaId_ = '';
+      /* De qual cabeça ela saiu. Toda cabeça começa em «e1», então sem isto uma
+         peça arrastada para outra definição passaria a ler a entrada «e1» dela
+         em silêncio, e o robô faria outra coisa sem nada mudar na tela. */
+      this.definicaoId_ = '';
     });
 
     /* A peça de usar responde ao renomear da cabeça. O nome dela não se edita
@@ -997,6 +1005,13 @@
       throw erroNaPeca('Esta peça só funciona dentro do bloco que você ' +
                        'ensinou.', b);
     }
+    /* Veio de outra definição: não religa calada à entrada de mesmo id daqui.
+       Peça antiga, gravada antes deste campo existir, não carrega dono e
+       continua valendo onde está. */
+    if (b.definicaoId_ && b.definicaoId_ !== raiz.id) {
+      throw erroNaPeca('Essa entrada não existe mais. Desfaça para trazê-la de ' +
+                       'volta, ou tire esta peça.', b);
+    }
     var lista = entradasDe(raiz), k;
     for (k = 0; k < lista.length; k++) {
       if (lista[k].id === b.entradaId_) {
@@ -1336,7 +1351,9 @@
     var roxas = workspace.getBlocksByType('bloco_entrada', false);
     for (var j = 0; j < roxas.length; j++) {
       var raiz = roxas[j].getRootBlock();
-      var lista = (raiz && raiz.type === 'bloco_ensinar') ? entradasDe(raiz) : [];
+      var daCasa = raiz && raiz.type === 'bloco_ensinar' &&
+                   (!roxas[j].definicaoId_ || roxas[j].definicaoId_ === raiz.id);
+      var lista = daCasa ? entradasDe(raiz) : [];
       var achou = null, m;
       for (m = 0; m < lista.length; m++) {
         if (lista[m].id === roxas[j].entradaId_) achou = lista[m];

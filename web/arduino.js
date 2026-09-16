@@ -580,7 +580,10 @@
      p_lado de dentro pode valer 30 lá fora, e aí não há mentira nenhuma. */
   function ehVivo(v, quadro) {
     if (!v || typeof v === 'number') return false;
-    if (v.op === 'aleatorio' || v.op === 'distancia') return true;
+    /* A caixa entra aqui junto do 🎲 e do 👁: ela muda entre leituras, ainda
+       mais com um «mudar» no meio do corpo. A VM relê a caixa a cada leitura da
+       entrada; o .ino guarda o valor da primeira. */
+    if (v.op === 'aleatorio' || v.op === 'distancia' || v.op === 'caixa') return true;
     if (v.op === 'entrada') {
       var arg = quadro && argDoQuadro(quadro, v.id);
       /* Sem quadro não há o que afirmar. Quem sabe é o uso de fora, e é lá que
@@ -598,20 +601,27 @@
                 repetir_ate_perto: 1 };
 
   function lidaQuantasVezes(nos, id, emLaco) {
-    var n = 0, i, no, peso = emLaco ? 2 : 1, dentro;
+    var n = 0, i, no, dentro;
 
-    function emValor(v) {
+    function emValor(v, peso) {
       if (!v || typeof v === 'number') return;
       if (v.op === 'entrada') { if (v.id === id) n += peso; return; }
-      emValor(v.a);
-      emValor(v.b);
+      emValor(v.a, peso);
+      emValor(v.b, peso);
     }
 
     for (i = 0; i < nos.length; i++) {
       no = nos[i];
-      emValor(no.segundos); emValor(no.graus); emValor(no.vezes);
-      emValor(no.cm); emValor(no.cond); emValor(no.valor);
+      /* Calculado ANTES de varrer os valores: a condição de um «repetir até» é
+         reavaliada a cada volta, então ela pesa como o corpo do laço e não como
+         uma linha solta. Era isto que deixava passar o dado lido só na
+         condição. */
       dentro = emLaco || !!LACOS[no.op];
+      var peso = emLaco ? 2 : 1;
+      emValor(no.segundos, peso); emValor(no.graus, peso);
+      emValor(no.vezes, peso); emValor(no.cm, peso);
+      emValor(no.valor, peso);
+      emValor(no.cond, dentro ? 2 : 1);
       /* Sem entrar no corpo de um «usar» de dentro: lá as entradas são outras. */
       if (no.corpo && no.op !== 'usar') n += lidaQuantasVezes(no.corpo, id, dentro);
       if (no.entao) n += lidaQuantasVezes(no.entao, id, dentro);
@@ -640,18 +650,29 @@
           if (!ehVivo(args[a].valor, quadro)) continue;
           if (lidaQuantasVezes(no.corpo || [], args[a].id, false) > 1) {
             throw new Error(
-              'O 🎲 e o 👁 dentro de um bloco com entrada fazem o robô sortear de ' +
-              'novo a cada vez que ele lê a entrada, e o código do Arduino sorteia ' +
-              'uma vez só. Ponha o número direto para ver o código.');
+              'O 🎲, o 👁 e a 📦 caixa dão um número que muda entre uma leitura ' +
+              'e outra — o robô pode sortear de novo, ou achar outro valor na ' +
+              'caixa, a cada vez que lê a entrada. O código do Arduino lê uma ' +
+              'vez só. Ponha o número direto para ver o código.');
           }
         }
-        /* Sem argumento vivo, o que se acha lá dentro não depende deste quadro:
-           basta visitar uma vez por nome. É o que impede a explosão de fan-out
-           que a árvore compartilhada já custou uma vez. */
-        var chave = ' ' + String(no.nome).toLowerCase();
-        if (temVivo) {
-          conferirArgumentosVivos(no.corpo || [], novo, semVivoVistos);
-        } else if (!Object.prototype.hasOwnProperty.call(semVivoVistos, chave)) {
+        /* Memoriza por nome **e pelo padrão de quais argumentos são vivos**.
+
+           Antes o memo era desligado quando havia argumento vivo, e aí cada uso
+           recursava no corpo compartilhado: com fan-out 2 isso dobra por nível
+           (medido: 20 níveis em 1066 ms, contra 0 ms com argumento constante) —
+           a mesma explosão que a árvore compartilhada existe para evitar.
+
+           A chave é sã porque o que se decide lá dentro só depende de quais
+           argumentos chegam vivos: a contagem de leituras é do corpo, que é o
+           mesmo para todos os usos daquele nome. Com no máximo três entradas,
+           são no máximo oito padrões por definição. */
+        var vivos = '';
+        for (a = 0; a < args.length; a++) {
+          vivos += ehVivo(args[a].valor, quadro) ? '1' : '0';
+        }
+        var chave = ' ' + String(no.nome).toLowerCase() + '|' + vivos;
+        if (!Object.prototype.hasOwnProperty.call(semVivoVistos, chave)) {
           semVivoVistos[chave] = true;
           conferirArgumentosVivos(no.corpo || [], novo, semVivoVistos);
         }

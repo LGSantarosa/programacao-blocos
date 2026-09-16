@@ -1003,6 +1003,38 @@ test('a peça roxa de uma entrada apagada fica cinza', () => {
     Blocos.COR_SEM_DEFINICAO, 'a peça órfã continuou roxa');
 });
 
+/* Toda cabeça começa em «e1». Sem guardar de onde veio, uma peça arrastada para
+   outra definição passaria a ler a entrada «e1» dela, em silêncio, e o robô
+   faria outra coisa sem nada na tela mudar. */
+test('a peça roxa guarda de qual definição ela veio', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }]);
+  const peca = b.soltarPecaDeEntrada_('e1');
+  assert.strictEqual(peca.definicaoId_, b.id);
+});
+
+test('a peça roxa levada para outra definição esmaece, e não religa calada', () => {
+  const ws = carregar([
+    { type: 'bloco_ensinar', id: 'defA', fields: { NOME: 'a' },
+      extraState: { entradas: [{ id: 'e1', nome: 'lado' }] } },
+    { type: 'bloco_ensinar', id: 'defB', fields: { NOME: 'b' },
+      extraState: { entradas: [{ id: 'e1', nome: 'outro' }] },
+      inputs: { CORPO: { block: {
+        type: 'girar', id: 'g',
+        inputs: { GRAUS: { block: {
+          type: 'bloco_entrada', id: 'roxa',
+          /* Nasceu na defA e foi parar dentro da defB. */
+          extraState: { id: 'e1', nome: 'lado', def: 'defA' },
+        } } },
+      } } } },
+  ]);
+  Blocos.acertarUsos(ws);
+  assert.strictEqual(ws.getBlockById('roxa').getColour(),
+    Blocos.COR_SEM_DEFINICAO, 'a peça de outra definição continuou roxa');
+  const e = erroDe(() => Blocos.pilhaDoBloco(ws.getBlockById('defB')));
+  assert.match(e.message, /Essa entrada não existe mais/);
+  assert.strictEqual(e.blockId, 'roxa');
+});
+
 /* ---------- os buracos da peça de usar ---------- */
 
 function usoCom(encaixes, entradas) {

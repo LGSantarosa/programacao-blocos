@@ -605,6 +605,37 @@ test('bloco encadeado com argumento constante continua exportando', () => {
     args: [{ id: 'e1', nome: 'lado', valor: 30 }], corpo: [dentro] }]));
 });
 
+/* Caixa também muda entre leituras — ainda mais com um «mudar» no meio do
+   corpo. A VM relê a caixa; o .ino guarda o parâmetro da primeira vez. */
+test('argumento que é caixa, relida depois de mudar, faz o .ino recusar', () => {
+  const ler = lerEntrada();
+  const e = erroDoIno(() => gerar([{ op: 'usar', nome: 'f',
+    args: [{ id: 'e1', nome: 'n', valor: { op: 'caixa', indice: 0, nome: 'n' } }],
+    corpo: [{ op: 'girar', graus: ler },
+            { op: 'mudar', indice: 0, nome: 'n', valor: 1 },
+            { op: 'girar', graus: ler }] }]));
+  assert.match(e.message, /sortear de novo|muda entre uma leitura/);
+});
+
+/* A condição de um «repetir até» roda a cada volta. Contá-la como uma leitura
+   deixava passar o dado sorteado uma vez no .ino e muitas na VM. */
+test('argumento vivo na condição de um laço faz o .ino recusar', () => {
+  const e = erroDoIno(() => gerar([{ op: 'usar', nome: 'f',
+    args: [{ id: 'e1', nome: 'n', valor: { op: 'aleatorio', a: 1, b: 10 } }],
+    corpo: [{ op: 'repetir_ate',
+              cond: { op: 'maior', a: lerEntrada(), b: 5 },
+              corpo: [{ op: 'girar', graus: 90 }] }] }]));
+  assert.match(e.message, /sortear de novo|muda entre uma leitura/);
+});
+
+/* Caixa lida uma vez só continua exportando: sem segunda leitura não há
+   divergência nenhuma para esconder. */
+test('argumento que é caixa, lida uma vez só, continua exportando', () => {
+  assert.doesNotThrow(() => gerar([{ op: 'usar', nome: 'f',
+    args: [{ id: 'e1', nome: 'n', valor: { op: 'caixa', indice: 0, nome: 'n' } }],
+    corpo: [{ op: 'girar', graus: lerEntrada() }] }]));
+});
+
 /* Dois parâmetros com o mesmo nome dão «void bloco_f(int p_x, int p_x)», que
    não compila. O nome livre só era procurado ao criar, nunca ao renomear. */
 test('duas entradas com o mesmo nome não geram parâmetros repetidos', () => {

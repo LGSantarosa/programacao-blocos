@@ -257,6 +257,23 @@
       });
     });
 
+    /* A peça roxa guarda o id da entrada, e não só o nome: renomear a entrada
+       não pode fazer a peça perder de quem ela é. O rótulo é o que aparece; o
+       id é quem manda. Mutador pelo mesmo motivo da cabeça. */
+    var ESTADO_DA_PECA = {
+      saveExtraState: function () {
+        return { id: this.entradaId_ || '', nome: this.getFieldValue('NOME') };
+      },
+      loadExtraState: function (estado) {
+        this.entradaId_ = (estado && String(estado.id)) || '';
+        if (estado && estado.nome) this.setFieldValue(String(estado.nome), 'NOME');
+      },
+    };
+
+    registrarMutador('bloco_entrada_estado', ESTADO_DA_PECA, function () {
+      this.entradaId_ = '';
+    });
+
     /* A peça de usar responde ao renomear da cabeça. O nome dela não se edita
        aqui: é rótulo. */
     registrarUma('bloco_usar_procedimento', function () {
@@ -438,6 +455,17 @@
         colour: COR_BLOCO,
         extensions: ['bloco_usar_procedimento'],
         tooltip: 'Faz as peças que você ensinou com este nome.',
+      },
+      {
+        /* O relator que lê a entrada. Só vale dentro da cabeça que o criou, e
+           é de lá que a criança o arrasta — ele não vai para a gaveta. */
+        type: 'bloco_entrada',
+        message0: '🧩 %1',
+        args0: [{ type: 'field_label_serializable', name: 'NOME', text: 'entrada' }],
+        output: 'Number',
+        colour: COR_BLOCO,
+        mutator: 'bloco_entrada_estado',
+        tooltip: 'O número que quem usou este bloco entregou.',
       },
       {
         type: 'mover_frente',
@@ -792,6 +820,29 @@
     return { op: 'usar', nome: nome, corpo: corpo, blockId: b.id };
   }
 
+  /* A peça roxa só vale dentro da cabeça que a criou: fora dela não há
+     argumento nenhum para ler, e virar zero em silêncio esconderia da criança
+     que a peça está no lugar errado.
+
+     O nome sai da cabeça, e não do rótulo da peça: quem manda é o id, e assim
+     uma entrada renomeada chega traduzida com o nome de agora. */
+  function noDeEntrada(b) {
+    var raiz = b.getRootBlock();
+    if (!raiz || raiz.type !== 'bloco_ensinar') {
+      throw erroNaPeca('Esta peça só funciona dentro do bloco que você ' +
+                       'ensinou.', b);
+    }
+    var lista = entradasDe(raiz), k;
+    for (k = 0; k < lista.length; k++) {
+      if (lista[k].id === b.entradaId_) {
+        return { op: 'entrada', id: lista[k].id, nome: lista[k].nome,
+                 blockId: b.id };
+      }
+    }
+    throw erroNaPeca('Essa entrada não existe mais. Desfaça para trazê-la de ' +
+                     'volta, ou tire esta peça.', b);
+  }
+
   /* O mapa de lugares (web/caixas.js), entregue pelo app.js. Fica aqui e não
      como global lida por nome porque o blocos.js também roda no ipad.html e
      nos testes, onde quem decide o mapa é quem chama. */
@@ -897,6 +948,7 @@
         return { op: 'repetir_ate', cond: valorDe(b, 'COND'),
                  corpo: pilhaParaAst(b.getInputTargetBlock('CORPO')), blockId: id };
       case 'bloco_usar':    return noDeUso(b);
+      case 'bloco_entrada': return noDeEntrada(b);
       case 'caixa_guardar': return noDeCaixa('guardar', b);
       case 'caixa_mudar':   return noDeCaixa('mudar', b);
       case 'caixa_ler':     return noDeCaixa('caixa', b);

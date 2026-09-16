@@ -881,3 +881,59 @@ test('o id de uma entrada nova não reaproveita o de uma apagada', async () => {
   assert.strictEqual(Blocos.entradasDe(b).length, 1);
   assert.notStrictEqual(Blocos.entradasDe(b)[0].id, 'e1');
 });
+
+/* ---------- a peça que lê a entrada ---------- */
+
+/* Uma cabeça com entradas e uma peça roxa encaixada no girar de dentro. */
+function ensinarComPecaRoxa(entradas, idDaPeca) {
+  return {
+    type: 'bloco_ensinar', id: 'def', fields: { NOME: 'quadrado' },
+    extraState: { entradas: entradas },
+    inputs: { CORPO: { block: {
+      type: 'girar', id: 'g',
+      inputs: { GRAUS: { block: {
+        type: 'bloco_entrada', id: 'roxa',
+        extraState: { id: idDaPeca, nome: 'lado' },
+      } } },
+    } } },
+  };
+}
+
+test('a peça roxa dentro da cabeça vira nó de entrada', () => {
+  const ws = carregar([ensinarComPecaRoxa([{ id: 'e1', nome: 'lado' }], 'e1')]);
+  const ast = Blocos.pilhaDoBloco(ws.getBlockById('def')).ast;
+  assert.strictEqual(ast[0].graus.op, 'entrada');
+  assert.strictEqual(ast[0].graus.id, 'e1');
+  assert.strictEqual(ast[0].graus.nome, 'lado');
+  assert.strictEqual(ast[0].graus.blockId, 'roxa');
+});
+
+/* Fora da cabeça não há argumento nenhum para ler. Virar zero em silêncio
+   esconderia da criança que a peça está no lugar errado. */
+test('a peça roxa fora de qualquer cabeça é erro', () => {
+  const ws = carregar([noPlay({
+    type: 'girar', id: 'g',
+    inputs: { GRAUS: { block: {
+      type: 'bloco_entrada', id: 'roxa',
+      extraState: { id: 'e1', nome: 'lado' },
+    } } },
+  })]);
+  const e = erroDe(() => Blocos.workspaceParaAst(ws));
+  assert.match(e.message, /só funciona dentro do bloco que você ensinou/);
+  assert.strictEqual(e.blockId, 'roxa');
+});
+
+test('a peça roxa de uma entrada apagada é erro nela', () => {
+  const ws = carregar([ensinarComPecaRoxa([], 'e1')]);
+  const e = erroDe(() => Blocos.pilhaDoBloco(ws.getBlockById('def')));
+  assert.match(e.message, /Essa entrada não existe mais/);
+  assert.strictEqual(e.blockId, 'roxa');
+});
+
+/* Renomear a entrada não pode fazer a peça perder de quem ela é: ela guarda o
+   id, e o nome que mostra vem da cabeça na hora de traduzir. */
+test('a peça roxa segue a entrada renomeada, porque guarda o id', () => {
+  const ws = carregar([ensinarComPecaRoxa([{ id: 'e1', nome: 'tamanho' }], 'e1')]);
+  const ast = Blocos.pilhaDoBloco(ws.getBlockById('def')).ast;
+  assert.strictEqual(ast[0].graus.nome, 'tamanho');
+});

@@ -807,7 +807,10 @@ test('peça roxa com id que o quadro não conhece é erro', () => {
      «Conta desconhecida: entrada», que casaria com o frouxo e faria este teste
      passar sem a feature existir. */
   assert.match(e.message, /Essa entrada não existe mais/);
-  assert.strictEqual(e.blockId, 'g');
+  /* Na peça de USAR, como a spec manda: é ela que ficou para trás da definição,
+     e é nela que a criança mexe. Antes caía no bloco de cima — nem no uso nem
+     na peça roxa —, e este teste cimentava isso. */
+  assert.strictEqual(e.blockId, 'u');
 });
 
 /* Uma folha vira uma árvore inteira ao substituir: medir o nó «entrada» como

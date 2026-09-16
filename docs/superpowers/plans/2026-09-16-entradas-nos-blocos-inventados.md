@@ -154,6 +154,50 @@ Corrigido passando `JSON.stringify({id, nome})` e lendo com `JSON.parse`.
 **Regra para os testes de navegador deste projeto:** nunca costure id do Blockly
 em texto com separador; o id é dado do sorteio, não identificador legível.
 
+## A rodada de revisão: cinco achados, todos procedentes
+
+A revisão do ciclo pegou cinco coisas. **As cinco eram reais**, e a conclusão
+dela é a lição maior: os testes estavam verdes porque mediam o que foi
+construído, não o que a criança consegue fazer.
+
+**1. Não havia caminho para a criança obter a peça roxa.** `bloco_entrada`
+existia na lista do nível, no mutador, na definição e na tradução — e em nenhuma
+gaveta, nenhum botão, nenhum gesto. Ela criava o buraco no uso e não tinha como
+montar o corpo que lê o argumento. A spec prometia o arrasto da cabeça e nada
+foi implementado. Corrigido com um **ícone por entrada na cabeça**
+(`soltarPecaDeEntrada_`), que põe a peça junto da cabeça e já selecionada; a
+spec foi acertada para dizer isso, com o porquê do arrasto ter sido recusado.
+
+**2. Renomear e apagar não chegavam às peças roxas.** `acertarUsos` e a
+sincronização do `app.js` varriam só `bloco_usar`. A tradução usava o nome novo
+e a tela mostrava o velho, e a peça órfã continuava roxa. `acertarUsos` passou a
+varrer também `bloco_entrada`: acerta o rótulo e esmaece a órfã.
+
+**3. A recusa do `.ino` era frouxa e estrita ao mesmo tempo.** Frouxa: contava
+ocorrências na árvore, não execuções — `quadrado(🎲)` com a leitura dentro de um
+`repetir 4` passava, e o `.ino` sorteava uma vez contra quatro da VM. Estrita:
+`ehConstante` só aceitava número, então recusava `1 + 2` e recusava bloco
+encadeado cujo valor de origem era literalmente 30. Corrigido dando ao `.ino` a
+**mesma cadeia de quadros do compilador**: `ehVivo` resolve o nó `entrada` no
+quadro de quem chamou, e a conferência saiu do `gerarNos` (que gera também o
+corpo das funções, onde não há quadro) para uma passada sobre a árvore de fora,
+antes de escrever linha nenhuma. Leitura dentro de laço conta como muitas.
+Corpo sem argumento vivo é visitado **uma vez por nome**, senão a árvore
+compartilhada refaz a explosão de fan-out do ciclo 5.
+
+**4. Nomes repetidos geravam C++ inválido:** `void bloco_f(int p_x, int p_x)`.
+Duas correções, e a segunda é a que importa: o editor passou a dar nome único ao
+renomear (`lado2`), **e o `.ino` passou a nomear os parâmetros por função**, com
+um mapa por id. O `identificadorDe` memoriza por nome e devolveria o mesmo
+`p_x`; e nem bastaria o editor garantir unicidade, porque «lado» e «lådo» são
+nomes diferentes na tela e o mesmo `p_lado` depois do `limparNome`. **Quem
+garante nome único na assinatura é quem escreve a assinatura.**
+
+**5. O erro caía na peça errada** — nem no uso (o que a spec manda) nem na peça
+roxa, mas no bloco de cima, porque o nó `entrada` não carrega `blockId` e o erro
+herdava o do chamador. O quadro passou a guardar o `blockId` da peça de usar. O
+teste que cimentava o comportamento errado foi corrigido junto.
+
 ## Estrutura de arquivos
 
 | arquivo | responsabilidade nova |

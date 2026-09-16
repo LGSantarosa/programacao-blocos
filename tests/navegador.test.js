@@ -3162,6 +3162,20 @@ test('a criança cria uma entrada com a gaveta aberta, renomeia, apaga e recarre
     assert.strictEqual(await buracosDaGaveta(), 'ENT_' + entId,
       'a gaveta ABERTA não mostrou o buraco novo — foi isto que o ciclo 5 errou');
 
+    /* O caminho de produção da peça roxa: sem ele, a criança cria o buraco no
+       uso e não tem como montar o corpo que lê o argumento. O ícone tem de
+       existir na cabeça, e acioná-lo tem de pôr a peça na tela. */
+    assert.ok(await aval(`!!Blockly.getMainWorkspace()
+      .getBlockById(${JSON.stringify(defId)}).getField('SOLTA_' + ${JSON.stringify(entId)})`),
+      'faltou o ícone que solta a peça de ler a entrada');
+    await aval(`(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)})
+      .soltarPecaDeEntrada_(${JSON.stringify(entId)}), 1)`);
+    await espera(700);
+    assert.strictEqual(await aval(`(() => {
+      const r = Blockly.getMainWorkspace().getBlocksByType('bloco_entrada', false);
+      return r.length === 1 ? r[0].getFieldValue('NOME') : 'achei ' + r.length;
+    })()`), 'entrada', 'o ícone não pôs a peça de ler a entrada na tela');
+
     /* A criança digita 30 no buraco. Renomear a entrada não pode levar o 30. */
     await aval(`(() => {
       const b = Blockly.getMainWorkspace().getBlockById('uso');

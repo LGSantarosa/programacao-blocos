@@ -577,6 +577,46 @@ test('argumento constante lido duas vezes continua exportando', () => {
     [{ op: 'girar', graus: ler }, { op: 'girar', graus: ler }])));
 });
 
+/* Contar ocorrências na árvore não é contar execuções: uma leitura só, dentro
+   de um repetir 4, é sorteada quatro vezes pela VM e uma vez pelo .ino. */
+test('argumento vivo lido dentro de um repetir faz o .ino recusar', () => {
+  const e = erroDoIno(() => gerar(quadradoCom({ op: 'aleatorio', a: 1, b: 10 },
+    [{ op: 'repetir', vezes: 4,
+       corpo: [{ op: 'girar', graus: lerEntrada() }] }])));
+  assert.match(e.message, /sortear de novo/);
+});
+
+/* «Vivo» é o que muda a cada leitura — 🎲 e 👁. Uma conta determinística dá
+   sempre o mesmo número, e recusá-la é um teto inventado. */
+test('conta determinística lida duas vezes continua exportando', () => {
+  const ler = lerEntrada();
+  assert.doesNotThrow(() => gerar(quadradoCom({ op: 'mais', a: 1, b: 2 },
+    [{ op: 'girar', graus: ler }, { op: 'girar', graus: ler }])));
+});
+
+/* O argumento de dentro é a entrada de fora, e lá ele vale 30: constante. */
+test('bloco encadeado com argumento constante continua exportando', () => {
+  const dentroLe = (id) => ({ op: 'entrada', id: id, nome: 'g' });
+  const dentro = { op: 'usar', nome: 'dentro',
+    args: [{ id: 'd1', nome: 'g', valor: lerEntrada() }],
+    corpo: [{ op: 'girar', graus: dentroLe('d1') },
+            { op: 'girar', graus: dentroLe('d1') }] };
+  assert.doesNotThrow(() => gerar([{ op: 'usar', nome: 'fora',
+    args: [{ id: 'e1', nome: 'lado', valor: 30 }], corpo: [dentro] }]));
+});
+
+/* Dois parâmetros com o mesmo nome dão «void bloco_f(int p_x, int p_x)», que
+   não compila. O nome livre só era procurado ao criar, nunca ao renomear. */
+test('duas entradas com o mesmo nome não geram parâmetros repetidos', () => {
+  const txt = gerar([{ op: 'usar', nome: 'f',
+    args: [{ id: 'e1', nome: 'x', valor: 1 }, { id: 'e2', nome: 'x', valor: 2 }],
+    corpo: [{ op: 'girar', graus: { op: 'entrada', id: 'e1', nome: 'x' } }] }]);
+  const assinatura = txt.match(/void bloco_f\([^)]*\)/)[0];
+  const nomes = assinatura.match(/p_[A-Za-z0-9_]+/g) || [];
+  assert.strictEqual(new Set(nomes).size, nomes.length,
+    'parâmetros repetidos na assinatura: ' + assinatura);
+});
+
 /* O sensor dentro do argumento é da tela de quem chamou: sem varrer os args, o
    arquivo chamaria distanciaCm() sem declará-la. */
 test('sensor no argumento declara a função do sensor', () => {

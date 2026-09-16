@@ -872,6 +872,16 @@ test('renomear a entrada troca o nome e mantém o id', () => {
   assert.deepStrictEqual(Blocos.entradasDe(b), [{ id: 'e1', nome: 'tamanho' }]);
 });
 
+/* Duas entradas com o mesmo nome viram «void bloco_f(int p_x, int p_x)» no
+   .ino, que não compila. O nome livre era procurado só ao criar. */
+test('renomear uma entrada para o nome de outra não deixa duas iguais', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }, { id: 'e2', nome: 'cor' }]);
+  b.setFieldValue('lado', 'ENT_e2');
+  const nomes = Blocos.entradasDe(b).map((e) => e.nome);
+  assert.strictEqual(new Set(nomes).size, 2, 'ficaram duas entradas iguais: ' + nomes);
+  assert.strictEqual(Blocos.entradasDe(b)[0].nome, 'lado', 'a primeira não podia mudar');
+});
+
 /* O id nunca se repete dentro de uma cabeça: se «e1» fosse apagada e o próximo
    id voltasse a ser «e1», um uso que ficou para trás teria o buraco ENT_e1
    apontando calado para uma entrada nova. */
@@ -938,6 +948,59 @@ test('a peça roxa segue a entrada renomeada, porque guarda o id', () => {
   const ws = carregar([ensinarComPecaRoxa([{ id: 'e1', nome: 'tamanho' }], 'e1')]);
   const ast = Blocos.pilhaDoBloco(ws.getBlockById('def')).ast;
   assert.strictEqual(ast[0].graus.nome, 'tamanho');
+});
+
+/* A criança precisa de um caminho para pôr «🧩 lado» na tela. Sem isto ela cria
+   o buraco no uso e não consegue montar o corpo que lê o argumento — a peça
+   existia no código e não existia para ela. */
+test('a cabeça solta uma peça que lê aquela entrada', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }]);
+  const peca = b.soltarPecaDeEntrada_('e1');
+  assert.ok(peca, 'não nasceu peça nenhuma');
+  assert.strictEqual(peca.type, 'bloco_entrada');
+  assert.strictEqual(peca.entradaId_, 'e1');
+  assert.strictEqual(peca.getFieldValue('NOME'), 'lado');
+  assert.strictEqual(
+    b.workspace.getBlocksByType('bloco_entrada', false).length, 1);
+});
+
+test('a peça solta nasce perto da cabeça, e não na origem do workspace', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }]);
+  b.moveBy(300, 200);
+  const onde = b.soltarPecaDeEntrada_('e1').getRelativeToSurfaceXY();
+  assert.ok(onde.x > 100 && onde.y > 100,
+    `a peça nasceu em (${onde.x}, ${onde.y}), longe da cabeça`);
+});
+
+test('não solta peça de entrada que não existe', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }]);
+  assert.strictEqual(b.soltarPecaDeEntrada_('sumiu'), null);
+  assert.strictEqual(
+    b.workspace.getBlocksByType('bloco_entrada', false).length, 0);
+});
+
+/* ---------- a peça roxa acompanha a entrada na tela ---------- */
+
+/* A tradução já usava o nome novo; a tela é que continuava com o velho. */
+test('renomear a entrada acerta o nome escrito na peça roxa', () => {
+  const ws = carregar([ensinarComPecaRoxa([{ id: 'e1', nome: 'lado' }], 'e1')]);
+  const cabeca = ws.getBlockById('def');
+  cabeca.setFieldValue('tamanho', 'ENT_e1');
+  Blocos.acertarUsos(ws);
+  assert.strictEqual(ws.getBlockById('roxa').getFieldValue('NOME'), 'tamanho');
+});
+
+/* Mesma regra da peça de usar sem definição: nada some sem a criança ver. */
+test('a peça roxa de uma entrada apagada fica cinza', () => {
+  const ws = carregar([ensinarComPecaRoxa([{ id: 'e1', nome: 'lado' }], 'e1')]);
+  Blocos.acertarUsos(ws);
+  assert.strictEqual(ws.getBlockById('roxa').getColour(), Blocos.COR_BLOCO);
+  const cabeca = ws.getBlockById('def');
+  cabeca.entradas_.length = 0;
+  cabeca.refazerEntradas_();
+  Blocos.acertarUsos(ws);
+  assert.strictEqual(ws.getBlockById('roxa').getColour(),
+    Blocos.COR_SEM_DEFINICAO, 'a peça órfã continuou roxa');
 });
 
 /* ---------- os buracos da peça de usar ---------- */

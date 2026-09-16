@@ -74,6 +74,14 @@
   var MAIS_ICONE = icone('<path d="M10 3 h4 v7 h7 v4 h-7 v7 h-4 v-7 h-7 v-4 h7 z"' +
                          ' fill="#fff"/>');
 
+  /* A peça saindo da cabeça: um quadradinho com uma seta para baixo. É por ele
+     que a criança tira o «🧩 lado» para montar o corpo — sem ele, ela cria o
+     buraco no uso e não tem como escrever o que lê o argumento. */
+  var SOLTA_ICONE = icone('<rect x="3" y="3" width="18" height="9" rx="2"' +
+                          ' fill="#fff"/>' +
+                          '<path d="M12 13 L17 19 L13 19 L13 22 L11 22 L11 19' +
+                          ' L7 19 Z" fill="#fff"/>');
+
   /* Quantas entradas um bloco inventado aceita. Três é o que cabe na largura de
      uma peça num tablet, e cobre «retângulo (largura) (altura)». Não vai para
      core/bytecode.h: a VM não sabe que blocos inventados existem. */
@@ -201,6 +209,17 @@
             new Blockly.FieldTextInput(e.nome, validadorDeEntrada(bloco, e.id)),
             'ENT_' + e.id);
           bloco.camposEntrada_.push('ENT_' + e.id);
+          /* Um por entrada, logo depois do nome dela: tocar solta a peça que lê
+             aquela entrada. Campo, e não corpo do bloco — tocar no corpo roda a
+             pilha, como já vale para o ➕. */
+          fileira.appendField(
+            new Blockly.FieldImage(SOLTA_ICONE, LADO_ICONE, LADO_ICONE,
+                                   'tirar a peça que lê ' + e.nome,
+                                   (function (id) {
+                                     return function () { bloco.soltarPecaDeEntrada_(id); };
+                                   })(e.id)),
+            'SOLTA_' + e.id);
+          bloco.camposEntrada_.push('SOLTA_' + e.id);
         }
         if (bloco.entradas_.length < N_ENTRADAS) {
           fileira.appendField(
@@ -210,6 +229,26 @@
             'MAIS');
           bloco.camposEntrada_.push('MAIS');
         }
+      };
+
+      /* Põe na tela a peça que lê aquela entrada, ao lado da cabeça e já
+         selecionada, para a criança arrastá-la para dentro do corpo.
+
+         Posiciona por getRelativeToSurfaceXY + moveBy, e não por moveTo: o
+         moveTo e o select só existem no BlockSvg, ou seja, só no navegador —
+         e este caminho precisa rodar também nos testes sem tela. */
+      bloco.soltarPecaDeEntrada_ = function (id) {
+        var k = indiceDaEntrada(bloco, id);
+        if (k < 0) return null;
+        var e = bloco.entradas_[k];
+        var peca = Blockly.serialization.blocks.append(
+          { type: 'bloco_entrada', extraState: { id: e.id, nome: e.nome } },
+          bloco.workspace);
+        var daCabeca = bloco.getRelativeToSurfaceXY();
+        var dela = peca.getRelativeToSurfaceXY();
+        peca.moveBy(daCabeca.x + 40 - dela.x, daCabeca.y + 70 - dela.y);
+        if (peca.select) peca.select();
+        return peca;
       };
 
       bloco.novaEntrada_ = function () {
@@ -363,12 +402,16 @@
     extensaoPronta = true;
   }
 
-  /* «entrada», «entrada2»… O nome só precisa ser único dentro da cabeça. */
-  function nomeLivreDeEntrada(bloco) {
-    var base = 'entrada', n = 1, tentativa = base, k, repetido;
+  /* «entrada», «entrada2»… O nome só precisa ser único dentro da cabeça.
+     `exceto` é o id da entrada que está sendo renomeada: ela não colide consigo
+     mesma. Sem base, começa em «entrada». */
+  function nomeLivreDeEntrada(bloco, base, exceto) {
+    base = base || 'entrada';
+    var n = 1, tentativa = base, k, repetido;
     do {
       repetido = false;
       for (k = 0; k < bloco.entradas_.length; k++) {
+        if (bloco.entradas_[k].id === exceto) continue;
         if (bloco.entradas_[k].nome === tentativa) repetido = true;
       }
       if (repetido) { n++; tentativa = base + n; }
@@ -401,6 +444,10 @@
         return null;
       }
 
+      /* Dois nomes iguais viram «void bloco_f(int p_x, int p_x)» no .ino, que
+         não compila. O nome livre era procurado só ao criar; renomear também
+         precisa. Vira «lado2», como o findLegalName faz com o nome do bloco. */
+      limpo = nomeLivreDeEntrada(bloco, limpo, id);
       comMutacao(bloco, function () {
         bloco.entradas_[indiceDaEntrada(bloco, id)].nome = limpo;
       });
@@ -1280,6 +1327,25 @@
       var tem = !!Blockly.Procedures.getDefinition(usos[i].getFieldValue('NOME'), workspace);
       var cor = tem ? COR_BLOCO : COR_SEM_DEFINICAO;
       if (usos[i].getColour() !== cor) usos[i].setColour(cor);
+    }
+
+    /* As peças roxas seguem a mesma regra, e por dois motivos: a tradução usa o
+       nome de agora, então a tela mostrando o nome velho conta outra história; e
+       uma peça cuja entrada foi apagada precisa esmaecer como esmaece um uso sem
+       definição — nada some sem a criança ver. */
+    var roxas = workspace.getBlocksByType('bloco_entrada', false);
+    for (var j = 0; j < roxas.length; j++) {
+      var raiz = roxas[j].getRootBlock();
+      var lista = (raiz && raiz.type === 'bloco_ensinar') ? entradasDe(raiz) : [];
+      var achou = null, m;
+      for (m = 0; m < lista.length; m++) {
+        if (lista[m].id === roxas[j].entradaId_) achou = lista[m];
+      }
+      if (achou && roxas[j].getFieldValue('NOME') !== achou.nome) {
+        roxas[j].setFieldValue(achou.nome, 'NOME');
+      }
+      var corRoxa = achou ? COR_BLOCO : COR_SEM_DEFINICAO;
+      if (roxas[j].getColour() !== corRoxa) roxas[j].setColour(corRoxa);
     }
   }
 

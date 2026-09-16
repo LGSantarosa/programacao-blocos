@@ -30,9 +30,21 @@ teto nenhum — foi recusado: é a peça mais complicada do Blockly de fazer
 funcionar no toque, e o projeto não usa nenhum.
 
 **A peça de ler a entrada só vive dentro da cabeça.** «🧩 lado» é um relator
-roxo que ela arrasta da própria cabeça `ensinar`, como no Scratch. Fora da
-definição é erro com bolha. Não vai para a gaveta: uma peça na gaveta que só
-funciona num lugar é uma peça que promete o que não cumpre.
+roxo. Fora da definição é erro com bolha. Não vai para a gaveta: uma peça na
+gaveta que só funciona num lugar é uma peça que promete o que não cumpre.
+
+**Como ela sai da cabeça:** ao lado do nome de cada entrada há um ícone; tocar
+nele põe a peça na tela, junto da cabeça e já selecionada, pronta para a criança
+arrastar para dentro do corpo.
+
+O primeiro desenho dizia «ela arrasta da própria cabeça, como no Scratch», e
+isso foi corrigido em 2026-09-16, depois de uma revisão apontar que **não havia
+caminho nenhum**: a peça existia no código e não existia para a criança — ela
+conseguia criar o buraco no uso e não tinha como montar o corpo que lê o
+argumento. O arrasto direto do rótulo não vem pronto no Blockly 8: exigiria
+interceptar o gesto num campo, e disputaria com o toque que renomeia a entrada
+nesse mesmo rótulo. O ícone dá o mesmo resultado com o mecanismo que o projeto
+já usa e já prova — campo com clique próprio, como o ➕.
 
 **Renomear espalha; apagar esmaece.** Renomear «lado» troca o nome em toda peça
 roxa daquela cabeça e no rótulo do buraco de todos os usos. Apagar a entrada

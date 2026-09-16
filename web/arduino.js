@@ -142,7 +142,7 @@
     if (v.op === 'caixa') return identificadorDe(v.nome);
     /* Aqui não há substituição: a função é gerada uma vez, com o parâmetro de
        verdade, que é o que faz o arquivo continuar legível. */
-    if (v.op === 'entrada') return identificadorDe(v.nome, 'p_');
+    if (v.op === 'entrada') return parametroDe(v.id, v.nome);
     if (v.op === 'nao') return '!(' + valor(v.a) + ')';
     if (v.op === 'aleatorio') {
       return 'aleatorio(' + valor(v.a) + ', ' + valor(v.b) + ')';
@@ -299,7 +299,9 @@
           linhas.push(r + (emFuncao ? 'fim();' : 'return;'));
           break;
         case 'usar': {
-          recusarArgumentoVivo(no);
+          /* A recusa não mora aqui: esta função gera também o corpo das funções,
+             onde não há quadro e um «entrada» não tem como ser resolvido. Quem
+             confere é o conferirArgumentosVivos, sobre a árvore de fora. */
           var partes = [], iA;
           for (iA = 0; iA < (no.args || []).length; iA++) {
             partes.push(valor(no.args[iA].valor));
@@ -564,18 +566,43 @@
     ''
   ];
 
-  function ehConstante(v) {
-    return v === null || v === undefined || typeof v === 'number';
+  function argDoQuadro(quadro, id) {
+    for (var k = 0; k < quadro.args.length; k++) {
+      if (quadro.args[k].id === id) return quadro.args[k];
+    }
+    return null;
   }
 
-  /* Quantas vezes o corpo lê aquela entrada. Sem entrar no corpo de um «usar»
-     de dentro: lá as entradas são outras, e a função dele é gerada à parte. */
-  function lidaQuantasVezes(nos, id) {
-    var n = 0, i, no;
+  /* «Vivo» é o que muda a cada leitura: só o 🎲 e o 👁. Uma conta determinística
+     dá sempre o mesmo número, e recusá-la seria um teto inventado.
+
+     O nó «entrada» se resolve no quadro de quem chamou, como no compilador: o
+     p_lado de dentro pode valer 30 lá fora, e aí não há mentira nenhuma. */
+  function ehVivo(v, quadro) {
+    if (!v || typeof v === 'number') return false;
+    if (v.op === 'aleatorio' || v.op === 'distancia') return true;
+    if (v.op === 'entrada') {
+      var arg = quadro && argDoQuadro(quadro, v.id);
+      /* Sem quadro não há o que afirmar. Quem sabe é o uso de fora, e é lá que
+         a conferência acontece. */
+      if (!arg) return false;
+      return ehVivo(arg.valor, arg.origem);
+    }
+    return ehVivo(v.a, quadro) || ehVivo(v.b, quadro);
+  }
+
+  /* Laços: uma leitura só, escrita uma vez na árvore, é executada muitas vezes.
+     Contar ocorrências deixava passar «quadrado(🎲) { repetir 4 { girar(lado) } }»,
+     que a VM sorteia quatro vezes e o .ino uma. */
+  var LACOS = { repetir: 1, repetir_sempre: 1, repetir_ate: 1,
+                repetir_ate_perto: 1 };
+
+  function lidaQuantasVezes(nos, id, emLaco) {
+    var n = 0, i, no, peso = emLaco ? 2 : 1, dentro;
 
     function emValor(v) {
       if (!v || typeof v === 'number') return;
-      if (v.op === 'entrada') { if (v.id === id) n++; return; }
+      if (v.op === 'entrada') { if (v.id === id) n += peso; return; }
       emValor(v.a);
       emValor(v.b);
     }
@@ -584,28 +611,91 @@
       no = nos[i];
       emValor(no.segundos); emValor(no.graus); emValor(no.vezes);
       emValor(no.cm); emValor(no.cond); emValor(no.valor);
-      if (no.corpo && no.op !== 'usar') n += lidaQuantasVezes(no.corpo, id);
-      if (no.entao) n += lidaQuantasVezes(no.entao, id);
-      if (no.senao) n += lidaQuantasVezes(no.senao, id);
+      dentro = emLaco || !!LACOS[no.op];
+      /* Sem entrar no corpo de um «usar» de dentro: lá as entradas são outras. */
+      if (no.corpo && no.op !== 'usar') n += lidaQuantasVezes(no.corpo, id, dentro);
+      if (no.entao) n += lidaQuantasVezes(no.entao, id, dentro);
+      if (no.senao) n += lidaQuantasVezes(no.senao, id, dentro);
     }
     return n;
   }
 
-  /* A função tem parâmetro por valor: o 🎲 do argumento é sorteado uma vez, e a
-     VM sorteia a cada leitura da peça roxa. Gerar assim mentiria sobre o robô —
-     e o arquivo já recusa o 📣 avisar pelo mesmo motivo. A conta é por uso (o
-     argumento pode ser constante num e não no outro) e por entrada. */
-  function recusarArgumentoVivo(no) {
-    var a, args = no.args || [];
-    for (a = 0; a < args.length; a++) {
-      if (ehConstante(args[a].valor)) continue;
-      if (lidaQuantasVezes(no.corpo || [], args[a].id) > 1) {
-        throw new Error(
-          'O 🎲 e o 👁 dentro de um bloco com entrada fazem o robô sortear de ' +
-          'novo a cada vez que ele lê a entrada, e o código do Arduino sorteia ' +
-          'uma vez só. Ponha o número direto para ver o código.');
+  /* A função do .ino tem parâmetro por valor: o 🎲 do argumento é sorteado uma
+     vez e reusado. A VM sorteia a cada leitura. Gerar assim mentiria sobre o
+     robô — e o arquivo já recusa o 📣 avisar pelo mesmo motivo.
+
+     Roda sobre a árvore de fora, com cadeia de quadros, e não dentro do
+     gerarNos: o corpo de uma função é gerado uma vez e sem quadro. */
+  function conferirArgumentosVivos(nos, quadro, semVivoVistos) {
+    for (var i = 0; i < nos.length; i++) {
+      var no = nos[i];
+      if (no.op === 'usar') {
+        var args = no.args || [], a, temVivo = false;
+        var novo = { args: [] };
+        for (a = 0; a < args.length; a++) {
+          novo.args.push({ id: args[a].id, valor: args[a].valor, origem: quadro });
+          if (ehVivo(args[a].valor, quadro)) temVivo = true;
+        }
+        for (a = 0; a < args.length; a++) {
+          if (!ehVivo(args[a].valor, quadro)) continue;
+          if (lidaQuantasVezes(no.corpo || [], args[a].id, false) > 1) {
+            throw new Error(
+              'O 🎲 e o 👁 dentro de um bloco com entrada fazem o robô sortear de ' +
+              'novo a cada vez que ele lê a entrada, e o código do Arduino sorteia ' +
+              'uma vez só. Ponha o número direto para ver o código.');
+          }
+        }
+        /* Sem argumento vivo, o que se acha lá dentro não depende deste quadro:
+           basta visitar uma vez por nome. É o que impede a explosão de fan-out
+           que a árvore compartilhada já custou uma vez. */
+        var chave = ' ' + String(no.nome).toLowerCase();
+        if (temVivo) {
+          conferirArgumentosVivos(no.corpo || [], novo, semVivoVistos);
+        } else if (!Object.prototype.hasOwnProperty.call(semVivoVistos, chave)) {
+          semVivoVistos[chave] = true;
+          conferirArgumentosVivos(no.corpo || [], novo, semVivoVistos);
+        }
       }
+      if (no.corpo && no.op !== 'usar') {
+        conferirArgumentosVivos(no.corpo, quadro, semVivoVistos);
+      }
+      if (no.entao) conferirArgumentosVivos(no.entao, quadro, semVivoVistos);
+      if (no.senao) conferirArgumentosVivos(no.senao, quadro, semVivoVistos);
     }
+  }
+
+  /* Os parâmetros da função que está sendo gerada agora, por id de entrada.
+
+     Por função, e não pelo identificadorDe global: aquele memoriza por nome, e
+     duas entradas chamadas «x» na mesma cabeça devolveriam o mesmo «p_x» —
+     «void bloco_f(int p_x, int p_x)», que não compila. E não basta o editor
+     impedir nomes repetidos: «lado» e «lådo» são nomes diferentes na tela e o
+     mesmo p_lado depois do limparNome, que tira acento. Quem garante nome único
+     na assinatura é quem escreve a assinatura. */
+  var paramsDaFuncao = null;
+
+  function parametroDe(id, nome) {
+    if (paramsDaFuncao && Object.prototype.hasOwnProperty.call(paramsDaFuncao, id)) {
+      return paramsDaFuncao[id];
+    }
+    /* Fora de função não há parâmetro; o nome cru serve de última linha. */
+    return limparNome(nome, 'p_');
+  }
+
+  function nomearParametros(args) {
+    var mapa = {}, usados = {}, p, base, ident, n;
+    for (p = 0; p < (args || []).length; p++) {
+      base = limparNome(args[p].nome, 'p_');
+      ident = base;
+      n = 2;
+      while (Object.prototype.hasOwnProperty.call(usados, ident)) {
+        ident = base + '_' + n;
+        n++;
+      }
+      usados[ident] = true;
+      mapa[args[p].id] = ident;
+    }
+    return mapa;
   }
 
   function gerarFuncoes() {
@@ -613,13 +703,16 @@
     for (k = 0; k < funcoes.length; k++) {
       no = funcoes[k];
       corpo = [];
+      /* Nomeados antes de gerar o corpo: é o corpo que lê o mapa pelo valor(). */
+      paramsDaFuncao = nomearParametros(no.args || []);
       emFuncao = true;
       gerarNos(no.corpo || [], 1, 0, corpo);
       emFuncao = false;
       var params = [], p;
       for (p = 0; p < (no.args || []).length; p++) {
-        params.push('int ' + identificadorDe(no.args[p].nome, 'p_'));
+        params.push('int ' + paramsDaFuncao[no.args[p].id]);
       }
+      paramsDaFuncao = null;
       fora.push('void ' + identificadorDe(no.nome, 'bloco_') +
                 '(' + params.join(', ') + ') {');
       fora = fora.concat(corpo);
@@ -652,9 +745,17 @@
     funcoes = [];
     funcoesVistas = {};
     emFuncao = false;
+    /* Zerado aqui também, e não só ao fim de cada função: um estouro no meio de
+       um corpo (o 📣 avisar faz isso) deixaria o mapa pendurado, e o gerar()
+       seguinte começaria sujo — os testes dividem o mesmo módulo. */
+    paramsDaFuncao = null;
     var uso = usoDe(nos);
     var corpo = [];
     var linhas = [];
+
+    /* Antes de gerar linha nenhuma: recusar no meio deixaria metade do arquivo
+       escrito. Aqui o quadro é nulo porque este é o programa de fora. */
+    conferirArgumentosVivos(nos, null, {});
 
     gerarNos(nos, 1, 0, corpo);
 

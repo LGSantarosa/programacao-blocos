@@ -239,7 +239,8 @@
         var arg = acharEntrada(v.id);
         if (!arg) {
           throw erroNoBloco('Essa entrada não existe mais. Tire esta peça, ou ' +
-                            'crie a entrada de novo.', id);
+                            'crie a entrada de novo.',
+                            (quadro && quadro.blockId) || id);
         }
         /* Resolvido no quadro de origem, e restaurado depois: é o que faz o
            argumento pertencer a quem chamou. */
@@ -414,7 +415,12 @@
              repetir fundo demais, um número que não cabe — atravessa intacto e
              aponta a peça de dentro, que é a que está errada. */
           case 'usar': {
-            var lista = no.args || [], novo = { args: [] }, iArg;
+            /* O quadro guarda de quem ele é: quando o corpo lê uma entrada que
+               não existe mais, a bolha tem de cair na peça de USAR — é ela que
+               ficou para trás da definição, e é nela que a criança mexe. */
+            var lista = no.args || [];
+            var novo = { args: [], blockId: no.blockId || null };
+            var iArg;
             for (iArg = 0; iArg < lista.length; iArg++) {
               /* A origem é o quadro de agora: o argumento foi escrito na tela
                  de quem está usando. */

@@ -70,6 +70,15 @@
   var GIRO_ANTI    = icone('<g transform="translate(24,0) scale(-1,1)">' +
                            VOLTA + '</g>');
 
+  /* Cruz grossa, pela mesma régua das setas: legível a 20px num tablet. */
+  var MAIS_ICONE = icone('<path d="M10 3 h4 v7 h7 v4 h-7 v7 h-4 v-7 h-7 v-4 h7 z"' +
+                         ' fill="#fff"/>');
+
+  /* Quantas entradas um bloco inventado aceita. Três é o que cabe na largura de
+     uma peça num tablet, e cobre «retângulo (largura) (altura)». Não vai para
+     core/bytecode.h: a VM não sabe que blocos inventados existem. */
+  var N_ENTRADAS = 3;
+
   /* Nomeado, e não anônimo. O Blockly guarda os campos que vêm antes de um
      encaixe na fileira daquele encaixe: o ícone vem antes do SEG, e no
      Iniciante o SEG está escondido — a fileira some e leva o desenho junto.
@@ -89,6 +98,45 @@
     if (Blockly.Extensions.isRegistered && Blockly.Extensions.isRegistered(nome)) return;
     Blockly.Extensions.register(nome, fn);
   }
+
+  /* O par saveExtraState/loadExtraState só pode entrar por um mutador: uma
+     extensão comum que os acrescente é recusada pelo Blockly. O registerMutator
+     mistura este objeto no bloco e depois aplica o ajudante. */
+  function registrarMutador(nome, mixin, fn) {
+    if (Blockly.Extensions.isRegistered && Blockly.Extensions.isRegistered(nome)) return;
+    Blockly.Extensions.registerMutator(nome, mixin, fn);
+  }
+
+  /* O estado das entradas da cabeça. Vive no mixin, com `this`, porque é o
+     formato que o registerMutator exige. Sem compose nem decompose: a criança
+     não abre bolha nenhuma — ela toca no ➕ e no rótulo. */
+  var ESTADO_ENTRADAS = {
+    saveExtraState: function () {
+      var fora = [], k;
+      for (k = 0; k < this.entradas_.length; k++) {
+        fora.push({ id: this.entradas_[k].id, nome: this.entradas_[k].nome });
+      }
+      return { entradas: fora, proximo: this.proximoId_ };
+    },
+
+    loadExtraState: function (estado) {
+      var lista = (estado && estado.entradas) || [], k, e, n;
+      this.entradas_ = [];
+      for (k = 0; k < lista.length && this.entradas_.length < N_ENTRADAS; k++) {
+        e = lista[k];
+        if (!e || !e.id) continue;
+        this.entradas_.push({ id: String(e.id), nome: String(e.nome || '') });
+      }
+      /* O contador volta junto; e se o estado vier torto, sobe acima de todo id
+         já usado, para o próximo nunca colidir com um que exista. */
+      this.proximoId_ = Number(estado && estado.proximo) || 1;
+      for (k = 0; k < this.entradas_.length; k++) {
+        n = Number(String(this.entradas_[k].id).replace(/^e/, ''));
+        if (isFinite(n) && n >= this.proximoId_) this.proximoId_ = n + 1;
+      }
+      this.refazerEntradas_();
+    },
+  };
 
   /* GRAUS é a fonte de verdade; o menu direita/esquerda é só um editor
      amigável dela. É isso que deixa o compilador ignorar o nível. */
@@ -111,11 +159,79 @@
     /* A cabeça «ensinar» se apresenta ao Blockly.Procedures do núcleo: é o que
        dá de graça o nome único (findLegalName) e deixa os usos responderem ao
        renomear. Sem entrada e sem resposta: [nome, [], false]. */
-    registrarUma('bloco_ensinar_procedimento', function () {
+    registrarMutador('bloco_ensinar_entradas', ESTADO_ENTRADAS, function () {
       var bloco = this;
-      bloco.getProcedureDef = function () {
-        return [bloco.getFieldValue('NOME'), [], false];
+      bloco.entradas_ = [];
+      bloco.proximoId_ = 1;
+
+      /* Id curto e monotônico, e não o Blockly.utils.idGenerator.genUid, que
+         gera coisas como «#,9?MMXZK+a/rQA,~PSE»: este id vira nome de encaixe e
+         de campo (ENT_<id>, ROT_<id>), e nome de encaixe com # e / é frágil.
+
+         Nunca reaproveitado: se «e1» fosse apagada e o próximo id voltasse a
+         ser «e1», um uso que ficou para trás teria o buraco ENT_e1 apontando
+         calado para uma entrada nova. É o "lugar sujo" que o caixas.js já
+         pagou uma vez. */
+      bloco.novoIdDeEntrada_ = function () {
+        var id = 'e' + bloco.proximoId_;
+        bloco.proximoId_++;
+        return id;
       };
+
+      /* O saveExtraState e o loadExtraState moram no ESTADO_ENTRADAS, lá em
+         cima: o registerMutator os mistura no bloco antes de rodar isto. */
+
+      /* Os campos que esta função pôs na fileira, para saber o que tirar na
+         próxima. Só eles: o encaixe ENTRADAS carrega também o campo NOME, que
+         vem antes dele no JSON — derrubar o encaixe levaria o nome do bloco
+         junto, e o validador do nome sumiria com ele. É a mesma armadilha que
+         o Niveis.aplicar já paga ao esconder encaixe. */
+      bloco.camposEntrada_ = [];
+
+      bloco.refazerEntradas_ = function () {
+        var fileira = bloco.getInput('ENTRADAS'), k, e;
+        if (!fileira) return;
+        for (k = 0; k < bloco.camposEntrada_.length; k++) {
+          fileira.removeField(bloco.camposEntrada_[k]);
+        }
+        bloco.camposEntrada_ = [];
+        for (k = 0; k < bloco.entradas_.length; k++) {
+          e = bloco.entradas_[k];
+          fileira.appendField(
+            new Blockly.FieldTextInput(e.nome, validadorDeEntrada(bloco, e.id)),
+            'ENT_' + e.id);
+          bloco.camposEntrada_.push('ENT_' + e.id);
+        }
+        if (bloco.entradas_.length < N_ENTRADAS) {
+          fileira.appendField(
+            new Blockly.FieldImage(MAIS_ICONE, LADO_ICONE, LADO_ICONE,
+                                   'mais uma entrada',
+                                   function () { bloco.novaEntrada_(); }),
+            'MAIS');
+          bloco.camposEntrada_.push('MAIS');
+        }
+      };
+
+      bloco.novaEntrada_ = function () {
+        if (bloco.entradas_.length >= N_ENTRADAS) return;
+        bloco.entradas_.push({ id: bloco.novoIdDeEntrada_(),
+                               nome: nomeLivreDeEntrada(bloco) });
+        bloco.refazerEntradas_();
+        if (bloco.aoMudarEntradas_) bloco.aoMudarEntradas_();
+      };
+
+      bloco.getProcedureDef = function () {
+        var nomes = [], k;
+        for (k = 0; k < bloco.entradas_.length; k++) {
+          nomes.push(bloco.entradas_[k].nome);
+        }
+        return [bloco.getFieldValue('NOME'), nomes, false];
+      };
+
+      /* Uma cabeça nascida do botão não passa pelo loadExtraState, e sem isto
+         ela nasceria sem o ➕ — sem porta nenhuma para criar a primeira
+         entrada. */
+      bloco.refazerEntradas_();
       /* O Procedures.rename do núcleo, mas sem espalhar na carga.
 
          O campo nasce com o nome padrão, e criar, recarregar, desfazer e colar
@@ -156,6 +272,56 @@
       };
     });
     extensaoPronta = true;
+  }
+
+  /* «entrada», «entrada2»… O nome só precisa ser único dentro da cabeça. */
+  function nomeLivreDeEntrada(bloco) {
+    var base = 'entrada', n = 1, tentativa = base, k, repetido;
+    do {
+      repetido = false;
+      for (k = 0; k < bloco.entradas_.length; k++) {
+        if (bloco.entradas_[k].nome === tentativa) repetido = true;
+      }
+      if (repetido) { n++; tentativa = base + n; }
+    } while (repetido);
+    return tentativa;
+  }
+
+  /* Trocar renomeia; deixar vazio apaga. Um campo só para as duas coisas — e é
+     o mesmo field_input que o NOME da cabeça já usa, que funciona no WebView do
+     app, onde o window.prompt falha. */
+  function validadorDeEntrada(bloco, id) {
+    return function (novo) {
+      var limpo = String(novo === null || novo === undefined ? '' : novo).trim();
+      var k;
+      for (k = 0; k < bloco.entradas_.length; k++) {
+        if (bloco.entradas_[k].id !== id) continue;
+        if (!limpo) {
+          bloco.entradas_.splice(k, 1);
+          /* Remontar fora do próprio validador: o campo que está sendo validado
+             morre junto com a fileira, e por isso o valor devolvido não
+             importa. */
+          setTimeout(function () {
+            bloco.refazerEntradas_();
+            if (bloco.aoMudarEntradas_) bloco.aoMudarEntradas_();
+          }, 0);
+          return null;
+        }
+        bloco.entradas_[k].nome = limpo;
+        if (bloco.aoMudarEntradas_) bloco.aoMudarEntradas_();
+        return limpo;
+      }
+      return limpo;
+    };
+  }
+
+  /* Cópia: quem lê de fora não mexe na lista da cabeça. */
+  function entradasDe(bloco) {
+    var fora = [], lista = (bloco && bloco.entradas_) || [], k;
+    for (k = 0; k < lista.length; k++) {
+      fora.push({ id: lista[k].id, nome: lista[k].nome });
+    }
+    return fora;
   }
 
   function definir() {
@@ -242,12 +408,21 @@
       },
       {
         type: 'bloco_ensinar',
-        message0: '🧩 ensinar %1',
-        args0: [{ type: 'field_input', name: 'NOME', text: 'meu bloco' }],
+        message0: '🧩 ensinar %1 %2',
+        args0: [
+          { type: 'field_input', name: 'NOME', text: 'meu bloco' },
+          /* A fileira onde moram os rótulos das entradas e o ➕. Nomeada porque
+             o refazerEntradas_ a derruba e remonta a cada mudança. */
+          { type: 'input_dummy', name: 'ENTRADAS' },
+        ],
         message1: '%1',
         args1: [{ type: 'input_statement', name: 'CORPO' }],
         colour: COR_BLOCO,
-        extensions: ['bloco_ensinar_procedimento'],
+        /* mutator, e não extensions: o Blockly recusa uma extensão comum que
+           acrescente saveExtraState/loadExtraState («mutation properties
+           changed when applying a non-mutator extension»). Sem compose e sem
+           decompose no mixin, não há bolha de diálogo — só o estado. */
+        mutator: 'bloco_ensinar_entradas',
         tooltip: 'Dá um nome às peças de baixo. Depois, a peça com esse nome ' +
                  'faz tudo isso de uma vez.',
       },
@@ -1010,6 +1185,7 @@
               usarCaixas: usarCaixas, gavetaDeCaixas: gavetaDeCaixas,
               COR_CAIXA: COR_CAIXA,
               gavetaDeBlocos: gavetaDeBlocos, acertarUsos: acertarUsos,
+              entradasDe: entradasDe, N_ENTRADAS: N_ENTRADAS,
               COR_BLOCO: COR_BLOCO, COR_SEM_DEFINICAO: COR_SEM_DEFINICAO };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Blocos = api;

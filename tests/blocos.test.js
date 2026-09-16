@@ -813,3 +813,71 @@ test('acertarUsos esmaece quem perdeu a definição e acende quem a tem', () => 
   Blocos.acertarUsos(ws);
   assert.strictEqual(ws.getBlockById('u').getColour(), Blocos.COR_SEM_DEFINICAO);
 });
+
+/* ---------- entradas dos blocos inventados ---------- */
+
+function cabecaCom(entradas) {
+  const ws = carregar([{ type: 'bloco_ensinar', fields: { NOME: 'quadrado' },
+                         extraState: { entradas: entradas } }]);
+  return ws.getBlocksByType('bloco_ensinar', false)[0];
+}
+
+test('a cabeça guarda as entradas e as devolve na ordem', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }, { id: 'e2', nome: 'cor' }]);
+  assert.deepStrictEqual(Blocos.entradasDe(b),
+    [{ id: 'e1', nome: 'lado' }, { id: 'e2', nome: 'cor' }]);
+});
+
+test('cada entrada vira um campo editável na cabeça', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }]);
+  assert.strictEqual(b.getFieldValue('ENT_e1'), 'lado');
+});
+
+test('getProcedureDef leva os nomes das entradas', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }]);
+  assert.deepStrictEqual(b.getProcedureDef(), ['quadrado', ['lado'], false]);
+});
+
+test('as entradas voltam iguais depois de salvar e carregar', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }]);
+  const estado = Blockly.serialization.blocks.save(b);
+  const ws2 = carregar([estado]);
+  const b2 = ws2.getBlocksByType('bloco_ensinar', false)[0];
+  assert.deepStrictEqual(Blocos.entradasDe(b2), [{ id: 'e1', nome: 'lado' }]);
+  assert.strictEqual(b2.getFieldValue('ENT_e1'), 'lado');
+});
+
+test('o ➕ some na terceira entrada', () => {
+  const tres = [{ id: 'a', nome: 'x' }, { id: 'b', nome: 'y' },
+                { id: 'c', nome: 'z' }];
+  assert.ok(!cabecaCom(tres).getField('MAIS'), 'o ➕ não devia existir com 3');
+  assert.ok(cabecaCom(tres.slice(0, 2)).getField('MAIS'), 'faltou o ➕ com 2');
+});
+
+test('esvaziar o nome de uma entrada apaga a entrada', async () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }, { id: 'e2', nome: 'cor' }]);
+  b.setFieldValue('', 'ENT_e1');
+  /* O validador remonta a fileira fora do próprio validador: o campo que está
+     sendo validado morre junto com ela. */
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepStrictEqual(Blocos.entradasDe(b), [{ id: 'e2', nome: 'cor' }]);
+  assert.ok(!b.getField('ENT_e1'), 'o campo da entrada apagada devia sumir');
+});
+
+test('renomear a entrada troca o nome e mantém o id', () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }]);
+  b.setFieldValue('tamanho', 'ENT_e1');
+  assert.deepStrictEqual(Blocos.entradasDe(b), [{ id: 'e1', nome: 'tamanho' }]);
+});
+
+/* O id nunca se repete dentro de uma cabeça: se «e1» fosse apagada e o próximo
+   id voltasse a ser «e1», um uso que ficou para trás teria o buraco ENT_e1
+   apontando calado para uma entrada nova. */
+test('o id de uma entrada nova não reaproveita o de uma apagada', async () => {
+  const b = cabecaCom([{ id: 'e1', nome: 'lado' }]);
+  b.setFieldValue('', 'ENT_e1');
+  await new Promise((r) => setTimeout(r, 0));
+  b.novaEntrada_();
+  assert.strictEqual(Blocos.entradasDe(b).length, 1);
+  assert.notStrictEqual(Blocos.entradasDe(b)[0].id, 'e1');
+});

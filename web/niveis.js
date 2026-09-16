@@ -125,7 +125,9 @@
       /* Os blocos que ela inventa. No Avançado porque dar nome a um pedaço de
          programa só vale para quem já monta pedaços grandes o bastante para
          repetir. */
-      'bloco_ensinar', 'bloco_usar',
+      /* A peça roxa entra na lista de tipos que o nível conhece, mas não ganha
+         linha no caixaXml: ela nasce arrastada de dentro da cabeça. */
+      'bloco_ensinar', 'bloco_usar', 'bloco_entrada',
     ]),
     campos: DEFINICOES.grande.campos,
     bolinhas: false,

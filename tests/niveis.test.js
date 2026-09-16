@@ -392,6 +392,30 @@ test('a caixa do Gigante oferece de fato os blocos gerais de controle', () => {
    continuava vindo da minúscula e "andar frente" crescia 25px por cima do
    encaixe do número — o texto vazava da peça. Reescrevendo o campo, o render()
    remede e a peça cresce junto. */
+/* ---------- a peça que lê a entrada ---------- */
+
+/* Ela existe no Avançado, mas não vai para a gaveta: nasce arrastada de dentro
+   da cabeça «ensinar». Uma peça na gaveta que só funciona num lugar é uma peça
+   que promete o que não cumpre. */
+test('a peça de ler entrada está no Avançado e fora da gaveta', () => {
+  assert.ok(Blockly.Blocks.bloco_entrada, 'a peça tinha que estar definida');
+  assert.ok(Niveis.definicao('gigante').blocos.indexOf('bloco_entrada') >= 0,
+    'o Gigante tinha que conhecer a peça');
+  const xml = Niveis.caixaXml('gigante');
+  assert.ok(xml.includes('MEUS_BLOCOS'), 'faltou a gaveta dos blocos dela');
+  assert.ok(!xml.includes('bloco_entrada'),
+    'a peça roxa não vai para a gaveta: ela nasce da cabeça');
+});
+
+test('os níveis de baixo não conhecem a peça de entrada', () => {
+  for (const nivel of ['pequeno', 'medio', 'grande']) {
+    assert.ok(Niveis.definicao(nivel).blocos.indexOf('bloco_entrada') < 0,
+      `${nivel} não devia conhecer a peça de entrada`);
+    assert.ok(!Niveis.caixaXml(nivel).includes('MEUS_BLOCOS'),
+      `${nivel} não devia ter a gaveta dos blocos inventados`);
+  }
+});
+
 function peca(tipo) {
   const ws = new Blockly.Workspace();
   Blockly.Events.disable();

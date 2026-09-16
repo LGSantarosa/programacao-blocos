@@ -183,6 +183,9 @@
       var vista = workspace.getMetricsManager().getViewMetrics(true);
       cabeca.moveTo(new Blockly.utils.Coordinate(vista.left + 40, vista.top + 40));
       cabeca.select();
+      /* Ligada já: o ➕ pode ser tocado antes de qualquer outro evento chegar
+         ao ouvinte. */
+      ligarCabeca(cabeca);
       atualizarGavetaDeBlocos();
     });
   });
@@ -198,11 +201,20 @@
      comparar os nomes é para não remontar à toa fora dele.) */
   var nomesNaGaveta = '';
 
+  /* As entradas entram na conta, e não só os nomes: a gaveta monta a peça de
+     usar com um buraco por entrada, e criar ou renomear uma entrada não muda
+     nome nenhum — sem isto, a gaveta aberta continuaria mostrando a peça
+     antiga. */
   function nomesDosBlocos() {
     var defs = workspace.getBlocksByType('bloco_ensinar', false);
-    var nomes = [];
-    for (var i = 0; i < defs.length; i++) {
-      nomes.push(String(defs[i].getFieldValue('NOME')).toLowerCase());
+    var nomes = [], i, j, entradas, linha;
+    for (i = 0; i < defs.length; i++) {
+      linha = String(defs[i].getFieldValue('NOME')).toLowerCase();
+      entradas = Blocos.entradasDe(defs[i]);
+      for (j = 0; j < entradas.length; j++) {
+        linha += '\t' + entradas[j].id + '=' + entradas[j].nome;
+      }
+      nomes.push(linha);
     }
     return nomes.sort().join('\n');
   }
@@ -216,8 +228,29 @@
 
   /* A peça de usar acende com definição e esmaece sem. Em todo evento que muda
      o programa: apagar a cabeça, desfazer, renomear, trocar de nível. */
+  /* Quando a lista de entradas de uma cabeça muda, os usos dela precisam ganhar,
+     perder ou renomear buracos — e a gaveta, remontar. A cabeça não conhece o
+     app.js; quem liga os dois é isto. */
+  function ligarCabeca(cabeca) {
+    cabeca.aoMudarEntradas_ = function () {
+      var nome = String(cabeca.getFieldValue('NOME')).toLowerCase();
+      var entradas = Blocos.entradasDe(cabeca);
+      var usos = workspace.getBlocksByType('bloco_usar', false), i;
+      for (i = 0; i < usos.length; i++) {
+        /* Sem maiúscula e minúscula, como o Names.equals do núcleo compara. */
+        if (String(usos[i].getFieldValue('NOME')).toLowerCase() !== nome) continue;
+        usos[i].acertarEncaixes_(entradas);
+      }
+      atualizarGavetaDeBlocos();
+    };
+  }
+
   workspace.addChangeListener(function (e) {
     if (e.isUiEvent) return;
+    var cabecas = workspace.getBlocksByType('bloco_ensinar', false), i;
+    for (i = 0; i < cabecas.length; i++) {
+      if (!cabecas[i].aoMudarEntradas_) ligarCabeca(cabecas[i]);
+    }
     Blocos.acertarUsos(workspace);
     atualizarGavetaDeBlocos();
   });

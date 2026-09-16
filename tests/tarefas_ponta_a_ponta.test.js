@@ -68,6 +68,29 @@ test('sem tarefas, o robô anda como sempre', { timeout: 20000 }, async () => {
     'o programa termina sozinho');
 });
 
+/* O número que a criança põe no buraco chega ao robô. Se o argumento não
+   chegasse, o girar receberia 0 e a pose final seria a de partida — este teste
+   é o único que prova isso com o compilador, o bytecode e a VM de verdade. */
+test('um bloco com entrada gira o que a criança pediu',
+  { timeout: 20000 }, async () => {
+    const { bytes } = compilarTarefas([
+      { quando: 'play', blockId: 'p', corpo: [
+        { op: 'usar', nome: 'vira', blockId: 'u',
+          corpo: [{ op: 'girar',
+                    graus: { op: 'entrada', id: 'e1', nome: 'g' },
+                    blockId: 'g' }],
+          args: [{ id: 'e1', nome: 'g', valor: 90 }] }] },
+    ]);
+    const linhas = await rodar(bytes, 2500);
+    /* A telemetria é "T x y theta dist colidiu", com theta em décimos de grau:
+       90° são 900, e o limite de 600 dá folga para a física. */
+    const thetas = linhas.filter((l) => l[0] === 'T')
+                         .map((l) => Number(l.split(' ')[3]));
+    assert.ok(thetas.length > 5, 'devia haver telemetria');
+    assert.ok(Math.abs(thetas[thetas.length - 1] - thetas[0]) > 600,
+      `o robô devia ter girado; foi de ${thetas[0]} a ${thetas[thetas.length - 1]}`);
+  });
+
 test('a espera de uma tarefa não congela a outra', { timeout: 20000 }, async () => {
   /* Este é o ciclo inteiro numa frase. Com um pc só — como era até aqui — a
      espera de 3 s da primeira pilha seguraria a segunda, e o robô não sairia

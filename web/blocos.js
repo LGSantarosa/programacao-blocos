@@ -214,9 +214,11 @@
 
       bloco.novaEntrada_ = function () {
         if (bloco.entradas_.length >= N_ENTRADAS) return;
-        bloco.entradas_.push({ id: bloco.novoIdDeEntrada_(),
-                               nome: nomeLivreDeEntrada(bloco) });
-        bloco.refazerEntradas_();
+        comMutacao(bloco, function () {
+          bloco.entradas_.push({ id: bloco.novoIdDeEntrada_(),
+                                 nome: nomeLivreDeEntrada(bloco) });
+          bloco.refazerEntradas_();
+        });
         if (bloco.aoMudarEntradas_) bloco.aoMudarEntradas_();
       };
 
@@ -380,26 +382,53 @@
   function validadorDeEntrada(bloco, id) {
     return function (novo) {
       var limpo = String(novo === null || novo === undefined ? '' : novo).trim();
-      var k;
-      for (k = 0; k < bloco.entradas_.length; k++) {
-        if (bloco.entradas_[k].id !== id) continue;
-        if (!limpo) {
-          bloco.entradas_.splice(k, 1);
-          /* Remontar fora do próprio validador: o campo que está sendo validado
-             morre junto com a fileira, e por isso o valor devolvido não
-             importa. */
-          setTimeout(function () {
+      if (indiceDaEntrada(bloco, id) < 0) return limpo;
+
+      if (!limpo) {
+        /* Tudo dentro do setTimeout, inclusive a remoção: o estado de «antes»
+           precisa ser lido antes de mexer na lista, e remontar a fileira mata o
+           campo que está sendo validado agora — por isso o valor devolvido aqui
+           não importa. */
+        setTimeout(function () {
+          comMutacao(bloco, function () {
+            var k = indiceDaEntrada(bloco, id);
+            if (k < 0) return;
+            bloco.entradas_.splice(k, 1);
             bloco.refazerEntradas_();
-            if (bloco.aoMudarEntradas_) bloco.aoMudarEntradas_();
-          }, 0);
-          return null;
-        }
-        bloco.entradas_[k].nome = limpo;
-        if (bloco.aoMudarEntradas_) bloco.aoMudarEntradas_();
-        return limpo;
+          });
+          if (bloco.aoMudarEntradas_) bloco.aoMudarEntradas_();
+        }, 0);
+        return null;
       }
+
+      comMutacao(bloco, function () {
+        bloco.entradas_[indiceDaEntrada(bloco, id)].nome = limpo;
+      });
+      if (bloco.aoMudarEntradas_) bloco.aoMudarEntradas_();
       return limpo;
     };
+  }
+
+  /* Mexer no estado extra sem avisar o Blockly é mexer onde o desfazer não
+     enxerga: a criança apaga uma entrada, aperta desfazer, e não volta nada.
+
+     É o que os mutadores do próprio Blockly fazem — guardar o estado antes,
+     mudar, e disparar um BlockChange de «mutation» com o antes e o depois. O
+     caminho de desfazer relê isso pelo loadExtraState. */
+  function comMutacao(bloco, fn) {
+    var antes = Blockly.Events.BlockChange.getExtraBlockState_(bloco);
+    fn();
+    var depois = Blockly.Events.BlockChange.getExtraBlockState_(bloco);
+    if (antes === depois) return;
+    Blockly.Events.fire(
+      new Blockly.Events.BlockChange(bloco, 'mutation', null, antes, depois));
+  }
+
+  function indiceDaEntrada(bloco, id) {
+    for (var k = 0; k < bloco.entradas_.length; k++) {
+      if (bloco.entradas_[k].id === id) return k;
+    }
+    return -1;
   }
 
   /* Cópia: quem lê de fora não mexe na lista da cabeça. */

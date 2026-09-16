@@ -250,6 +250,11 @@
     var cabecas = workspace.getBlocksByType('bloco_ensinar', false), i;
     for (i = 0; i < cabecas.length; i++) {
       if (!cabecas[i].aoMudarEntradas_) ligarCabeca(cabecas[i]);
+      /* E re-sincroniza sempre, não só ao ligar: desfazer devolve a entrada à
+         cabeça pelo loadExtraState, que redesenha a cabeça e não sabe dos usos.
+         Sem isto, desfazer traria a entrada de volta e os buracos não.
+         Converge: o acertarEncaixes_ só mexe no que está diferente. */
+      cabecas[i].aoMudarEntradas_();
     }
     Blocos.acertarUsos(workspace);
     atualizarGavetaDeBlocos();

@@ -3060,3 +3060,148 @@ test('a criança ensina um bloco, usa, apaga a definição e desfaz',
 
     cdp.fechar();
   });
+
+/* O ciclo de vida das entradas, que é onde o ciclo 5 se machucou: criar com a
+   gaveta ABERTA, renomear, apagar, desfazer e recarregar. Cada um destes passos
+   quebrou alguma coisa em algum momento, e nenhum deles aparece nos testes
+   headless — o app.js só é exercitado aqui. */
+test('a criança cria uma entrada com a gaveta aberta, renomeia, apaga e recarrega',
+  { skip: PULAR, timeout: 180000 },
+  async (t) => {
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(PORTA_WEB + 19) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-entradas-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${PORTA_CDP + 19}`,
+      '--window-size=1400,900', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${PORTA_CDP + 19}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${PORTA_CDP + 19}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+    const url = `http://localhost:${PORTA_WEB + 19}/`;
+
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    await aval(`(() => {
+      document.querySelector('#niveis button[data-nivel=gigante]').click();
+      window.prompt = function () { return 'quadrado'; };
+      window.confirm = function () { return true; };
+      return 1;
+    })()`);
+    await espera(800);
+
+    /* Os encaixes da peça que a gaveta está oferecendo agora. É por aqui que se
+       vê se a gaveta ABERTA acompanhou a mudança, sem fechar e abrir. */
+    const buracosDaGaveta = () => aval(`(() => {
+      const f = Blockly.getMainWorkspace().getFlyout();
+      const b = f && f.getWorkspace().getTopBlocks(false)[0];
+      return b ? b.inputList.map(i => i.name).filter(n => n && n.indexOf('ENT_') === 0).join() : 'sem peça';
+    })()`);
+    const buracosDoUso = () => aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById('uso');
+      return b ? b.inputList.map(i => i.name).filter(n => n && n.indexOf('ENT_') === 0).join() : 'sem uso';
+    })()`);
+
+    await aval(`(() => {
+      const tb = Blockly.getMainWorkspace().getToolbox();
+      tb.setSelectedItem(tb.getToolboxItems().find(i => i.getName && i.getName() === 'Meus blocos'));
+      return 1;
+    })()`);
+    await espera(700);
+
+    /* Criar a cabeça com a gaveta aberta, e pôr um uso na tela. */
+    await aval(`(Blockly.getMainWorkspace().getButtonCallback('CRIAR_BLOCO')(), 1)`);
+    await espera(700);
+    const defId = await aval(
+      `Blockly.getMainWorkspace().getBlocksByType('bloco_ensinar', false)[0].id`);
+    await aval(`(() => {
+      Blockly.serialization.blocks.append({ type: 'bloco_usar', id: 'uso',
+        fields: { NOME: 'quadrado' } }, Blockly.getMainWorkspace()).moveBy(60, 340);
+      return 1;
+    })()`);
+    await espera(700);
+    assert.strictEqual(await buracosDoUso(), '', 'sem entrada, o uso não tem buraco');
+
+    /* O ➕ da cabeça. Chamado pelo mesmo caminho que o botão de criar bloco é
+       chamado no teste vizinho; o que se prova aqui são as consequências na
+       tela de verdade. */
+    await aval(`(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)}).novaEntrada_(), 1)`);
+    await espera(800);
+    const entId = await aval(
+      `Blocos.entradasDe(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)}))[0].id`);
+    assert.strictEqual(await buracosDoUso(), 'ENT_' + entId,
+      'criar a entrada não abriu o buraco no uso que já estava na tela');
+    assert.strictEqual(await buracosDaGaveta(), 'ENT_' + entId,
+      'a gaveta ABERTA não mostrou o buraco novo — foi isto que o ciclo 5 errou');
+
+    /* A criança digita 30 no buraco. Renomear a entrada não pode levar o 30. */
+    await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById('uso');
+      b.getInputTargetBlock('ENT_' + ${JSON.stringify(entId)}).setFieldValue(30, 'NUM');
+      return 1;
+    })()`);
+    await espera(400);
+    await aval(`(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)})
+      .getField('ENT_' + ${JSON.stringify(entId)}).setValue('tamanho'), 1)`);
+    await espera(800);
+    assert.strictEqual(await aval(`(() => {
+      const b = Blockly.getMainWorkspace().getBlockById('uso');
+      return Number(b.getInputTargetBlock('ENT_' + ${JSON.stringify(entId)}).getFieldValue('NUM'));
+    })()`), 30, 'renomear a entrada jogou fora o número que a criança digitou');
+
+    /* Esvaziar o nome apaga a entrada, e o buraco some de todos os usos. */
+    await aval(`(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)})
+      .getField('ENT_' + ${JSON.stringify(entId)}).setValue(''), 1)`);
+    await espera(900);
+    assert.strictEqual(await buracosDoUso(), '',
+      'apagar a entrada não tirou o buraco do uso');
+
+    /* Desfazer traz a entrada de volta. */
+    await aval('document.getElementById("desfazer").click(), 1');
+    await espera(900);
+    assert.strictEqual(await aval(
+      `Blocos.entradasDe(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)})).length`),
+      1, 'desfazer não trouxe a entrada de volta');
+    /* E o buraco volta junto: devolver a entrada à cabeça sem devolver o buraco
+       ao uso deixaria a tela contando duas histórias diferentes. */
+    assert.strictEqual(await buracosDoUso(), 'ENT_' + entId,
+      'desfazer trouxe a entrada mas não o buraco do uso');
+
+    /* Recarregar: cabeça, entrada e uso voltam como estavam. */
+    await espera(1500);
+    await cdp.envia('Page.navigate', { url });
+    await espera(3000);
+    const depois = await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const d = ws.getBlocksByType('bloco_ensinar', false)[0];
+      const u = ws.getBlockById('uso');
+      if (!d || !u) return 'sumiu';
+      const e = Blocos.entradasDe(d);
+      return e.length + '|' + u.inputList.map(i => i.name)
+        .filter(n => n && n.indexOf('ENT_') === 0).join();
+    })()`);
+    assert.strictEqual(depois, '1|ENT_' + entId,
+      'recarregar não trouxe a entrada e o buraco de volta: ' + depois);
+
+    cdp.fechar();
+  });

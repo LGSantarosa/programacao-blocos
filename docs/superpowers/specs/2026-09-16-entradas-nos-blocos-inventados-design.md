@@ -310,11 +310,44 @@ por entrada: quantas vezes aquela entrada é lida no corpo da definição.
 | arquivo | o que prova |
 |---|---|
 | `tests/blocos.test.js` | o nó `usar` leva `args` na ordem da definição, com id e nome; a peça roxa vira nó `entrada`; renomear a entrada troca o rótulo e **preserva o número já digitado no buraco**; apagar deixa a peça roxa órfã e tira o encaixe dos usos; peça roxa fora da cabeça dá erro no `blockId` dela; os ids sobrevivem a salvar, carregar e desfazer; a peça de usar de uma definição apagada continua desenhando os buracos que tinha |
-| `tests/compilador.test.js` | o argumento é gerado onde a peça roxa está; lido duas vezes, gera duas vezes; «a» passa o argumento para «b» e o nó resolve **no quadro de quem chamou**; conta funda passada a um bloco que a usa dentro de outra conta dá o erro do `PILHA_MAX`; peça roxa com id desconhecido dá erro com `blockId`; a cadeia de vinte definições continua dando o erro do teto em milissegundos |
+| `tests/compilador.test.js` | o argumento é gerado onde a peça roxa está; lido duas vezes, gera duas vezes; «a» passa o argumento para «b» e o nó resolve **no quadro de quem chamou**; conta funda passada a um bloco que a usa dentro de outra conta dá o erro do `PILHA_MAX`; peça roxa com id desconhecido dá erro com `blockId`; a cadeia de vinte definições continua dando o erro do teto **sem explodir**, medido por contagem e não por relógio |
+
+### Explosão se prova por contagem, não por cronômetro
+
+O ciclo 5 provou a árvore compartilhada com limites de tempo — «traduz em
+milissegundos». O limite pega a explosão exponencial, mas é medida de relógio
+num projeto que já tem uma falha intermitente sem reprodução (o F3), e máquina
+ocupada derruba teste certo.
+
+Então cada prova de explosão neste ciclo tem três camadas, nesta ordem de
+importância:
+
+1. **estrutural** — dois usos da mesma definição recebem **o mesmo array**
+   (identidade, `assert.strictEqual`), que é a propriedade de que tudo depende;
+2. **contagem** — número de nós, de funções geradas e de instruções emitidas
+   fica abaixo de um teto escrito no teste; é o que distingue linear de
+   exponencial sem olhar o relógio;
+3. **tempo** — um limite folgado, só como rede: se as duas de cima passarem e
+   esta falhar, é máquina ocupada, e o teste diz isso na mensagem.
 | `tests/arduino.test.js` | `void bloco_quadrado(int p_lado)` com a chamada `bloco_quadrado(30)`; entrada chamada «i» ou «delay» não colide e não vira global; a recusa sai com `🎲` lido duas vezes e **não** sai com `🎲` lido uma vez nem com argumento constante; o sketch com entrada compila no g++ |
 | `tests/niveis.test.js` | a peça roxa não aparece na gaveta, e o Avançado continua sendo o único nível com os blocos inventados |
 | `tests/tarefas_ponta_a_ponta.test.js` | «quadrado 30» dentro de uma pilha «quando» anda no robô virtual |
 | `tests/navegador.test.js` | o ➕ cria a entrada e o buraco aparece no uso; arrastar a peça roxa de dentro da cabeça; tocar no rótulo renomeia e o número do buraco fica; esvaziar o nome apaga e esmaece a peça roxa |
+| `tests/navegador.test.js` (ciclo de vida) | **com a gaveta «Meus blocos» aberta**, criar entrada, renomear e apagar mudam o que está à vista sem fechar e reabrir; desfazer e refazer cada uma das três; copiar e colar um uso preserva os ids dos encaixes; recarregar a página traz cabeça, entradas e usos com os números nos buracos |
+
+### Por que uma linha só para o ciclo de vida
+
+O ciclo 5 passou em tudo que planejou e mesmo assim precisou do commit
+corretivo `1a88fce`, por duas falhas que os testes planejados não alcançavam: o
+validador do nome espalhava renomeação na **carga** (porque o campo nasce «meu
+bloco» e recebe o nome salvo depois), e a gaveta ficava desatualizada **enquanto
+aberta** — que é o estado real, já que o botão de criar mora dentro dela. O
+teste planejado criava a definição e só então abria a gaveta, mascarando
+exatamente o caso que quebrava.
+
+As duas eram falhas de ciclo de vida do Blockly, não de lógica. Por isso, neste
+ciclo, criação com a gaveta aberta, carga, desfazer/refazer e copiar/colar são
+**provas exigidas**, e não consequências que se espera que apareçam.
 
 No teste de navegador, todo toque confere com `elementFromPoint` que caiu na
 peça, e as peças ficam em y ≤ ~460 — lição do ciclo 4.

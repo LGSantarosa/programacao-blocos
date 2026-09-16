@@ -88,6 +88,23 @@ estado com `extraState` cai no ramo XML do Blockly
 e não deve fingir. Esse erro é «ainda não implementado» com fantasia: some
 sozinho quando o gancho existe.
 
+## Duas lições da Task 4, para os testes das tarefas seguintes
+
+**Asserção frouxa vira teste que não pode falhar.** Dois testes da Task 4
+passaram **antes** de a feature existir: eles exigiam `/entrada/i` e `/conta/i`,
+e o erro genérico de nó desconhecido é «Conta desconhecida: entrada», que casa
+com os dois. Um deles deveria provar o teto da pilha e nunca chegava perto dele.
+Asserte a **frase exata** que a implementação promete, nunca uma palavra que o
+erro de sempre também contém — e desconfie de todo teste que fica verde antes da
+hora.
+
+**Conta funda é para a direita.** `profundidadeDe` faz
+`Math.max(ea, eb + 1)`: uma cadeia que cresce para a esquerda custa 2 lugares,
+não n. O ajudante da casa é `funda(k)` em `tests/compilador.test.js`
+(`{op:'mais', a:1, b:v}`), e a fronteira já está fixada em outro teste —
+`funda(14)` cabe, `funda(15)` não. Use o ajudante; e prove a fronteira nos dois
+sentidos, porque só a recusa também passaria com uma guarda estrita demais.
+
 ## Estrutura de arquivos
 
 | arquivo | responsabilidade nova |

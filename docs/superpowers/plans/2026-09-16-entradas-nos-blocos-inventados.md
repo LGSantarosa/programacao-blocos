@@ -770,12 +770,18 @@ estado dos encaixes e os shadows:
       }
 ```
 
-> **Atenção:** a gaveta é XML, e o extraState do serializador JSON não viaja
-> por `<mutation>`. Se o `bloco_usar` da gaveta vier sem encaixes, é porque o
-> `mutationToDom`/`domToMutation` não existe nesta peça. Nesse caso,
-> implemente os dois na extensão, delegando ao mesmo par que o
-> `saveExtraState`/`loadExtraState` usa — o Blockly 8.0.5 aceita os dois
-> caminhos, e a gaveta continua sendo XML.
+> **Confirmado lendo o Blockly 8.0.5, e não é hipótese:**
+> `Xml_applyMutationTagNodes = function(a,b){ … b.domToMutation &&
+> b.domToMutation(e) … }` — o caminho XML, que é o da gaveta, **só** chama
+> `domToMutation` e nunca consulta `loadExtraState`. Sem o par XML, a peça de
+> usar sai da gaveta sem buraco nenhum, em silêncio.
+>
+> Por isso o mixin do `bloco_usar` fornece **os quatro** ganchos: `mutationToDom`
+> e `domToMutation` para a gaveta, `saveExtraState` e `loadExtraState` para
+> gravar e para desfazer (o caminho de desfazer prefere o par JSON quando ele
+> existe). O `registerMutator` aceita os dois pares — ele confere com
+> `checkXmlHooks` **ou** `checkJsonHooks`, cada par completo. Os quatro delegam
+> à mesma lista `encaixes_`, para não existirem duas verdades.
 
 - [ ] **Step 6: Rodar e ver passar**
 

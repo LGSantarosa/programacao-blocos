@@ -130,6 +130,30 @@ converge, porque o `acertarEncaixes_` só mexe no que está diferente.
 de mexer na lista. Como remontar a fileira mata o campo que está sendo validado,
 a remoção inteira vive dentro do `setTimeout`, e não só o redesenho.
 
+## Um intermitente novo, achado pela prova lenta (e não é o F3)
+
+O `make test-lento` deu 23/24 com esta falha:
+
+```
+not ok 23 - a criança ensina um bloco, usa, apaga a definição e desfaz
+error: 'o botão não criou a cabeça: H@(!7C*71B@(o[|,tEc8|relatar'
+expected: 'relatar'   actual: ',tEc8'
+```
+
+O teste do ciclo 5 juntava id e nome com `|` e separava com `split('|')`. O id
+do Blockly vem do `genUid()`, que sorteia de um alfabeto **com pontuação** —
+`#,9?MMXZK+a/rQA,~PSE` é um id real, medido nesta máquina. Quando o sorteio
+inclui uma barra vertical, o `split` devolve três pedaços e o nome vira lixo.
+
+**Não é o F3:** o F3 é de 2026-09-10 e depende de tempo sob carga concorrente;
+este teste nasceu em 2026-09-15 e depende do sorteio do id. É um segundo
+intermitente, da mesma família de dano — «um teste que falha de vez em quando é
+pior que teste nenhum, porque ensina a ignorar vermelho».
+
+Corrigido passando `JSON.stringify({id, nome})` e lendo com `JSON.parse`.
+**Regra para os testes de navegador deste projeto:** nunca costure id do Blockly
+em texto com separador; o id é dado do sorteio, não identificador legível.
+
 ## Estrutura de arquivos
 
 | arquivo | responsabilidade nova |

@@ -2946,12 +2946,20 @@ test('a criança ensina um bloco, usa, apaga a definição e desfaz',
     /* Criar pelo botão, com a gaveta aberta: a cabeça aparece na tela. */
     await aval(`(Blockly.getMainWorkspace().getButtonCallback('CRIAR_BLOCO')(), 1)`);
     await espera(700);
-    const def = await aval(`(() => {
+    /* Por JSON, e não por "id|nome" com split: o id do Blockly vem do genUid(),
+       que sorteia de um alfabeto com pontuação — «#,9?MMXZK+a/rQA,~PSE» é um id
+       de verdade. Quando o sorteio inclui uma barra vertical, o split devolve
+       três pedaços e o nome vira lixo. Falhou assim uma vez, e é intermitente
+       por sorteio, não por tempo. */
+    const def = JSON.parse(await aval(`(() => {
       const d = Blockly.getMainWorkspace().getBlocksByType('bloco_ensinar', false);
-      return d.length === 1 ? d[0].id + '|' + d[0].getFieldValue('NOME') : String(d.length);
-    })()`);
-    const [defId, defNome] = def.split('|');
-    assert.strictEqual(defNome, 'relatar', 'o botão não criou a cabeça: ' + def);
+      return JSON.stringify(d.length === 1
+        ? { id: d[0].id, nome: d[0].getFieldValue('NOME') }
+        : { quantas: d.length });
+    })()`));
+    const defId = def.id;
+    assert.strictEqual(def.nome, 'relatar',
+      'o botão não criou a cabeça: ' + JSON.stringify(def));
     assert.strictEqual(await pecasDaGaveta(), 'bloco_usar:relatar',
       'a gaveta aberta não mostrou a peça nova');
 

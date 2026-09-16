@@ -519,6 +519,90 @@ test('a somar do sketch gerado dá a volta sem comportamento indefinido',
 
 const girar90 = [{ op: 'girar', graus: 90 }];
 
+/* ---------- entradas dos blocos inventados ---------- */
+
+function lerEntrada(id, nome) {
+  return { op: 'entrada', id: id || 'e1', nome: nome || 'lado' };
+}
+
+/* Um bloco «quadrado (lado)» que gira o que recebeu, usado com o valor dado. */
+function quadradoCom(valor, corpo) {
+  return [{ op: 'usar', nome: 'quadrado',
+            corpo: corpo || [{ op: 'girar', graus: lerEntrada() }],
+            args: [{ id: 'e1', nome: 'lado', valor: valor }] }];
+}
+
+test('o bloco com entrada vira função com parâmetro', () => {
+  const txt = gerar(quadradoCom(30));
+  assert.ok(txt.includes('void bloco_quadrado(int p_lado) {'),
+    'faltou a assinatura com parâmetro');
+  assert.ok(txt.includes('girar(p_lado);'), 'o corpo devia usar o parâmetro');
+  assert.ok(txt.includes('bloco_quadrado(30);'), 'faltou a chamada com o 30');
+});
+
+/* O prefixo p_ existe para isto: sem ele, uma entrada chamada «i» colidiria com
+   o contador do repetir, e uma chamada «delay» com a função do Arduino. */
+test('entrada chamada i não colide com o contador do repetir', () => {
+  const txt = gerar([{ op: 'usar', nome: 'anda',
+    corpo: [{ op: 'repetir', vezes: 2,
+              corpo: [{ op: 'girar', graus: lerEntrada('e1', 'i') }] }],
+    args: [{ id: 'e1', nome: 'i', valor: 5 }] }]);
+  assert.ok(txt.includes('void bloco_anda(int p_i) {'), 'faltou p_i');
+  assert.ok(txt.includes('for (int i = 0;'), 'o laço devia continuar com i');
+});
+
+test('o parâmetro não vira variável global', () => {
+  assert.ok(!gerar(quadradoCom(30)).includes('int32_t p_lado'),
+    'p_lado é parâmetro, não caixa');
+});
+
+/* A função tem parâmetro por valor: o 🎲 é sorteado uma vez e passado. A VM
+   sorteia a cada leitura. Gerar assim mentiria sobre o robô — e o arquivo já
+   recusa o 📣 avisar pelo mesmo motivo. */
+test('argumento vivo lido duas vezes faz o .ino recusar', () => {
+  const ler = lerEntrada();
+  const e = erroDoIno(() => gerar(quadradoCom({ op: 'aleatorio', a: 1, b: 10 },
+    [{ op: 'girar', graus: ler }, { op: 'girar', graus: ler }])));
+  assert.match(e.message, /sortear de novo/);
+});
+
+test('argumento vivo lido uma vez só continua exportando', () => {
+  assert.doesNotThrow(
+    () => gerar(quadradoCom({ op: 'aleatorio', a: 1, b: 10 })));
+});
+
+test('argumento constante lido duas vezes continua exportando', () => {
+  const ler = lerEntrada();
+  assert.doesNotThrow(() => gerar(quadradoCom(30,
+    [{ op: 'girar', graus: ler }, { op: 'girar', graus: ler }])));
+});
+
+/* O sensor dentro do argumento é da tela de quem chamou: sem varrer os args, o
+   arquivo chamaria distanciaCm() sem declará-la. */
+test('sensor no argumento declara a função do sensor', () => {
+  assert.ok(gerar(quadradoCom({ op: 'distancia' })).includes('int distanciaCm()'),
+    'faltou declarar o sensor usado só no argumento');
+});
+
+function erroDoIno(fn) {
+  try { fn(); } catch (e) { return e; }
+  assert.fail('devia ter lançado');
+}
+
+test('o sketch com entrada compila',
+  { skip: temGpp() ? false : 'sem g++ nesta máquina' }, () => {
+    const arq = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ino-')), 'robo.cpp');
+    fs.writeFileSync(arq, '#include "fake_arduino.h"\n' + gerar([
+      { op: 'usar', nome: 'quadrado',
+        corpo: [{ op: 'repetir', vezes: 4, corpo: [
+          { op: 'frente', segundos: 1, velocidade: 200 },
+          { op: 'girar', graus: lerEntrada() }] }],
+        args: [{ id: 'e1', nome: 'lado', valor: 90 }] }]));
+    const r = spawnSync('g++', ['-fsyntax-only', '-Wall', '-I', __dirname, arq],
+                        { encoding: 'utf8' });
+    assert.strictEqual(r.status, 0, r.stderr);
+  });
+
 test('usar vira chamada, e a função é declarada uma vez', () => {
   const uso = { op: 'usar', nome: 'dançar', corpo: girar90 };
   const texto = gerar([uso, uso]);

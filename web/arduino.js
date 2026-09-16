@@ -140,6 +140,9 @@
     if (typeof v === 'number') return String(Math.round(v));
     if (v.op === 'distancia') return 'distanciaCm()';
     if (v.op === 'caixa') return identificadorDe(v.nome);
+    /* Aqui não há substituição: a função é gerada uma vez, com o parâmetro de
+       verdade, que é o que faz o arquivo continuar legível. */
+    if (v.op === 'entrada') return identificadorDe(v.nome, 'p_');
     if (v.op === 'nao') return '!(' + valor(v.a) + ')';
     if (v.op === 'aleatorio') {
       return 'aleatorio(' + valor(v.a) + ', ' + valor(v.b) + ')';
@@ -153,7 +156,7 @@
   function parte(v) {
     if (v === null || v === undefined || typeof v === 'number') return valor(v);
     if (v.op === 'distancia' || v.op === 'nao' || v.op === 'aleatorio' ||
-        v.op === 'caixa') {
+        v.op === 'caixa' || v.op === 'entrada') {
       return valor(v);
     }
     return '(' + valor(v) + ')';
@@ -199,6 +202,9 @@
      não define. */
   function usoDeValor(v, uso) {
     if (!v || typeof v === 'number') return;
+    /* Parâmetro não pede função de apoio nenhuma: quem pede é o argumento, e
+       ele é varrido no uso, na tela de quem chamou. */
+    if (v.op === 'entrada') return;
     if (v.op === 'distancia') uso.sensor = true;
     if (v.op === 'aleatorio') uso.aleatorio = true;
     if (v.op === 'caixa') identificadorDe(v.nome);
@@ -220,6 +226,13 @@
       if (no.op === 'guardar' || no.op === 'mudar') identificadorDe(no.nome);
       if (no.op === 'mudar') uso.somar = true;
       if (no.op === 'usar') {
+        /* Fora da guarda de nome visto: a função é gerada uma vez, mas cada uso
+           tem os seus argumentos, e um 🎲 que só apareça no segundo uso também
+           precisa do aleatorio() declarado. */
+        var ar;
+        for (ar = 0; ar < (no.args || []).length; ar++) {
+          usoDeValor(no.args[ar].valor, uso);
+        }
         var chaveFn = ' ' + String(no.nome).toLowerCase();
         if (!Object.prototype.hasOwnProperty.call(funcoesVistas, chaveFn)) {
           funcoesVistas[chaveFn] = true;
@@ -285,9 +298,16 @@
           linhas.push(r + 'parar();');
           linhas.push(r + (emFuncao ? 'fim();' : 'return;'));
           break;
-        case 'usar':
-          linhas.push(r + identificadorDe(no.nome, 'bloco_') + '();');
+        case 'usar': {
+          recusarArgumentoVivo(no);
+          var partes = [], iA;
+          for (iA = 0; iA < (no.args || []).length; iA++) {
+            partes.push(valor(no.args[iA].valor));
+          }
+          linhas.push(r + identificadorDe(no.nome, 'bloco_') +
+                      '(' + partes.join(', ') + ');');
           break;
+        }
         case 'repetir': {
           /* Zero viraria um laço que nunca roda; o compilador força 1 pela
              mesma razão. Só o repetir gasta um nome de variável: dar um nome a
@@ -544,6 +564,50 @@
     ''
   ];
 
+  function ehConstante(v) {
+    return v === null || v === undefined || typeof v === 'number';
+  }
+
+  /* Quantas vezes o corpo lê aquela entrada. Sem entrar no corpo de um «usar»
+     de dentro: lá as entradas são outras, e a função dele é gerada à parte. */
+  function lidaQuantasVezes(nos, id) {
+    var n = 0, i, no;
+
+    function emValor(v) {
+      if (!v || typeof v === 'number') return;
+      if (v.op === 'entrada') { if (v.id === id) n++; return; }
+      emValor(v.a);
+      emValor(v.b);
+    }
+
+    for (i = 0; i < nos.length; i++) {
+      no = nos[i];
+      emValor(no.segundos); emValor(no.graus); emValor(no.vezes);
+      emValor(no.cm); emValor(no.cond); emValor(no.valor);
+      if (no.corpo && no.op !== 'usar') n += lidaQuantasVezes(no.corpo, id);
+      if (no.entao) n += lidaQuantasVezes(no.entao, id);
+      if (no.senao) n += lidaQuantasVezes(no.senao, id);
+    }
+    return n;
+  }
+
+  /* A função tem parâmetro por valor: o 🎲 do argumento é sorteado uma vez, e a
+     VM sorteia a cada leitura da peça roxa. Gerar assim mentiria sobre o robô —
+     e o arquivo já recusa o 📣 avisar pelo mesmo motivo. A conta é por uso (o
+     argumento pode ser constante num e não no outro) e por entrada. */
+  function recusarArgumentoVivo(no) {
+    var a, args = no.args || [];
+    for (a = 0; a < args.length; a++) {
+      if (ehConstante(args[a].valor)) continue;
+      if (lidaQuantasVezes(no.corpo || [], args[a].id) > 1) {
+        throw new Error(
+          'O 🎲 e o 👁 dentro de um bloco com entrada fazem o robô sortear de ' +
+          'novo a cada vez que ele lê a entrada, e o código do Arduino sorteia ' +
+          'uma vez só. Ponha o número direto para ver o código.');
+      }
+    }
+  }
+
   function gerarFuncoes() {
     var fora = [], k, no, corpo;
     for (k = 0; k < funcoes.length; k++) {
@@ -552,7 +616,12 @@
       emFuncao = true;
       gerarNos(no.corpo || [], 1, 0, corpo);
       emFuncao = false;
-      fora.push('void ' + identificadorDe(no.nome, 'bloco_') + '() {');
+      var params = [], p;
+      for (p = 0; p < (no.args || []).length; p++) {
+        params.push('int ' + identificadorDe(no.args[p].nome, 'p_'));
+      }
+      fora.push('void ' + identificadorDe(no.nome, 'bloco_') +
+                '(' + params.join(', ') + ') {');
       fora = fora.concat(corpo);
       fora.push('}');
       fora.push('');

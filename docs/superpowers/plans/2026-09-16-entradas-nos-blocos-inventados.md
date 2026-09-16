@@ -776,12 +776,22 @@ estado dos encaixes e os shadows:
 > `domToMutation` e nunca consulta `loadExtraState`. Sem o par XML, a peça de
 > usar sai da gaveta sem buraco nenhum, em silêncio.
 >
-> Por isso o mixin do `bloco_usar` fornece **os quatro** ganchos: `mutationToDom`
-> e `domToMutation` para a gaveta, `saveExtraState` e `loadExtraState` para
-> gravar e para desfazer (o caminho de desfazer prefere o par JSON quando ele
-> existe). O `registerMutator` aceita os dois pares — ele confere com
-> `checkXmlHooks` **ou** `checkJsonHooks`, cada par completo. Os quatro delegam
-> à mesma lista `encaixes_`, para não existirem duas verdades.
+> **A saída não é dar os quatro ganchos à peça — é a gaveta parar de ser XML.**
+> Dar `mutationToDom` ao `bloco_usar` fez o `blockToDom` ser chamado em todo
+> evento de criação de bloco (`d.hasChildNodes()`), e o DOM mínimo do
+> `dom_falso.js` não tem isso: 13 testes verdes do ciclo 5 quebraram de uma vez.
+>
+> O flyout escolhe o caminho pelo que o callback devolve:
+> `convertFlyoutDefToJsonArray` repassa um array de **objetos** intacto, e
+> `createFlyoutBlock_` então usa `serialization.blocks.append` (caminho JSON,
+> com `loadExtraState`); um array de **nós DOM** vira `blockxml` e é montado por
+> `Xml.domToBlock` (caminho XML, só `domToMutation`).
+>
+> Então `gavetaDeBlocos` devolve itens JSON — `{kind:'button', text, callbackKey}`
+> e `{kind:'block', type, fields, extraState, inputs}` — e o mixin do
+> `bloco_usar` fica só com o par JSON. Uma verdade só sobre estado. O
+> `gavetaDeCaixas` pode continuar em XML: cada callback é independente. (O
+> `FlyoutButton` lê `callbackKey` e `callbackkey`, tanto faz.)
 
 - [ ] **Step 6: Rodar e ver passar**
 

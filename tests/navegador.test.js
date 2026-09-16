@@ -3168,13 +3168,127 @@ test('a criança cria uma entrada com a gaveta aberta, renomeia, apaga e recarre
     assert.ok(await aval(`!!Blockly.getMainWorkspace()
       .getBlockById(${JSON.stringify(defId)}).getField('SOLTA_' + ${JSON.stringify(entId)})`),
       'faltou o ícone que solta a peça de ler a entrada');
-    await aval(`(Blockly.getMainWorkspace().getBlockById(${JSON.stringify(defId)})
-      .soltarPecaDeEntrada_(${JSON.stringify(entId)}), 1)`);
-    await espera(700);
+
+    /* O gesto de verdade, e não a chamada do método por dentro: dedo no pixel
+       do ícone, conferindo com elementFromPoint que caiu nele — como o tocar()
+       do teste vizinho faz com a peça. Chamar soltarPecaDeEntrada_() provaria a
+       mecânica e não provaria que a criança alcança o ícone. */
+    const mouse = (type, x, y) => cdp.envia('Input.dispatchMouseEvent', {
+      type, x, y, button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1,
+    });
+
+    const tocarCampo = async (blocoId, campo) => {
+      const p = JSON.parse(await aval(`(() => {
+        const c = Blockly.getMainWorkspace().getBlockById(${JSON.stringify(blocoId)})
+          .getField(${JSON.stringify(campo)});
+        const svg = c.getSvgRoot();
+        const r = svg.getBoundingClientRect();
+        const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        const alvo = document.elementFromPoint(x, y);
+        return JSON.stringify({ x, y, acerta: !!alvo && svg.contains(alvo),
+          alvo: alvo ? (alvo.id || alvo.getAttribute('class') || alvo.tagName) : null });
+      })()`));
+      assert.ok(p.acerta, `o toque em ${campo} (${Math.round(p.x)}, ${Math.round(p.y)}) ` +
+        `caiu em ${p.alvo}, e não no campo`);
+      await mouse('mousePressed', p.x, p.y);
+      await mouse('mouseReleased', p.x, p.y);
+      await espera(800);
+    };
+
+    const arrastar = async (de, para) => {
+      await mouse('mousePressed', de.x, de.y);
+      for (let k = 1; k <= 12; k++) {
+        await mouse('mouseMoved', de.x + (para.x - de.x) * k / 12,
+                                  de.y + (para.y - de.y) * k / 12);
+        await espera(30);
+      }
+      await mouse('mouseReleased', para.x, para.y);
+      await espera(600);
+    };
+
+    await tocarCampo(defId, 'SOLTA_' + entId);
     assert.strictEqual(await aval(`(() => {
       const r = Blockly.getMainWorkspace().getBlocksByType('bloco_entrada', false);
       return r.length === 1 ? r[0].getFieldValue('NOME') : 'achei ' + r.length;
-    })()`), 'entrada', 'o ícone não pôs a peça de ler a entrada na tela');
+    })()`), 'entrada', 'tocar no ícone não pôs a peça de ler a entrada na tela');
+
+    /* E o arrasto até o encaixe, que é a outra metade do gesto: sem ele a peça
+       nasce na tela e não vira programa. O girar entra como cenário. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const g = Blockly.serialization.blocks.append({ type: 'girar', id: 'girinho',
+        inputs: { GRAUS: { shadow: { type: 'numero', fields: { NUM: 90 } } } } }, ws);
+      ws.getBlockById(${JSON.stringify(defId)}).getInput('CORPO')
+        .connection.connect(g.previousConnection);
+      return 1;
+    })()`);
+    await espera(600);
+
+    /* A peça é posta em cabeça+(40,70), e encaixar o girinho no CORPO faz a
+       cabeça crescer — o ponto de agarre pode acabar por baixo dela. Afasta a
+       peça para um lugar limpo antes de pegar nela. */
+    await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      ws.getBlocksByType('bloco_entrada', false)[0].moveBy(0, 260);
+      return 1;
+    })()`);
+    await espera(500);
+
+    /* O ponto de agarre é conferido com elementFromPoint, como o toque no ícone
+       — foi não conferir isto que deixou o arrasto anterior pegar no nada. */
+    const pontos = JSON.parse(await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const roxa = ws.getBlocksByType('bloco_entrada', false)[0];
+      const sombra = ws.getBlockById('girinho').getInputTargetBlock('GRAUS');
+      const a = roxa.getSvgRoot().getBoundingClientRect();
+      const b = sombra.getSvgRoot().getBoundingClientRect();
+      /* Borda esquerda com borda esquerda, e não centro com centro: a conexão
+         de saída de um relator fica na borda esquerda, na meia-altura. Mirando
+         centro contra centro, a saída sobra meia largura da peça à esquerda do
+         encaixe — medido: 52 px de distância contra um snapRadius de 28, e por
+         isso não encaixava. O que tem de se alinhar é a conexão, não o desenho. */
+      const de = { x: a.left + 10, y: a.top + a.height / 2 };
+      const sob = document.elementFromPoint(de.x, de.y);
+      return JSON.stringify({
+        de: de,
+        para: { x: b.left + 10, y: b.top + b.height / 2 },
+        pega: !!sob && roxa.getSvgRoot().contains(sob),
+        sob: sob ? (sob.id || sob.getAttribute('class') || sob.tagName) : null,
+      });
+    })()`));
+    assert.ok(pontos.pega,
+      'o agarre em (' + Math.round(pontos.de.x) + ', ' + Math.round(pontos.de.y) +
+      ') caiu em ' + pontos.sob + ', e não na peça roxa');
+    await arrastar(pontos.de, pontos.para);
+
+    /* Se não encaixou, a mensagem tem de dizer POR QUÊ: a peça nem se moveu (o
+       dedo caiu fora dela), ou moveu e a conexão parou longe do encaixe. São
+       correções opostas, e a mensagem é o que evita escolher no chute. */
+    const aposArrasto = JSON.parse(await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      const roxa = ws.getBlocksByType('bloco_entrada', false)[0];
+      const girinho = ws.getBlockById('girinho');
+      const dentro = girinho.getInputTargetBlock('GRAUS');
+      const r = roxa.getSvgRoot().getBoundingClientRect();
+      const saida = roxa.outputConnection;
+      const encaixe = girinho.getInput('GRAUS').connection;
+      return JSON.stringify({
+        tipoNoEncaixe: dentro ? dentro.type : 'vazio',
+        pecaEm: { x: Math.round(r.left), y: Math.round(r.top) },
+        saida: { x: saida.x_ !== undefined ? saida.x_ : saida.x,
+                 y: saida.y_ !== undefined ? saida.y_ : saida.y },
+        encaixe: { x: encaixe.x_ !== undefined ? encaixe.x_ : encaixe.x,
+                   y: encaixe.y_ !== undefined ? encaixe.y_ : encaixe.y },
+      });
+    })()`));
+    assert.strictEqual(aposArrasto.tipoNoEncaixe, 'bloco_entrada',
+      'arrastar a peça roxa não a encaixou no girar. ' +
+      'Peguei em (' + Math.round(pontos.de.x) + ', ' + Math.round(pontos.de.y) + '), ' +
+      'soltei em (' + Math.round(pontos.para.x) + ', ' + Math.round(pontos.para.y) + '); ' +
+      'a peça ficou em (' + aposArrasto.pecaEm.x + ', ' + aposArrasto.pecaEm.y + '); ' +
+      'saída da peça em (' + aposArrasto.saida.x + ', ' + aposArrasto.saida.y + ') ' +
+      'e encaixe do girar em (' + aposArrasto.encaixe.x + ', ' + aposArrasto.encaixe.y + ')');
 
     /* A criança digita 30 no buraco. Renomear a entrada não pode levar o 30. */
     await aval(`(() => {

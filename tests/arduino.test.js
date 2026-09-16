@@ -628,6 +628,30 @@ test('argumento vivo na condição de um laço faz o .ino recusar', () => {
   assert.match(e.message, /sortear de novo|muda entre uma leitura/);
 });
 
+/* A entrada também é lida quando é passada adiante: «f(🎲)» cujo corpo entrega
+   `n` a outro bloco duas vezes é substituído nos dois lugares pela VM — dois
+   sorteios — enquanto o .ino passa p_n uma vez. O contador varria os campos de
+   valor e não varria os argumentos dos usos de dentro. */
+test('entrada passada adiante duas vezes faz o .ino recusar', () => {
+  const passaAdiante = () => ({ op: 'usar', nome: 'g',
+    args: [{ id: 'g1', nome: 'm', valor: lerEntrada() }],
+    corpo: [{ op: 'girar', graus: { op: 'entrada', id: 'g1', nome: 'm' } }] });
+  const e = erroDoIno(() => gerar([{ op: 'usar', nome: 'f',
+    args: [{ id: 'e1', nome: 'n', valor: { op: 'aleatorio', a: 1, b: 10 } }],
+    corpo: [passaAdiante(), passaAdiante()] }]));
+  assert.match(e.message, /sortear de novo|muda entre uma leitura/);
+});
+
+/* Passada adiante uma vez só, para um bloco que a lê uma vez, não diverge: o
+   .ino avalia uma vez e a VM também. Recusar isto seria teto inventado. */
+test('entrada passada adiante uma vez só continua exportando', () => {
+  assert.doesNotThrow(() => gerar([{ op: 'usar', nome: 'f',
+    args: [{ id: 'e1', nome: 'n', valor: { op: 'aleatorio', a: 1, b: 10 } }],
+    corpo: [{ op: 'usar', nome: 'g',
+              args: [{ id: 'g1', nome: 'm', valor: lerEntrada() }],
+              corpo: [{ op: 'girar', graus: { op: 'entrada', id: 'g1', nome: 'm' } }] }] }]));
+});
+
 /* Caixa lida uma vez só continua exportando: sem segunda leitura não há
    divergência nenhuma para esconder. */
 test('argumento que é caixa, lida uma vez só, continua exportando', () => {

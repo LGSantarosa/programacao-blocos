@@ -600,14 +600,40 @@
   var LACOS = { repetir: 1, repetir_sempre: 1, repetir_ate: 1,
                 repetir_ate_perto: 1 };
 
-  function lidaQuantasVezes(nos, id, emLaco) {
-    var n = 0, i, no, dentro;
+  /* Memoriza por (corpo, id, dentro-de-laço). Sem isto, descer nos corpos
+     aninhados para contar a entrada passada adiante dobra por nível com
+     fan-out 2 — a mesma explosão que a árvore compartilhada existe para evitar,
+     e que já foi medida aqui (20 níveis em 1066 ms contra 1 ms). */
+  function lidaComMemo(corpo, id, emLaco, memo) {
+    var k = memo.corpos.indexOf(corpo);
+    if (k < 0) { k = memo.corpos.length; memo.corpos.push(corpo); }
+    var chave = k + '|' + id + '|' + (emLaco ? 1 : 0);
+    if (Object.prototype.hasOwnProperty.call(memo.valores, chave)) {
+      return memo.valores[chave];
+    }
+    /* Zero antes de descer corta ciclo; a tradução já os recusa antes daqui. */
+    memo.valores[chave] = 0;
+    memo.valores[chave] = lidaQuantasVezes(corpo, id, emLaco, memo);
+    return memo.valores[chave];
+  }
 
-    function emValor(v, peso) {
+  function lidaQuantasVezes(nos, id, emLaco, memo) {
+    memo = memo || { corpos: [], valores: {} };
+    var n = 0, i, no, dentro, peso, args, a, quantas;
+
+    function emValor(v, p) {
       if (!v || typeof v === 'number') return;
-      if (v.op === 'entrada') { if (v.id === id) n += peso; return; }
-      emValor(v.a, peso);
-      emValor(v.b, peso);
+      if (v.op === 'entrada') { if (v.id === id) n += p; return; }
+      emValor(v.a, p);
+      emValor(v.b, p);
+    }
+
+    /* Só conta ocorrências; quem multiplica pelas leituras de lá é o laço
+       abaixo. */
+    function ocorrencias(v) {
+      if (!v || typeof v === 'number') return 0;
+      if (v.op === 'entrada') return v.id === id ? 1 : 0;
+      return ocorrencias(v.a) + ocorrencias(v.b);
     }
 
     for (i = 0; i < nos.length; i++) {
@@ -617,15 +643,31 @@
          uma linha solta. Era isto que deixava passar o dado lido só na
          condição. */
       dentro = emLaco || !!LACOS[no.op];
-      var peso = emLaco ? 2 : 1;
+      peso = emLaco ? 2 : 1;
       emValor(no.segundos, peso); emValor(no.graus, peso);
       emValor(no.vezes, peso); emValor(no.cm, peso);
       emValor(no.valor, peso);
       emValor(no.cond, dentro ? 2 : 1);
-      /* Sem entrar no corpo de um «usar» de dentro: lá as entradas são outras. */
-      if (no.corpo && no.op !== 'usar') n += lidaQuantasVezes(no.corpo, id, dentro);
-      if (no.entao) n += lidaQuantasVezes(no.entao, id, dentro);
-      if (no.senao) n += lidaQuantasVezes(no.senao, id, dentro);
+
+      if (no.op === 'usar') {
+        /* Os argumentos de um uso de dentro são da tela de quem chama, então a
+           nossa entrada pode estar ali. E cada ocorrência é avaliada uma vez
+           por leitura que o bloco de destino faz do parâmetro que a recebe:
+           passar `n` a um bloco que o lê duas vezes são duas avaliações, e
+           passar a um que nunca o lê é nenhuma. O corpo de lá não é varrido
+           atrás da NOSSA entrada — lá as entradas são outras. */
+        args = no.args || [];
+        for (a = 0; a < args.length; a++) {
+          quantas = ocorrencias(args[a].valor);
+          if (!quantas) continue;
+          n += quantas * peso *
+               lidaComMemo(no.corpo || [], args[a].id, dentro, memo);
+        }
+      } else if (no.corpo) {
+        n += lidaComMemo(no.corpo, id, dentro, memo);
+      }
+      if (no.entao) n += lidaComMemo(no.entao, id, dentro, memo);
+      if (no.senao) n += lidaComMemo(no.senao, id, dentro, memo);
     }
     return n;
   }

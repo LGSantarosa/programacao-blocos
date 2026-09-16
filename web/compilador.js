@@ -78,6 +78,20 @@
     var instrucoes = [];
     var profundidade = 0;
 
+    /* Os argumentos do uso que está sendo gerado agora. Cada entrada guarda o
+       nó E o quadro em que ele deve ser resolvido: o argumento pertence a quem
+       chamou, não a quem recebe. Sem isso, «a» passando o próprio argumento
+       para «b» leria o valor errado — e calado. */
+    var quadro = null;
+
+    function acharEntrada(id) {
+      if (!quadro) return null;
+      for (var k = 0; k < quadro.args.length; k++) {
+        if (quadro.args[k].id === id) return quadro.args[k];
+      }
+      return null;
+    }
+
     /* Os três operandos da instrução são int16 no bytecode (ver bytecode.h), e
        era aqui que um número grande demais sumia em silêncio: o `dv.setInt16`
        lá embaixo truncava, e `andar frente 100 s` virava uma espera de -31072
@@ -165,6 +179,20 @@
       if (!v || typeof v === 'number') return 1;
       if (v.op === 'distancia') return 1;
       if (v.op === 'caixa') return 1;
+      /* Uma folha vira uma árvore inteira ao substituir: medir a peça roxa
+         como valor simples deixaria uma conta funda passada de fora estourar a
+         pilha da VM sem bolha nenhuma. Mede-se o argumento, no quadro dele. */
+      if (v.op === 'entrada') {
+        var arg = acharEntrada(v.id);
+        if (!arg) return 1;
+        var deVolta = quadro;
+        quadro = arg.origem;
+        try {
+          return profundidadeDe(arg.valor);
+        } finally {
+          quadro = deVolta;
+        }
+      }
       if (v.op === 'nao') return profundidadeDe(v.a);
       /* O lado esquerdo fica na pilha enquanto o direito é calculado. */
       var ea = profundidadeDe(v.a), eb = profundidadeDe(v.b);
@@ -205,6 +233,23 @@
       }
       if (v.op === 'caixa') {
         emitir(OP.PUSH_VAR, lugarDe(v), 0, 0, id);
+        return;
+      }
+      if (v.op === 'entrada') {
+        var arg = acharEntrada(v.id);
+        if (!arg) {
+          throw erroNoBloco('Essa entrada não existe mais. Tire esta peça, ou ' +
+                            'crie a entrada de novo.', id);
+        }
+        /* Resolvido no quadro de origem, e restaurado depois: é o que faz o
+           argumento pertencer a quem chamou. */
+        var deVolta = quadro;
+        quadro = arg.origem;
+        try {
+          gerarValorInterno(arg.valor, arg.blockId || id);
+        } finally {
+          quadro = deVolta;
+        }
         return;
       }
       if (v.op === 'nao') {
@@ -368,14 +413,26 @@
              bolha cair na peça que está no programa. Qualquer outro erro — um
              repetir fundo demais, um número que não cabe — atravessa intacto e
              aponta a peça de dentro, que é a que está errada. */
-          case 'usar':
+          case 'usar': {
+            var lista = no.args || [], novo = { args: [] }, iArg;
+            for (iArg = 0; iArg < lista.length; iArg++) {
+              /* A origem é o quadro de agora: o argumento foi escrito na tela
+                 de quem está usando. */
+              novo.args.push({ id: lista[iArg].id, valor: lista[iArg].valor,
+                               origem: quadro, blockId: no.blockId });
+            }
+            var anterior = quadro;
+            quadro = novo;
             try {
               gerar(no.corpo || []);
             } catch (e) {
               if (e && e.codigo === 'programa_grande') e.blockId = no.blockId || null;
               throw e;
+            } finally {
+              quadro = anterior;
             }
             break;
+          }
 
           case 'repetir_sempre': {
             var inicioSempre = instrucoes.length;

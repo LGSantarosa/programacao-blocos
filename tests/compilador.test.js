@@ -755,6 +755,88 @@ test('número que não cabe dentro de uma definição aponta a peça de dentro',
 
 /* b0 é uma peça; b1 usa b0 duas vezes; b2 usa b1 duas vezes... O corpo é
    compartilhado, então a árvore é pequena — mas a emissão dobra a cada nível. */
+/* ---------- entradas dos blocos inventados ---------- */
+
+function usarBloco(nome, corpo, args) {
+  return { op: 'usar', nome: nome, corpo: corpo, args: args, blockId: 'u' };
+}
+
+function lerEntrada(id, nome) {
+  return { op: 'entrada', id: id, nome: nome || 'lado' };
+}
+
+test('o argumento é gerado onde a peça roxa está', () => {
+  const { bytes } = compilar([usarBloco('quadrado',
+    [{ op: 'girar', graus: lerEntrada('e1'), blockId: 'g' }],
+    [{ id: 'e1', nome: 'lado', valor: 30 }])]);
+  assert.deepStrictEqual(instrucoes(bytes).slice(0, 2), [
+    [OP.PUSH, 30, 0, 0],
+    [OP.TURN, 0, 0, 0],
+  ]);
+});
+
+/* Medido: o mesmo nó de valor lido duas vezes gera as instruções dele duas
+   vezes. É o preço da substituição, e está escrito na spec. */
+test('lido duas vezes, o argumento é gerado duas vezes', () => {
+  const ler = lerEntrada('e1');
+  const { bytes } = compilar([usarBloco('quadrado',
+    [{ op: 'girar', graus: ler, blockId: 'g1' },
+     { op: 'girar', graus: ler, blockId: 'g2' }],
+    [{ id: 'e1', nome: 'lado', valor: 30 }])]);
+  const i = instrucoes(bytes);
+  assert.deepStrictEqual(i[0], [OP.PUSH, 30, 0, 0]);
+  assert.deepStrictEqual(i[2], [OP.PUSH, 30, 0, 0]);
+});
+
+/* «fora» passa o próprio lado para «dentro». Se o nó resolvesse no quadro de
+   dentro, o 7 nunca chegaria — e sem barulho nenhum. */
+test('o argumento resolve no quadro de quem chamou', () => {
+  const dentro = usarBloco('dentro',
+    [{ op: 'girar', graus: lerEntrada('d1', 'g'), blockId: 'g' }],
+    [{ id: 'd1', nome: 'g', valor: lerEntrada('f1') }]);
+  const { bytes } = compilar([usarBloco('fora', [dentro],
+    [{ id: 'f1', nome: 'lado', valor: 7 }])]);
+  assert.deepStrictEqual(instrucoes(bytes)[0], [OP.PUSH, 7, 0, 0]);
+});
+
+test('peça roxa com id que o quadro não conhece é erro', () => {
+  const e = erroDe(() => compilar([usarBloco('quadrado',
+    [{ op: 'girar', graus: lerEntrada('sumiu'), blockId: 'g' }],
+    [{ id: 'e1', nome: 'lado', valor: 30 }])]));
+  /* A frase exata, e não /entrada/i: o erro genérico de nó desconhecido é
+     «Conta desconhecida: entrada», que casaria com o frouxo e faria este teste
+     passar sem a feature existir. */
+  assert.match(e.message, /Essa entrada não existe mais/);
+  assert.strictEqual(e.blockId, 'g');
+});
+
+/* Uma folha vira uma árvore inteira ao substituir: medir o nó «entrada» como
+   valor simples deixaria uma conta funda estourar a pilha da VM sem bolha. */
+/* A fronteira, e não só a recusa: funda(14) cabe e funda(15) não — a mesma que
+   o teste do «mudar» já fixa. Provar só a recusa deixaria passar uma guarda
+   estrita demais, que reprovaria conta legítima da criança. */
+test('conta funda passada a um bloco ainda respeita o teto da pilha', () => {
+  function pelaEntrada(valor) {
+    return [usarBloco('quadrado',
+      [{ op: 'girar', graus: lerEntrada('e1'), blockId: 'g' }],
+      [{ id: 'e1', nome: 'lado', valor: valor }])];
+  }
+  assert.doesNotThrow(() => compilar(pelaEntrada(funda(14))),
+    'a conta que cabe tem que atravessar o bloco inventado');
+  const e = erroDe(() => compilar(pelaEntrada(funda(15))));
+  /* A frase da guarda de profundidade, e não /conta/i — que casava com «Conta
+     desconhecida» e nunca chegava perto do PILHA_MAX. */
+  assert.match(e.message, /complicada demais/);
+});
+
+/* A régua: a mesma conta, montada direto no programa, já era recusada antes
+   deste ciclo. Sem ela, o teste acima poderia estar medindo o caminho de
+   sempre em vez da substituição. */
+test('a conta funda continua recusada fora de bloco inventado', () => {
+  const e = erroDe(() => compilar([{ op: 'girar', graus: funda(15), blockId: 'g' }]));
+  assert.match(e.message, /complicada demais/);
+});
+
 function cadeia(n) {
   let corpo = [{ op: 'girar', graus: 1, blockId: 'b0' }];
   for (let i = 1; i <= n; i++) {

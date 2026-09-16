@@ -63,6 +63,31 @@ plano.** Não é desvio: é o desenho.
 
 ---
 
+## Duas armadilhas pagas na Task 1, que valem para as Tasks 2 e 3
+
+**Estado extra só entra por mutador.** `Blockly.Extensions.register` tira uma
+fotografia das propriedades de mutador antes e depois de aplicar a extensão e
+recusa se ela as acrescentou: «mutation properties changed when applying a
+non-mutator extension». O caminho é `Blockly.Extensions.registerMutator(nome,
+mixin, ajudante)`, com o par `saveExtraState`/`loadExtraState` **no mixin**, e no
+JSON do bloco `mutator:` em vez de (ou ao lado de) `extensions:`. Sem `compose`
+nem `decompose` no mixin não há bolha de diálogo — só o estado. O ajudante
+`registrarMutador` já existe em `web/blocos.js`, ao lado do `registrarUma`.
+
+**Um encaixe carrega junto os campos que vêm antes dele.** No JSON da cabeça o
+campo `NOME` vem antes do `input_dummy ENTRADAS`, então ele mora *naquela*
+fileira: `removeInput('ENTRADAS')` leva o nome do bloco junto, e o validador do
+nome morre com ele. Por isso o `refazerEntradas_` remove e repõe **só os campos
+que ele mesmo pôs**, guardados em `camposEntrada_`, em vez de derrubar o
+encaixe. É a mesma armadilha que o `Niveis.aplicar` já paga ao esconder encaixe.
+
+**Sobre o vermelho enganoso:** antes de o bloco ter `loadExtraState`, carregar um
+estado com `extraState` cai no ramo XML do Blockly
+(`a.loadExtraState ? … : a.domToMutation(Xml.textToDom(…))`) e estoura com
+`DOMParser is not defined`, porque o `tests/dom_falso.js` não finge DOMParser —
+e não deve fingir. Esse erro é «ainda não implementado» com fantasia: some
+sozinho quando o gancho existe.
+
 ## Estrutura de arquivos
 
 | arquivo | responsabilidade nova |
@@ -451,7 +476,8 @@ No array de blocos, logo depois de `bloco_usar`:
         args0: [{ type: 'field_label_serializable', name: 'NOME', text: 'entrada' }],
         output: 'Number',
         colour: COR_BLOCO,
-        extensions: ['bloco_entrada_estado'],
+        /* mutator, e não extensions — ver a nota da Task 1. */
+        mutator: 'bloco_entrada_estado',
         tooltip: 'O número que quem usou este bloco entregou.',
       },
 ```
@@ -460,17 +486,22 @@ E a extensão, junto das outras:
 
 ```js
     /* A peça roxa carrega o id da entrada, e não só o nome: renomear a entrada
-       não pode fazer a peça perder de quem ela é. */
-    registrarUma('bloco_entrada_estado', function () {
-      var bloco = this;
-      bloco.entradaId_ = '';
-      bloco.saveExtraState = function () {
-        return { id: bloco.entradaId_, nome: bloco.getFieldValue('NOME') };
-      };
-      bloco.loadExtraState = function (estado) {
-        bloco.entradaId_ = (estado && String(estado.id)) || '';
-        if (estado && estado.nome) bloco.setFieldValue(String(estado.nome), 'NOME');
-      };
+       não pode fazer a peça perder de quem ela é.
+
+       Mutador, e não extensão: o Blockly recusa uma extensão comum que
+       acrescente saveExtraState/loadExtraState. Pago na Task 1. */
+    var ESTADO_DA_PECA = {
+      saveExtraState: function () {
+        return { id: this.entradaId_ || '', nome: this.getFieldValue('NOME') };
+      },
+      loadExtraState: function (estado) {
+        this.entradaId_ = (estado && String(estado.id)) || '';
+        if (estado && estado.nome) this.setFieldValue(String(estado.nome), 'NOME');
+      },
+    };
+
+    registrarMutador('bloco_entrada_estado', ESTADO_DA_PECA, function () {
+      this.entradaId_ = '';
     });
 ```
 
@@ -607,6 +638,16 @@ Run: `node --test --test-name-pattern="encaixe|argumento" tests/blocos.test.js`
 Expected: FAIL — `uso.acertarEncaixes_ is not a function`.
 
 - [ ] **Step 3: Os encaixes no `bloco_usar`**
+
+**Antes de escrever:** o `bloco_usar` também passa a carregar estado, então ele
+também precisa virar mutador — `saveExtraState`/`loadExtraState` num mixin
+`ESTADO_DO_USO`, registrado com `registrarMutador('bloco_usar_estado', …)`, e no
+JSON do `bloco_usar` acrescente `mutator: 'bloco_usar_estado'` **ao lado** do
+`extensions: ['bloco_usar_procedimento']` que já existe (os dois convivem: a
+extensão continua cuidando de `getProcedureCall` e `renameProcedure`, que não
+são propriedades de mutador). O resto abaixo — `acertarEncaixes_`,
+`desenharEncaixes_`, `encaixeNome_` — fica no ajudante do mutador ou na extensão,
+tanto faz, desde que **não** seja o par de estado.
 
 Dentro de `registrarUma('bloco_usar_procedimento', …)`, acrescentar:
 

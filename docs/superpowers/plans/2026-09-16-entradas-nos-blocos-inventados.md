@@ -44,11 +44,11 @@ navegador, `g++` para conferir o sketch.
 
 ---
 
-## Desvio da spec que precisa do OK dele antes da Task 1
+## O rótulo é campo de texto — decidido, e já na spec
 
-A spec diz que tocar no rótulo de uma entrada «abre a mesma janelinha». Ao
-detalhar, apareceu um impedimento real: `field_label_serializable` tem
-`EDITABLE = false` e **não é clicável**.
+Ao detalhar apareceu um impedimento real: `field_label_serializable` tem
+`EDITABLE = false` e **não é clicável**, então a janelinha do primeiro desenho
+exigiria um ícone de lápis por entrada.
 
 Este plano usa, para cada rótulo de entrada, um **`field_input`** — exatamente
 o que o campo `NOME` da cabeça já é hoje, e que já funciona no WebView do app.
@@ -58,7 +58,8 @@ spec promete é o mesmo; o mecanismo é mais simples e já provado no projeto.
 O ➕ continua sendo campo (`Blockly.FieldImage` com `onClick`, quinto parâmetro
 público do construtor), e não corpo de bloco — tocar no corpo roda a pilha.
 
-**Se ele preferir a janelinha literal, pare e diga antes da Task 1.**
+**Decidido por ele em 2026-09-16, e a spec foi atualizada para casar com este
+plano.** Não é desvio: é o desenho.
 
 ---
 

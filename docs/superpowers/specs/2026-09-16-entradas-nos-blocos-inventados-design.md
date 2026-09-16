@@ -109,15 +109,26 @@ vez que ela quisesse uma entrada. Tocar num *campo* abre o editor do campo — �
 por isso que tocar no número abre o teclado em vez de o robô sair andando. Ver a
 memória do gesto de clique do Blockly.
 
-### Uma janelinha só faz as três coisas
+### O rótulo da entrada é campo de texto, e faz as três coisas
 
-- O ➕ pergunta «Nome da entrada:» e cria. Com três entradas, o ➕ some.
-- Tocar no rótulo de uma entrada abre a mesma janelinha com o nome atual:
-  trocar renomeia, **deixar vazio apaga**.
+- O ➕ cria a entrada já com um nome livre («entrada», «entrada2»…). Com três
+  entradas, o ➕ some.
+- O nome de cada entrada é um **`field_input`** na cabeça — exatamente o que o
+  campo `NOME` do bloco já é hoje. Tocar edita ali mesmo: trocar renomeia,
+  **deixar vazio apaga**.
 
-Tudo com o `Blockly.dialog.prompt`, que o botão «🧩 Criar bloco» já usa e que no
-app é o `WebChromeClient` — então funciona no S24 sem peça nova. Nome vazio na
-criação não cria nada, como no botão de criar bloco.
+Decidido assim em 2026-09-16, contra o primeiro desenho, que mandava abrir o
+`Blockly.dialog.prompt` ao tocar no rótulo. O impedimento é real e vale
+escrever: `field_label_serializable` herda `EDITABLE = false` e **não é
+clicável**, então a janelinha exigiria um ícone de lápis por entrada — dois
+campos por entrada na largura de uma peça, num tablet. O campo de texto dá o
+mesmo comportamento com um campo só, e já está provado no WebView do app, que
+é onde o `window.prompt` falha.
+
+O ➕ continua sendo **campo**, e não corpo de bloco: `Blockly.FieldImage` aceita
+o clique pelo quinto parâmetro do construtor. Tocar no corpo de um bloco roda a
+pilha dele — um ➕ desenhado no corpo faria a dança inteira rodar toda vez que
+ela quisesse uma entrada.
 
 ### A peça de usar `bloco_usar`
 

@@ -198,6 +198,52 @@ roxa, mas no bloco de cima, porque o nó `entrada` não carrega `blockId` e o er
 herdava o do chamador. O quadro passou a guardar o `blockId` da peça de usar. O
 teste que cimentava o comportamento errado foi corrigido junto.
 
+## A segunda rodada de revisão: mais quatro achados, e um meu
+
+**1. O `.ino` ainda aceitava divergência.** `ehVivo` conhecia só o 🎲 e o 👁 — e
+a 📦 **caixa** também muda entre leituras, ainda mais com um «mudar» no meio do
+corpo: a VM relê, o `.ino` guarda o valor da primeira vez. E a **condição** de um
+laço era contada como uma leitura solta, embora rode a cada volta, então o dado
+lido só na condição passava batido. As duas entraram na conta.
+
+**2. A análise voltou a explodir.** O memo de `conferirArgumentosVivos` era
+*desligado* quando havia argumento vivo, e aí cada uso recursava no corpo
+compartilhado: com fan-out 2 isso dobra por nível. Medido antes: 12→20 ms,
+15→45 ms, 18→243 ms, 20→**1066 ms**; com argumento constante, 0 ms em todos.
+Corrigido memorizando por nome **e pelo padrão de quais argumentos chegam
+vivos** — a chave é sã porque a contagem de leituras é do corpo, igual para
+todos os usos daquele nome, e com três entradas são no máximo oito padrões.
+Depois: **0–2 ms até 24 níveis**, vivo e constante.
+
+**3. A peça roxa não sabia de quem era.** Guardava só `{id, nome}`, e como toda
+cabeça começa em `e1`, arrastá-la para outra definição a religava em silêncio à
+entrada `e1` de lá. Decisão dele: a peça passa a guardar a cabeça de origem e
+**esmaece fora dela**, com a bolha que já existe — mesma regra da peça de usar
+sem definição.
+
+**4. O gesto não estava provado** — e o teste que eu tinha acrescentado como
+«caminho de produção» chamava `soltarPecaDeEntrada_()` por dentro, o que prova a
+mecânica e não o gesto. Agora o teste toca no **pixel** do ícone, conferido com
+`elementFromPoint` como o `tocar()` da casa, e arrasta a peça até o encaixe.
+
+**5. Achado na minha própria sonda:** `lidaQuantasVezes` varria os campos de
+valor e **não varria `no.args`**, então a entrada *passada adiante* a outro
+bloco não era contada — `f(🎲)` que entrega `n` duas vezes adiante exportava
+calado. A conta certa: cada ocorrência em `args` vale pelas **leituras que o
+bloco de destino faz do parâmetro dele** — passar a um bloco que lê duas vezes
+são duas avaliações, e a um que nunca lê é nenhuma. A recursão precisou de memo
+por `(corpo, id, dentro-de-laço)`, senão reabria a explosão do item 2.
+
+### Duas armadilhas reaproveitáveis
+
+- **Memo com chave incompleta é memo desligado.** Pular o memo «só no caso
+  difícil» é exatamente pulá-lo onde ele é necessário; a saída é enriquecer a
+  chave, não abandoná-la.
+- **Mira de arrasto:** a conexão de saída de um relator fica na **borda
+  esquerda**, na meia-altura. Mirar centro contra centro erra por meia largura
+  do bloco — 52 px medidos, contra um `snapRadius` de 28. Mire borda com borda,
+  e confira o ponto de agarre com `elementFromPoint` antes de arrastar.
+
 ## Estrutura de arquivos
 
 | arquivo | responsabilidade nova |

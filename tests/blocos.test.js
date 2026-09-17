@@ -1098,8 +1098,10 @@ test('a gaveta oferece a peça de usar com um buraco por entrada', () => {
   ]);
   const itens = Blocos.gavetaDeBlocos(ws);
   assert.strictEqual(itens[0].kind, 'button');
+  assert.strictEqual(itens[0].callbackKey, 'AJUDA_BLOCOS');
   assert.ok(!itens[0].nodeType, 'item DOM força o caminho XML do flyout');
-  const peca = itens[1];
+  assert.strictEqual(itens[1].callbackKey, 'CRIAR_BLOCO');
+  const peca = itens[2];
   assert.strictEqual(peca.kind, 'block');
   assert.strictEqual(peca.type, 'bloco_usar');
   assert.deepStrictEqual(peca.extraState, { encaixes: [{ id: 'e1', nome: 'lado' }] });
@@ -1111,7 +1113,7 @@ test('sem entradas, a peça da gaveta não carrega buraco nenhum', () => {
     { type: 'bloco_ensinar', id: 'def', fields: { NOME: 'dançar' },
       extraState: { entradas: [] } },
   ]);
-  const peca = Blocos.gavetaDeBlocos(ws)[1];
+  const peca = Blocos.gavetaDeBlocos(ws)[2];
   assert.strictEqual(peca.extraState, undefined);
   assert.strictEqual(peca.inputs, undefined);
 });

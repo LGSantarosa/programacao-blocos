@@ -9,6 +9,8 @@ const HTML = fs.readFileSync(
   path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
 const APP = fs.readFileSync(
   path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+const BLOCOS = fs.readFileSync(
+  path.join(__dirname, '..', 'web', 'blocos.js'), 'utf8');
 
 test('o botão de procurar o robô existe e nasce escondido', () => {
   assert.match(HTML, /id="procurar"[^>]*hidden/);
@@ -22,6 +24,13 @@ test('o gesto chama Android.procurarRobo', () => {
   assert.match(APP, /Android\.procurarRobo\(\)/);
 });
 
+/* Com o Wi-Fi desligado o Android não abre o diálogo e não dá erro: o toque
+   parecia não fazer nada. A página pergunta antes e avisa. */
+test('antes de procurar, a página pergunta se o Wi-Fi está ligado', () => {
+  assert.match(APP, /Android\.wifiLigado\(\)/);
+  assert.match(HTML, /id="aviso-wifi"[^>]*hidden/);
+});
+
 test('dentro do app, o download passa pelo Kotlin e não pelo Blob', () => {
   assert.match(APP, /Android\.salvarIno\(/);
 });
@@ -32,6 +41,24 @@ test('a página sabe dizer se está no ensaio ou no robô', () => {
 
 test('existe como voltar para o ensaio', () => {
   assert.match(APP, /Android\.voltarParaEnsaio\(\)/);
+});
+
+test('o tutorial pode ser aberto pelos ajustes e nasce fechado', () => {
+  assert.match(HTML, /id="aprender"[^>]*>📚 aprender/);
+  assert.match(HTML, /id="painel-tutorial"[^>]*hidden/);
+  assert.match(APP, /btAprender\.addEventListener\('click'/);
+});
+
+test('as duas gavetas difíceis oferecem ajuda no lugar da dúvida', () => {
+  assert.match(BLOCOS, /callbackKey', 'AJUDA_CAIXAS'/);
+  assert.match(BLOCOS, /callbackKey: 'AJUDA_BLOCOS'/);
+  assert.match(APP, /registerButtonCallback\('AJUDA_CAIXAS'/);
+  assert.match(APP, /registerButtonCallback\('AJUDA_BLOCOS'/);
+});
+
+test('experimentar um tutorial leva ao Avançado pelo caminho protegido', () => {
+  assert.match(APP, /categoriaTutorialPendente = assunto\.categoria/);
+  assert.match(APP, /trocarNivel\('gigante'\)/);
 });
 
 test('todo módulo de web/ entra na página, e antes do app.js', () => {

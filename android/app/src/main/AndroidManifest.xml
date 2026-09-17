@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- Só para saber se o Wi-Fi está ligado. Desligado, o diálogo de procurar
+         o robô simplesmente não abre, e ninguém entende por quê. Permissão
+         normal: o Android não pergunta nada a quem instala. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
     <!-- Do Android 11 em diante um app só enxerga os outros que declara aqui.
          Sem isto o TextToSpeech não acha motor nenhum e a voz fica muda, sem

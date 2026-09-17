@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSpecifier
 import android.os.PatternMatcher
 
@@ -15,7 +16,13 @@ import android.os.PatternMatcher
 class RedeDoRobo(ctx: Context) {
 
     private val cm = ctx.getSystemService(ConnectivityManager::class.java)
+    private val wifi = ctx.applicationContext.getSystemService(WifiManager::class.java)
     private var registro: ConnectivityManager.NetworkCallback? = null
+
+    /* Com o Wi-Fi desligado o requestNetwork fica esperando calado: nenhum
+       diálogo, nenhum erro. Foi assim que o botão pareceu quebrado no S24 FE,
+       e era só o Wi-Fi. A página pergunta antes e avisa o adulto. */
+    fun wifiLigado(): Boolean = wifi?.isWifiEnabled ?: true
 
     fun procurar(aoConectar: () -> Unit, aoCair: () -> Unit) {
         soltar()

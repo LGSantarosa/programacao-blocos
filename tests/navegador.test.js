@@ -1093,9 +1093,9 @@ test('o teclado cabe inteiro num celular deitado',
     await aval(`(() => {
       const ws = Blockly.getMainWorkspace();
       const b = Blockly.serialization.blocks.append(
-        { type: 'mover_frente',
-          inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 2 } } } } }, ws);
-      b.getInputTargetBlock('SEG').getField('NUM').showEditor_();
+        { type: 'girar', id: 'giro-do-teclado',
+          inputs: { GRAUS: { shadow: { type: 'numero', fields: { NUM: 90 } } } } }, ws);
+      b.getInputTargetBlock('GRAUS').getField('NUM').showEditor_();
       return 1;
     })()`);
     await espera(500);
@@ -1121,14 +1121,24 @@ test('o teclado cabe inteiro num celular deitado',
       assert.strictEqual(fora, '', `#${id} está fora da tela (${fora})`);
     }
 
-    /* A última tecla é a que some primeiro, e é a que apaga: sem ela a criança
-       fica presa no número que digitou errado. */
+    /* Mede também uma tecla individual: a grade pode caber e ainda recortar o
+       conteúdo se a conta das quatro colunas estiver errada. */
     const apaga = await aval(`(function () {
       var e = document.querySelector('#teclado-teclas [data-tecla="apaga"]');
       var c = e.getBoundingClientRect();
       return c.bottom <= document.documentElement.clientHeight + 1;
     })()`);
     assert.strictEqual(apaga, true, 'a tecla de apagar ficou fora da tela');
+
+    /* É o defeito que trouxe o ±: no Avançado o outro lado é -90, e sem sinal
+       no teclado do WebView não havia gesto capaz de escrever esse número. */
+    await aval(`document.querySelector('#teclado-teclas [data-tecla="sinal"]').click()`);
+    assert.strictEqual(await aval('document.getElementById("teclado-valor").textContent'),
+      '-90', 'o ± não trocou o sinal do ângulo');
+    await aval(`document.getElementById('teclado-sim').click()`);
+    assert.strictEqual(await aval(`Blockly.getMainWorkspace()
+      .getBlockById('giro-do-teclado').getInputTargetBlock('GRAUS').getFieldValue('NUM')`),
+      -90, 'o ângulo negativo não voltou do teclado para o bloco');
 
     cdp.fechar();
   });
@@ -3338,6 +3348,132 @@ test('a criança cria uma entrada com a gaveta aberta, renomeia, apaga e recarre
     })()`);
     assert.strictEqual(depois, '1|ENT_' + entId,
       'recarregar não trouxe a entrada e o buraco de volta: ' + depois);
+
+    cdp.fechar();
+  });
+
+test('o tutorial ensina os dois assuntos e devolve à gaveta para praticar',
+  { skip: PULAR, timeout: 120000 },
+  async (t) => {
+    spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
+
+    const portaWeb = PORTA_WEB + 30;
+    const portaCdp = PORTA_CDP + 30;
+    const bridge = spawn('node', ['bridge/server.js'],
+      { cwd: RAIZ, env: { ...process.env, PORTA: String(portaWeb) }, stdio: 'ignore' });
+    const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-tutorial-'));
+    const chrome = spawn(CHROMIUM, [
+      '--headless', '--disable-gpu', '--no-sandbox',
+      `--remote-debugging-port=${portaCdp}`,
+      '--window-size=808,411', `--user-data-dir=${perfil}`, 'about:blank',
+    ], { stdio: 'ignore' });
+
+    t.after(() => {
+      chrome.kill();
+      bridge.kill();
+      fs.rmSync(perfil, { recursive: true, force: true });
+    });
+
+    assert.ok(await esperarPorta(`http://127.0.0.1:${portaCdp}/json/version`, 40000),
+      'Chromium não subiu');
+    const alvos = await pegarJson(`http://127.0.0.1:${portaCdp}/json/list`);
+    const cdp = new Ws(alvos.find((a) => a.type === 'page').webSocketDebuggerUrl);
+    await cdp.pronto;
+    await cdp.envia('Runtime.enable');
+    await cdp.envia('Page.enable');
+    await cdp.envia('Emulation.setDeviceMetricsOverride',
+      { width: 808, height: 411, deviceScaleFactor: 1, mobile: true });
+
+    const erros = [];
+    cdp.aoEvento = (m) => {
+      if (m.method === 'Runtime.exceptionThrown') {
+        const d = m.params.exceptionDetails;
+        erros.push(d.exception ? (d.exception.description || d.text) : d.text);
+      }
+    };
+    const aval = async (expr) => {
+      const r = await cdp.envia('Runtime.evaluate',
+        { expression: expr, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(expr + ' -> ' + JSON.stringify(r.exceptionDetails));
+      return r.result.value;
+    };
+
+    await cdp.envia('Page.navigate', { url: `http://localhost:${portaWeb}/` });
+    const ate = Date.now() + 30000;
+    let pronta = false;
+    while (Date.now() < ate && !pronta) {
+      pronta = await aval(`document.readyState === 'complete'
+        && typeof Tutoriais !== 'undefined'
+        && !!Blockly.getMainWorkspace()`).catch(() => false);
+      if (!pronta) await espera(250);
+    }
+    assert.ok(pronta, 'a página não ficou pronta em 30 s');
+
+    assert.strictEqual(await aval(`document.getElementById('painel-tutorial').hidden`),
+      true, 'o tutorial nasceu aberto');
+    await aval(`(document.getElementById('ajustes').click(),
+                 document.getElementById('aprender').click(), 1)`);
+    assert.strictEqual(await aval(`document.getElementById('painel-tutorial').hidden`),
+      false, 'o botão aprender não abriu o tutorial');
+    assert.strictEqual(await aval(`document.querySelectorAll('.tutorial-tema').length`), 2,
+      'o menu não mostrou os dois assuntos');
+
+    await aval(`(document.querySelector('[data-tutorial="caixas"]').click(), 1)`);
+    assert.strictEqual(await aval(`document.getElementById('tutorial-titulo').textContent`),
+      '📦 Caixas');
+    assert.strictEqual(await aval(`document.getElementById('tutorial-progresso').textContent`),
+      'passo 1 de 5');
+    assert.ok(await aval(`document.querySelectorAll('#tutorial-desenho .tutorial-bloco').length`) > 0,
+      'o passo não desenhou exemplo nenhum');
+
+    /* Quatro avanços chegam ao último passo; o quinto fecha e leva à prática. */
+    for (let i = 0; i < 4; i++) {
+      await aval(`(document.getElementById('tutorial-proximo').click(), 1)`);
+    }
+    assert.strictEqual(await aval(`document.getElementById('tutorial-proximo').textContent`),
+      'experimentar ▸');
+    await aval(`(document.getElementById('tutorial-proximo').click(), 1)`);
+    await espera(700);
+    assert.strictEqual(await aval(`Niveis.atual()`), 'gigante',
+      'experimentar não levou ao nível Avançado');
+    assert.strictEqual(await aval(`document.getElementById('painel-tutorial').hidden`), true);
+    assert.strictEqual(await aval(`(() => {
+      const tb = Blockly.getMainWorkspace().getToolbox();
+      const item = tb.getSelectedItem && tb.getSelectedItem();
+      return item && item.getName ? item.getName() : '';
+    })()`), 'Caixas', 'o fim do tutorial não abriu a gaveta Caixas');
+
+    await aval(`(Blockly.getMainWorkspace().getButtonCallback('AJUDA_BLOCOS')(), 1)`);
+    assert.strictEqual(await aval(`document.getElementById('tutorial-titulo').textContent`),
+      '🧩 Meus blocos', 'a ajuda da gaveta não abriu o assunto certo');
+    await aval(`(document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })), 1)`);
+    assert.strictEqual(await aval(`document.getElementById('painel-tutorial').hidden`), true,
+      'Escape não fechou o tutorial');
+
+    /* Com trabalho montado, «experimentar» não pode aproveitar o entusiasmo e
+       apagar tudo: passa pela mesma confirmação da troca manual de nível. */
+    await aval(`(() => {
+      document.getElementById('ajustes').click();
+      document.querySelector('#niveis [data-nivel="medio"]').click();
+      const b = Blockly.getMainWorkspace().newBlock('mover_frente');
+      b.initSvg(); b.render();
+      document.getElementById('ajustes').click();
+      document.getElementById('aprender').click();
+      document.querySelector('[data-tutorial="meus-blocos"]').click();
+      return 1;
+    })()`);
+    for (let i = 0; i < 5; i++) {
+      await aval(`(document.getElementById('tutorial-proximo').click(), 1)`);
+    }
+    assert.strictEqual(await aval(`document.getElementById('confirma').hidden`), false,
+      'experimentar apagaria o trabalho sem perguntar');
+    assert.strictEqual(await aval(`Niveis.atual()`), 'medio',
+      'o nível mudou antes da resposta');
+    await aval(`(document.getElementById('confirma-nao').click(), 1)`);
+    assert.strictEqual(await aval(
+      `Blockly.getMainWorkspace().getBlocksByType('mover_frente', false).length`), 1,
+      'dizer Não não preservou o trabalho');
+    assert.deepStrictEqual(erros, [], 'a página lançou erro: ' + erros.join('\n'));
 
     cdp.fechar();
   });

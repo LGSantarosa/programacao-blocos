@@ -22,6 +22,11 @@ class PonteJs(private val tela: MainActivity, private val voz: Voz) {
     @JavascriptInterface
     fun procurarRobo() = tela.procurarRobo()
 
+    /* Desligado, o procurarRobo não abre diálogo nenhum. A página pergunta
+       antes, para dizer isso em vez de ficar parada. */
+    @JavascriptInterface
+    fun wifiLigado(): Boolean = tela.wifiLigado()
+
     @JavascriptInterface
     fun voltarParaEnsaio() = tela.voltarParaEnsaio()
 

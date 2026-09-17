@@ -1255,6 +1255,13 @@
   function gavetaDeCaixas(workspace) {
     var xml = Blockly.utils.xml;
     var itens = [];
+    /* A explicação mora onde a dúvida nasce. Na primeira abertura ainda não há
+       peça nenhuma — só os botões — e «como usar» vem antes de pedir um nome
+       para algo que a criança ainda não sabe o que é. */
+    var ajuda = xml.createElement('button');
+    ajuda.setAttribute('text', '❔ Como usar caixas');
+    ajuda.setAttribute('callbackKey', 'AJUDA_CAIXAS');
+    itens.push(ajuda);
     var botao = xml.createElement('button');
     botao.setAttribute('text', '📦 Criar caixa');
     botao.setAttribute('callbackKey', 'CRIAR_CAIXA');
@@ -1307,8 +1314,11 @@
      nenhum, calada. (O botão aceita callbackKey e callbackkey: o FlyoutButton
      lê os dois.) */
   function gavetaDeBlocos(workspace) {
-    var itens = [{ kind: 'button', text: '🧩 Criar bloco',
-                   callbackKey: 'CRIAR_BLOCO' }];
+    var itens = [
+      { kind: 'button', text: '❔ Como usar meus blocos',
+        callbackKey: 'AJUDA_BLOCOS' },
+      { kind: 'button', text: '🧩 Criar bloco', callbackKey: 'CRIAR_BLOCO' },
+    ];
 
     var defs = workspace.getBlocksByType('bloco_ensinar', false);
     var nomes = [], i;

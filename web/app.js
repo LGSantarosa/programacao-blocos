@@ -33,12 +33,15 @@
   var btAjustes = document.getElementById('ajustes');
   var caixaAjustes = document.getElementById('painel-ajustes');
   var btAjustesFechar = document.getElementById('ajustes-fechar');
+  var btAprender = document.getElementById('aprender');
   var btCodigo = document.getElementById('codigo');
   var caixaCodigo = document.getElementById('painel-codigo');
   var preCodigo = document.getElementById('codigo-texto');
   var btCodigoBaixar = document.getElementById('codigo-baixar');
   var btCodigoFechar = document.getElementById('codigo-fechar');
   var nivelPendente = null;
+  var categoriaTutorialPendente = null;
+  var tutorial = null;
 
   var mapaPc = [];
   var blocoAceso = null;
@@ -112,6 +115,46 @@
      cópias da mesma regra é como elas divergem. */
   Blocos.criarRaiz(workspace);
 
+  /* ---------- aprender ---------- */
+
+  /* O painel é uma casca só. O conteúdo e a navegação curta vivem em
+     tutoriais.js; daqui saem apenas as pontes para o Blockly: abrir a ajuda de
+     dentro da gaveta e voltar exatamente à categoria para experimentar. */
+  tutorial = Tutoriais.criar({ aoPraticar: praticarTutorial });
+  btAprender.addEventListener('click', function () { tutorial.abrir(); });
+
+  function abrirCategoria(nome) {
+    /* updateToolbox termina de remontar os itens no mesmo turno. Devolver o
+       controle antes de selecionar evita pedir ao toolbox uma categoria que
+       ele ainda está trocando — especialmente depois de subir para Avançado. */
+    setTimeout(function () {
+      var tb = workspace.getToolbox && workspace.getToolbox();
+      if (!tb || !tb.getToolboxItems || !tb.setSelectedItem) return;
+      var itens = tb.getToolboxItems();
+      for (var i = 0; i < itens.length; i++) {
+        if (itens[i].getName && itens[i].getName() === nome) {
+          tb.setSelectedItem(itens[i]);
+          return;
+        }
+      }
+    }, 0);
+  }
+
+  function praticarTutorial(id) {
+    var assunto = Tutoriais.buscar(id);
+    if (!assunto) return;
+    fecharAjustes();
+    if (nivel === 'gigante') {
+      abrirCategoria(assunto.categoria);
+      return;
+    }
+    /* O mesmo caminho protegido da troca feita nos ajustes: se houver trabalho
+       na tela, a pergunta aparece antes de apagar. aplicarTroca consome esta
+       categoria só depois que a criança confirma. */
+    categoriaTutorialPendente = assunto.categoria;
+    trocarNivel('gigante');
+  }
+
   /* ---------- as caixas com nome ---------- */
 
   /* O lugar de cada caixa na VM. Volta do armazenamento antes do programa,
@@ -145,6 +188,10 @@
     return Blocos.gavetaDeCaixas(ws);
   });
 
+  workspace.registerButtonCallback('AJUDA_CAIXAS', function () {
+    tutorial.abrir('caixas');
+  });
+
   /* A 17ª caixa não nasce: a janelinha nem abre. O menu do campo de caixa só
      renomeia e apaga, então este botão é a única porta de criação.
 
@@ -166,6 +213,10 @@
 
   workspace.registerToolboxCategoryCallback('MEUS_BLOCOS', function (ws) {
     return Blocos.gavetaDeBlocos(ws);
+  });
+
+  workspace.registerButtonCallback('AJUDA_BLOCOS', function () {
+    tutorial.abrir('meus-blocos');
   });
 
   /* O botão pede o nome, passa pelo findLegalName (que faz «dançar2» se já
@@ -1200,6 +1251,11 @@
     tentativas.zerar();
     btGabarito.hidden = true;
     aplicarNivel();
+    if (categoriaTutorialPendente) {
+      var categoria = categoriaTutorialPendente;
+      categoriaTutorialPendente = null;
+      abrirCategoria(categoria);
+    }
   }
 
   function perguntarTroca(novo) {
@@ -1212,6 +1268,9 @@
   function fecharConfirma() {
     caixaConfirma.hidden = true;
     nivelPendente = null;
+    /* Se a troca nasceu do fim de um tutorial, «Não» também cancela o salto
+       para a gaveta. Sem limpar, uma troca futura abriria uma ajuda antiga. */
+    categoriaTutorialPendente = null;
   }
 
   function trocarNivel(novo) {
@@ -1230,6 +1289,10 @@
 
   btAjustes.addEventListener('click', function () {
     caixaAjustes.hidden = false;
+    /* O recado do Wi-Fi é da última tentativa. Reabrir o painel com ele na
+       tela diria "desligado" para quem já ligou. */
+    var aw = document.getElementById('aviso-wifi');
+    if (aw) aw.hidden = true;
     /* O foco vai para o "fechar", como no painel do código: quem chegou aqui
        por teclado tem a saída debaixo do dedo, e não precisa atravessar quatro
        botões de nível para desistir. */
@@ -1243,7 +1306,9 @@
   btConfirmaNao.addEventListener('click', fecharConfirma);
   btConfirmaSim.addEventListener('click', function () {
     var novo = nivelPendente;
+    var categoria = categoriaTutorialPendente;
     fecharConfirma();
+    categoriaTutorialPendente = categoria;
     if (novo) aplicarTroca(novo);
   });
   /* Tocar no fundo é o mesmo que "Não" — só no fundo, não na caixa. */
@@ -1253,7 +1318,8 @@
   /* keyCode além de key: o Safari do iOS 9 não tem event.key confiável. */
   document.addEventListener('keydown', function (e) {
     if (!(e.key === 'Escape' || e.keyCode === 27)) return;
-    if (!caixaConfirma.hidden) fecharConfirma();
+    if (tutorial && tutorial.aberto()) tutorial.fechar();
+    else if (!caixaConfirma.hidden) fecharConfirma();
     else if (!caixaCodigo.hidden) fecharCodigo();
     else if (!caixaAjustes.hidden) fecharAjustes();
   });
@@ -1362,11 +1428,25 @@
       btProcurar.onclick = noRobo
         ? function () { Android.voltarParaEnsaio(); }
         : function () {
+            if (!wifiLigado()) { avisoWifi.hidden = false; return; }
+            avisoWifi.hidden = true;
             spEstado.textContent = 'procurando o robô…';
             Android.procurarRobo();
           };
     },
   };
+
+  /* Com o Wi-Fi desligado o Android não abre o diálogo de procurar e não dá
+     erro nenhum — o toque parecia não fazer nada, e o "procurando o robô…"
+     fica escondido atrás do painel. Então o recado sai dentro do painel, ao
+     lado do botão. Na dúvida (ponte velha, ponte que estoura) deixa o Android
+     tentar: avisar errado é pior que não avisar. */
+  var avisoWifi = document.getElementById('aviso-wifi');
+
+  function wifiLigado() {
+    if (!Android.wifiLigado) return true;
+    try { return !!Android.wifiLigado(); } catch (e) { return true; }
+  }
 
   /* Só dentro do app: no navegador não há como entrar na rede do robô, e um
      botão que não faz nada é pior que botão nenhum. É o mesmo teste de

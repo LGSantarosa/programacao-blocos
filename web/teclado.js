@@ -22,9 +22,10 @@
      o texto(), na saída. */
   var VIRGULA = ',';
 
-  /* Não há tecla de menos. Nenhum bloco deste projeto aceita número negativo —
-     girar tem o menu direita/esquerda, e a velocidade é uma lista — então um
-     sinal ali só ofereceria à criança um valor que o robô recusaria depois. */
+  /* O Avançado escreve o ângulo do girar como número: 90 vira para um lado e
+     -90 para o outro. A tecla «±» troca o sinal sem pedir que a criança apague
+     e redigite o ângulo inteiro. Também serve para «mudar caixa por -1». */
+  var SINAL = 'sinal';
 
   var caixa = null, elValor = null, elTitulo = null, elTeclas = null;
   var elNao = null, elSim = null;
@@ -124,6 +125,13 @@
   function apertar(tecla) {
     if (tecla === 'apaga') {
       texto = texto.slice(0, -1);
+      /* Um sinal sozinho não é número. Apagar o último algarismo volta à caixa
+         vazia, que desenha 0 e mantém o valor antigo se disser Pronto. */
+      if (texto === '-') texto = '';
+      recomecar = false;
+    } else if (tecla === SINAL) {
+      if (texto.charAt(0) === '-') texto = texto.slice(1) || '0';
+      else texto = '-' + (texto || '0');
       recomecar = false;
     } else if (tecla === VIRGULA) {
       if (recomecar) { texto = '0'; recomecar = false; }
@@ -133,8 +141,11 @@
          Quem toca no 5 querendo cinco não espera quinze. */
       if (recomecar) { texto = ''; recomecar = false; }
       /* Sem zero à esquerda: "05" é o mesmo cinco escrito de um jeito que a
-         criança não escreveria. */
-      texto = texto === '0' ? tecla : texto + tecla;
+         criança não escreveria. O mesmo vale para o «-0» que nasce quando ela
+         pede primeiro o sinal e só depois escolhe o algarismo. */
+      if (texto === '0') texto = tecla;
+      else if (texto === '-0') texto = '-' + tecla;
+      else texto += tecla;
     }
     desenhar();
   }
@@ -142,6 +153,7 @@
   function aoTeclado(ev) {
     var k = ev.key;
     if (k >= '0' && k <= '9') apertar(k);
+    else if (k === '-') apertar(SINAL);
     else if (k === ',' || k === '.') apertar(VIRGULA);
     else if (k === 'Backspace') apertar('apaga');
     else if (k === 'Enter') fechar(texto);
@@ -212,7 +224,7 @@
   }
 
   var api = { pedir: pedir, preparar: preparar, aberto: aberto,
-              esquecer: esquecer, VIRGULA: VIRGULA };
+              esquecer: esquecer, VIRGULA: VIRGULA, SINAL: SINAL };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Teclado = api;
 })(typeof self !== 'undefined' ? self : globalThis);

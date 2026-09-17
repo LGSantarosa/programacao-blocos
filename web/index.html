@@ -218,10 +218,13 @@
      do botão do alto-falante, que é o assunto. Só aparece quando o aparelho
      não tem voz e o nível é dos que falam — é a única combinação em que o
      silêncio é surpresa. */
-  #aviso-voz { margin: 14px 0 0; font-size: 13px; font-weight: 700;
-               line-height: 1.35; color: #7a5a00; background: #fff3cd;
-               border-radius: 10px; padding: 9px 12px; text-align: left; }
-  #aviso-voz[hidden] { display: none; }
+  /* O do Wi-Fi é da mesma família: recado para o adulto, logo embaixo do botão
+     de procurar o robô, e só depois de um toque que não teria dado em nada. */
+  #aviso-voz, #aviso-wifi {
+    margin: 14px 0 0; font-size: 13px; font-weight: 700;
+    line-height: 1.35; color: #7a5a00; background: #fff3cd;
+    border-radius: 10px; padding: 9px 12px; text-align: left; }
+  #aviso-voz[hidden], #aviso-wifi[hidden] { display: none; }
 
   #ajustes-botoes { display: flex; flex-wrap: wrap; justify-content: center;
                     margin-top: 16px; }
@@ -233,6 +236,96 @@
   /* Dentro do painel branco a versão precisa de outra cor: no cabeçalho ela
      era clara sobre azul. */
   #painel-ajustes #versao { display: inline; color: #7f9fe8; }
+
+  /* ---------- aprender os blocos avançados ---------- */
+
+  /* A ajuda não fica escondida num texto do rodapé. É uma ação do mesmo
+     tamanho que som e código, e reaparece dentro das próprias gavetas Caixas
+     e Meus blocos. Roxo porque abre conhecimento novo, como a família dos
+     blocos que a criança inventa. */
+  #aprender { background: #a040c0; box-shadow: 0 5px 0 #773091;
+              font-size: 16px; padding: 12px 16px; }
+  #aprender:active:not(:disabled) { box-shadow: 0 1px 0 #773091; }
+
+  #painel-tutorial {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 240;
+    background: rgba(0, 32, 128, .62);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  #painel-tutorial[hidden] { display: none; }
+
+  #tutorial-caixa {
+    background: #fff; border-radius: 22px; padding: 18px 22px 22px;
+    width: 100%; max-width: 660px; max-height: 94%; overflow-y: auto;
+    box-shadow: 0 10px 0 rgba(0, 32, 128, .25); color: #002080;
+  }
+  #tutorial-topo { display: flex; align-items: center; min-height: 48px; }
+  #tutorial-cabecalho { flex: 1; min-width: 0; text-align: center; }
+  #tutorial-titulo { margin: 0; color: #002080; font-size: 25px;
+                     line-height: 1.15; }
+  #tutorial-progresso { display: block; min-height: 17px; margin-top: 3px;
+                        color: #4a6fc4; font-size: 13px; font-weight: 800; }
+
+  /* Os dois cantos ocupam a mesma largura: o título fica realmente no centro,
+     inclusive quando o botão «temas» aparece. */
+  #tutorial-voltar, #tutorial-fechar {
+    width: 86px; min-height: 44px; padding: 8px 7px; flex: none;
+    background: #002080; box-shadow: 0 4px 0 #00185f;
+    font-size: 15px; border-radius: 13px;
+  }
+  #tutorial-fechar { width: 44px; font-size: 25px; line-height: 1; }
+  #tutorial-voltar { margin-right: 8px; }
+  /* 50px + 44px = os 86px do voltar + 8px de margem: os dois lados pesam
+     igual e o título não passeia quando «temas» aparece. */
+  #tutorial-fechar { margin-left: 50px; }
+  #tutorial-voltar[hidden] { visibility: hidden; display: block; }
+  #tutorial-voltar:active:not(:disabled),
+  #tutorial-fechar:active:not(:disabled) { box-shadow: 0 1px 0 #00185f; }
+
+  #tutorial-menu-intro { margin: 14px auto 16px; max-width: 520px;
+                         text-align: center; font-size: 17px;
+                         font-weight: 700; line-height: 1.4; }
+  #tutorial-temas { display: flex; flex-wrap: wrap; justify-content: center; }
+  .tutorial-tema {
+    width: 280px; min-height: 114px; margin: 7px; padding: 18px 20px;
+    text-align: left; box-shadow: 0 6px 0 rgba(0, 32, 128, .28);
+  }
+  .tutorial-tema:active:not(:disabled) { box-shadow: 0 2px 0 rgba(0, 32, 128, .28); }
+  .tutorial-tema-nome { display: block; font-size: 22px; line-height: 1.2; }
+  .tutorial-tema-resumo { display: block; margin-top: 8px; font-size: 14px;
+                          line-height: 1.35; font-weight: 700; }
+
+  #tutorial-menu[hidden], #tutorial-licao[hidden], #tutorial-dica[hidden] {
+    display: none;
+  }
+  #tutorial-licao { padding: 10px 8px 0; }
+  #tutorial-passo-titulo { margin: 5px 0 9px; text-align: center;
+                           font-size: 22px; color: #002080; }
+  #tutorial-texto { max-width: 570px; margin: 0 auto 13px; text-align: center;
+                    font-size: 16px; line-height: 1.45; font-weight: 700; }
+
+  /* Não tenta imitar cada encaixe do Blockly: cor, sombra sólida e recuo já
+     deixam a ordem reconhecível sem vender uma figura como peça arrastável. */
+  #tutorial-desenho { max-width: 530px; margin: 0 auto 12px; padding: 13px;
+                      background: #eaf4fe; border-radius: 15px; }
+  .tutorial-bloco {
+    display: table; max-width: 95%; margin: 0 0 7px; padding: 9px 13px;
+    border-radius: 10px; color: #fff; font-size: 15px; font-weight: 800;
+    line-height: 1.25; box-shadow: 0 4px 0 rgba(0, 32, 128, .25);
+  }
+  .tutorial-bloco:last-child { margin-bottom: 0; }
+  .tutorial-bloco.dentro { margin-left: 28px; }
+  #tutorial-dica { max-width: 530px; margin: 0 auto 15px; padding: 9px 12px;
+                   border-radius: 11px; background: #fff3cd; color: #6b5000;
+                   font-size: 14px; font-weight: 800; line-height: 1.35; }
+  #tutorial-navegacao { display: flex; justify-content: center; margin-top: 8px; }
+  #tutorial-navegacao button { margin: 0 6px; font-size: 16px;
+                               padding: 12px 18px; }
+  #tutorial-anterior { background: #002080; box-shadow: 0 5px 0 #00185f; }
+  #tutorial-proximo { background: #37c26b; box-shadow: 0 5px 0 #2a9c54; }
+  #tutorial-anterior:disabled { background: #d8e2f5; color: #8499c2;
+                                box-shadow: 0 5px 0 #bdcbe5; }
 
   /* ---------- diálogo de confirmação ---------- */
   /* Sem <dialog>: não existe no Safari do iOS 9. Um div com position:fixed e
@@ -341,13 +434,17 @@
     font-family: monospace; overflow: hidden; text-overflow: ellipsis;
   }
   /* Sem gap nem grid, que o Safari do iOS 9 não tem: largura fixa e margem
-     fazem as três colunas. */
+     fazem as quatro colunas. Quatro deixam entrar o ± sem criar uma quinta
+     fileira — no celular deitado, altura é o que não existe. */
   #teclado-teclas { display: flex; flex-wrap: wrap; width: 252px; }
   #teclado-teclas button {
-    width: 74px; height: 56px; margin: 0 5px 10px 5px; padding: 0;
+    width: 55px; height: 56px; margin: 0 4px 10px 4px; padding: 0;
     font-size: 24px; background: #0050f0; box-shadow: 0 4px 0 #003bb3;
     border-radius: 14px;
   }
+  /* O zero fecha sozinho a última fileira. Além de familiar, a tecla larga
+     devolve área de toque depois de as outras afinarem para quatro colunas. */
+  #teclado-teclas button[data-tecla="0"] { width: 244px; }
   #teclado-teclas button:active { box-shadow: 0 1px 0 rgba(0,0,0,.25); }
   #teclado-botoes { display: flex; justify-content: center; }
   #teclado-botoes button { margin: 0 5px; font-size: 18px; padding: 12px 20px; }
@@ -641,6 +738,35 @@
     #arena { max-width: 144px; height: 144px; border-width: 2px; }
     #leitura { font-size: 13px; padding: 6px 8px; }
 
+    /* O tutorial tem de deixar o «próximo» inteiro à vista. Na primeira
+       versão, o texto cabia mas os botões apareciam pela metade no S24 FE
+       deitado; havia rolagem, só que nada dizia à criança que precisava rolar.
+       Compacta a leitura, sem diminuir nenhum alvo de toque abaixo de 44px. */
+    #painel-tutorial { padding: 6px; }
+    #tutorial-caixa { max-height: 97%; padding: 9px 14px 11px;
+                      border-radius: 17px; }
+    #tutorial-topo { min-height: 44px; }
+    #tutorial-titulo { font-size: 20px; }
+    #tutorial-progresso { min-height: 14px; margin-top: 1px; font-size: 11px; }
+    #tutorial-voltar, #tutorial-fechar { min-height: 44px; }
+    #tutorial-menu-intro { margin: 5px auto 7px; font-size: 13px;
+                           line-height: 1.25; }
+    .tutorial-tema { min-height: 80px; margin: 4px; padding: 10px 14px; }
+    .tutorial-tema-nome { font-size: 18px; }
+    .tutorial-tema-resumo { margin-top: 4px; font-size: 12px; line-height: 1.25; }
+    #tutorial-licao { padding: 2px 5px 0; }
+    #tutorial-passo-titulo { margin: 1px 0 5px; font-size: 18px; }
+    #tutorial-texto { margin-bottom: 6px; font-size: 13px; line-height: 1.25; }
+    #tutorial-desenho { margin-bottom: 6px; padding: 7px; border-radius: 11px; }
+    .tutorial-bloco { margin-bottom: 4px; padding: 6px 9px; font-size: 12px;
+                      border-radius: 8px; box-shadow: 0 3px 0 rgba(0, 32, 128, .25); }
+    .tutorial-bloco.dentro { margin-left: 20px; }
+    #tutorial-dica { margin-bottom: 6px; padding: 6px 9px; font-size: 12px;
+                     line-height: 1.25; }
+    #tutorial-navegacao { margin-top: 2px; }
+    #tutorial-navegacao button { min-height: 44px; padding: 8px 14px;
+                                 font-size: 14px; }
+
     /* Num telefone deitado sobram 411px de altura, e a caixa inteira precisa
        caber neles: sem esta régua as teclas de baixo — o 0 e o apagar — ficam
        fora da tela, e com elas o "pronto". */
@@ -648,9 +774,10 @@
     #teclado-titulo { font-size: 16px; margin-bottom: 6px; }
     #teclado-valor { font-size: 22px; min-height: 30px; line-height: 30px;
                      margin-bottom: 8px; }
-    #teclado-teclas { width: 216px; }
-    #teclado-teclas button { width: 64px; height: 42px; font-size: 19px;
+    #teclado-teclas { width: 252px; }
+    #teclado-teclas button { width: 55px; height: 42px; font-size: 19px;
                              margin: 0 4px 7px 4px; }
+    #teclado-teclas button[data-tecla="0"] { width: 244px; }
     #teclado-botoes button { font-size: 15px; padding: 9px 16px; }
   }
 </style>
@@ -707,15 +834,16 @@
         <button type="button" data-tecla="7">7</button>
         <button type="button" data-tecla="8">8</button>
         <button type="button" data-tecla="9">9</button>
+        <button type="button" data-tecla="apaga" aria-label="apagar">⌫</button>
         <button type="button" data-tecla="4">4</button>
         <button type="button" data-tecla="5">5</button>
         <button type="button" data-tecla="6">6</button>
+        <button type="button" data-tecla="sinal" aria-label="trocar o sinal">±</button>
         <button type="button" data-tecla="1">1</button>
         <button type="button" data-tecla="2">2</button>
         <button type="button" data-tecla="3">3</button>
         <button type="button" data-tecla="," aria-label="vírgula">,</button>
         <button type="button" data-tecla="0">0</button>
-        <button type="button" data-tecla="apaga" aria-label="apagar">⌫</button>
       </div>
       <div id="teclado-botoes">
         <button id="teclado-nao" type="button">Deixa</button>
@@ -742,13 +870,48 @@
 
       <div id="ajustes-botoes">
         <button id="mudo" type="button" title="ligar e desligar o som">🔊</button>
+        <button id="aprender" type="button">📚 aprender</button>
         <button id="codigo" type="button" hidden>{ } ver código</button>
         <button id="procurar" type="button" hidden>🤖 procurar o robô</button>
       </div>
 
+      <p id="aviso-wifi" role="alert" hidden>O Wi-Fi do celular está desligado.
+        Ligue o Wi-Fi e toque de novo em “procurar o robô”.</p>
+
       <div id="ajustes-rodape">
         <span id="versao" title="versão servida — se não mudar após uma atualização, é cache">%VERSAO%</span>
         <button id="ajustes-fechar" type="button">fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="painel-tutorial" hidden>
+    <div id="tutorial-caixa" role="dialog" aria-modal="true"
+         aria-labelledby="tutorial-titulo">
+      <div id="tutorial-topo">
+        <button id="tutorial-voltar" type="button" hidden>‹ temas</button>
+        <div id="tutorial-cabecalho">
+          <h2 id="tutorial-titulo">📚 Aprender</h2>
+          <span id="tutorial-progresso" aria-live="polite"></span>
+        </div>
+        <button id="tutorial-fechar" type="button" aria-label="fechar tutorial">×</button>
+      </div>
+
+      <div id="tutorial-menu">
+        <p id="tutorial-menu-intro">Escolha uma ideia. São explicações curtas,
+          com um exemplo para montar logo depois.</p>
+        <div id="tutorial-temas"></div>
+      </div>
+
+      <div id="tutorial-licao" hidden>
+        <h3 id="tutorial-passo-titulo"></h3>
+        <p id="tutorial-texto"></p>
+        <div id="tutorial-desenho"></div>
+        <p id="tutorial-dica"></p>
+        <div id="tutorial-navegacao">
+          <button id="tutorial-anterior" type="button">‹ anterior</button>
+          <button id="tutorial-proximo" type="button">próximo ▸</button>
+        </div>
       </div>
     </div>
   </div>
@@ -797,6 +960,7 @@
   <script src="rede.js"></script>
   <script src="reconexao.js"></script>
   <script src="tentativas.js"></script>
+  <script src="tutoriais.js"></script>
   <script src="arena.js"></script>
   <script src="app.js"></script>
 </body>

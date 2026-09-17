@@ -55,7 +55,7 @@ function pagina() {
 const Teclado = require('../web/teclado.js');
 
 /* Tocar numa tecla é um clique na grade, e o alvo é o botão: é assim que o
-   teclado recebe de verdade, com um ouvinte só para as doze. */
+   teclado recebe de verdade, com um ouvinte só para as treze. */
 function tocar(pecas, tecla) {
   pecas['teclado-teclas'].disparar('click', {
     target: { getAttribute: (n) => (n === 'data-tecla' ? tecla : null) },
@@ -91,6 +91,30 @@ test('o primeiro algarismo troca o número, como numa calculadora', () => {
   assert.strictEqual(pecas['teclado-valor'].textContent, '50');
   pecas['teclado-sim'].disparar('click');
   assert.strictEqual(resposta, '50');
+});
+
+test('a tecla ± troca o lado do giro sem redigitar o ângulo', () => {
+  const { pecas } = pagina();
+  let resposta;
+  Teclado.pedir({ valor: '90' }, (t) => { resposta = t; });
+  tocar(pecas, 'sinal');
+  assert.strictEqual(pecas['teclado-valor'].textContent, '-90');
+  pecas['teclado-sim'].disparar('click');
+  assert.strictEqual(resposta, '-90');
+
+  Teclado.pedir({ valor: '-90' }, () => {});
+  tocar(pecas, 'sinal');
+  assert.strictEqual(pecas['teclado-valor'].textContent, '90',
+    'tocar de novo precisava devolver o sinal positivo');
+});
+
+test('pedir o sinal antes do algarismo forma um número negativo', () => {
+  const { pecas } = pagina();
+  Teclado.pedir({ valor: '0' }, () => {});
+  tocar(pecas, 'sinal');
+  tocar(pecas, '9');
+  tocar(pecas, '0');
+  assert.strictEqual(pecas['teclado-valor'].textContent, '-90');
 });
 
 test('o apagar tira um algarismo de cada vez', () => {
@@ -174,6 +198,16 @@ test('o ponto do teclado físico também vira vírgula', () => {
   Teclado.pedir({ valor: '1' }, () => {});
   doc.teclar('2'); doc.teclar('.'); doc.teclar('5');
   assert.strictEqual(pecas['teclado-valor'].textContent, '2,5');
+});
+
+test('o menos do teclado físico também troca o sinal', () => {
+  const { doc, pecas } = pagina();
+  let resposta;
+  Teclado.pedir({ valor: '90' }, (t) => { resposta = t; });
+  doc.teclar('-');
+  assert.strictEqual(pecas['teclado-valor'].textContent, '-90');
+  doc.teclar('Enter');
+  assert.strictEqual(resposta, '-90');
 });
 
 test('fechado, o teclado físico não mexe mais em nada', () => {

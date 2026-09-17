@@ -97,6 +97,8 @@ class MainActivity : AppCompatActivity() {
         webView.evaluateJavascript("App.irPara('$host')", null)
     }
 
+    fun wifiLigado(): Boolean = redeDoRobo.wifiLigado()
+
     fun procurarRobo() = runOnUiThread {
         redeDoRobo.procurar(
             aoConectar = {

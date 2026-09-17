@@ -57,28 +57,33 @@
 
   var LADO_ICONE = 20;
   var LARGURA_MOVIMENTO = 48, ALTURA_MOVIMENTO = 34;
+  var LARGURA_GIRO = 21, ALTURA_GIRO = 23;
 
   /* A tela da imagem é mais larga que o desenho. O Blockly mede 48x34 e
      engorda o corpo azul, enquanto a seta continua com os mesmos 20px,
      centralizada no espaço transparente. */
-  function iconeMovimento(desenho) {
+  function iconeAcao(desenho, largura, altura) {
+    var esquerda = (largura - 20) / 2;
+    var topo = (altura - 20) / 2;
     return 'data:image/svg+xml,' + encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 34">' +
-      '<g transform="translate(14 7) scale(.833333)">' + desenho + '</g></svg>');
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + largura + ' ' +
+      altura + '">' +
+      '<g transform="translate(' + esquerda + ' ' + topo + ') scale(.833333)">' +
+      desenho + '</g></svg>');
   }
 
   /* Seta grossa: haste larga e cabeça grande, para ler a 20px num tablet. */
-  var SETA_CIMA  = iconeMovimento('<path d="M12 2 L22 13 L16 13 L16 22 L8 22 L8 13 L2 13 Z" fill="#fff"/>');
-  var SETA_BAIXO = iconeMovimento('<path d="M12 22 L22 11 L16 11 L16 2 L8 2 L8 11 L2 11 Z" fill="#fff"/>');
+  var SETA_CIMA  = iconeAcao('<path d="M12 2 L22 13 L16 13 L16 22 L8 22 L8 13 L2 13 Z" fill="#fff"/>', LARGURA_MOVIMENTO, ALTURA_MOVIMENTO);
+  var SETA_BAIXO = iconeAcao('<path d="M12 22 L22 11 L16 11 L16 2 L8 2 L8 11 L2 11 Z" fill="#fff"/>', LARGURA_MOVIMENTO, ALTURA_MOVIMENTO);
 
   /* Volta de 270°, aberta em cima, com a ponta indicando para onde o giro vai.
      O anti-horário é o mesmo desenho espelhado — duas cópias divergiriam. */
   var VOLTA = '<path d="M12 4.5 A 7.5 7.5 0 1 1 4.5 12" fill="none"' +
               ' stroke="#fff" stroke-width="3" stroke-linecap="round"/>' +
               '<path d="M4.5 5.5 L9 13 L0 13 Z" fill="#fff"/>';
-  var GIRO_HORARIO = icone(VOLTA);
-  var GIRO_ANTI    = icone('<g transform="translate(24,0) scale(-1,1)">' +
-                           VOLTA + '</g>');
+  var GIRO_HORARIO = iconeAcao(VOLTA, LARGURA_GIRO, ALTURA_GIRO);
+  var GIRO_ANTI    = iconeAcao('<g transform="translate(24,0) scale(-1,1)">' +
+                               VOLTA + '</g>', LARGURA_GIRO, ALTURA_GIRO);
 
   /* Cruz grossa, pela mesma régua das setas: legível a 20px num tablet. */
   var MAIS_ICONE = icone('<path d="M10 3 h4 v7 h7 v4 h-7 v7 h-4 v-7 h-7 v-4 h7 z"' +
@@ -691,9 +696,9 @@
              getText() devolve, e é por ele que o teste pergunta para que
              lado a peça diz que vira. */
           { type: 'field_dropdown', name: 'DIR', options: [
-            [{ src: GIRO_HORARIO, width: LADO_ICONE, height: LADO_ICONE,
+            [{ src: GIRO_HORARIO, width: LARGURA_GIRO, height: ALTURA_GIRO,
                alt: 'direita' }, '90'],
-            [{ src: GIRO_ANTI, width: LADO_ICONE, height: LADO_ICONE,
+            [{ src: GIRO_ANTI, width: LARGURA_GIRO, height: ALTURA_GIRO,
                alt: 'esquerda' }, '-90'],
           ] },
           { type: 'input_dummy', name: 'LINHA_DIR' },

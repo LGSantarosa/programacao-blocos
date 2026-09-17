@@ -3463,6 +3463,32 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
     assert.ok(setaIniciante.seta.left >= setaIniciante.corpo.left &&
               setaIniciante.seta.right <= setaIniciante.corpo.right,
       'a seta saiu do corpo azul: ' + JSON.stringify(setaIniciante));
+    const acoesIniciante = JSON.parse(await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      Blockly.Events.disable();
+      const andar = ws.newBlock('mover_frente');
+      const girar = ws.newBlock('girar');
+      const graus = ws.newBlock('numero');
+      try {
+        graus.setShadow(true); graus.setFieldValue('90', 'NUM');
+        girar.getInput('GRAUS').connection.connect(graus.outputConnection);
+        for (const b of [andar, girar, graus]) { b.initSvg(); b.render(); }
+        Niveis.aplicarEmUm(andar, 'pequeno');
+        Niveis.aplicarEmUm(girar, 'pequeno');
+        andar.moveBy(250, 150); girar.moveBy(400, 150);
+        const a = andar.pathObject.svgPath.getBoundingClientRect();
+        const g = girar.pathObject.svgPath.getBoundingClientRect();
+        return JSON.stringify({ andar: { width: a.width, height: a.height },
+          girar: { width: g.width, height: g.height } });
+      } finally {
+        andar.dispose(false); girar.dispose(false);
+        Blockly.Events.enable();
+      }
+    })()`));
+    assert.ok(Math.abs(acoesIniciante.andar.width - acoesIniciante.girar.width) <= 8 &&
+              Math.abs(acoesIniciante.andar.height - acoesIniciante.girar.height) <= 8,
+      'andar e girar ficaram de tamanhos diferentes: ' +
+      JSON.stringify(acoesIniciante));
     assert.strictEqual(await aval(
       `Blockly.getMainWorkspace().getInjectionDiv().parentElement.id`),
       'editor', 'a demonstração roubou o workspace principal do editor');

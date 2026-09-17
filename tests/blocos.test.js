@@ -112,6 +112,20 @@ test('a seta de andar ganha espaço transparente sem aumentar o desenho', () => 
   }
 });
 
+test('o giro ganha espaço sem aumentar a seta redonda', () => {
+  const bloco = carregar([{ type: 'girar' }]).getBlocksByType('girar', false)[0];
+  const opcoes = bloco.getField('DIR').getOptions(false);
+  for (const opcao of opcoes) {
+    const imagem = opcao[0];
+    assert.strictEqual(imagem.width, 21);
+    assert.strictEqual(imagem.height, 23);
+    const svg = decodeURIComponent(imagem.src);
+    assert.ok(svg.includes('viewBox="0 0 21 23"'));
+    assert.ok(svg.includes('scale(.833333)'),
+      'o espaço do giro aumentou o desenho junto');
+  }
+});
+
 test('definir() duas vezes não estoura por extensão repetida', () => {
   assert.doesNotThrow(() => Blocos.definir());
 });

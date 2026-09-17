@@ -121,8 +121,106 @@
      tutoriais.js; daqui saem apenas as pontes para o Blockly: abrir a ajuda de
      dentro da gaveta e voltar exatamente à categoria para experimentar. */
   tutorial = Tutoriais.criar({ nivel: nivel, aoPraticar: praticarTutorial,
-                               aoNarrar: Som.falar });
+                               aoNarrar: Som.falar,
+                               aoMontarAnimacao: montarAnimacaoTutorial });
   btAprender.addEventListener('click', function () { tutorial.abrir(); });
+
+  /* O piloto do Iniciante usa o próprio renderizador do Blockly. Assim a
+     criança reconhece no editor exatamente as peças que viu se mexerem no
+     tutorial. São workspaces separados e sem interação: servem como desenho,
+     nunca tomam o lugar do programa principal. */
+  var workspacesTutorial = {};
+
+  function workspaceTutorial(id) {
+    if (workspacesTutorial[id]) return workspacesTutorial[id];
+    var mini = Blockly.inject(id, {
+      theme: tema,
+      media: 'vendor/media/',
+      readOnly: true,
+      scrollbars: false,
+      sounds: false,
+      zoom: { controls: false, wheel: false, startScale: 1,
+              minScale: 0.5, maxScale: 1.2 },
+    });
+    workspacesTutorial[id] = mini;
+    /* inject() sempre declara o último workspace como principal. Devolve a
+       referência imediatamente, antes que salvar, PLAY ou a gaveta a leiam. */
+    if (Blockly.common && Blockly.common.setMainWorkspace) {
+      Blockly.common.setMainWorkspace(workspace);
+    } else Blockly.mainWorkspace = workspace;
+    return mini;
+  }
+
+  function carregarDesenhoTutorial(mini, estado, escala) {
+    Blockly.Events.disable();
+    try {
+      mini.clear();
+      Blockly.serialization.blocks.append(estado, mini);
+      Niveis.aplicar(mini, 'pequeno');
+    } finally {
+      Blockly.Events.enable();
+    }
+    mini.setScale(escala);
+    Blockly.svgResize(mini);
+  }
+
+  function montarAnimacaoTutorial(tipo) {
+    var play = workspaceTutorial('tutorial-demo-play-real');
+    var peca = workspaceTutorial('tutorial-demo-peca-real');
+    /* A cabeça verde é naturalmente larga (leva “quando apertar PLAY”).
+       Meia escala conserva a peça real inteira até no celular em pé. */
+    carregarDesenhoTutorial(play, { type: 'quando_play', x: 5, y: 5 }, 0.5);
+
+    var estado;
+    var escala;
+    if (tipo === 'repetir') {
+      estado = {
+        type: 'repetir', x: 4, y: 4,
+        inputs: {
+          N: { shadow: { type: 'numero_bolinhas', fields: { NUM: 4 } } },
+          CORPO: { block: {
+            type: 'mover_frente',
+            inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 0.5 } } } },
+            next: { block: {
+              type: 'girar',
+              inputs: { GRAUS: { shadow: { type: 'numero', fields: { NUM: 90 } } } },
+            } },
+          } },
+        },
+      };
+      escala = 0.72;
+    } else {
+      estado = {
+        type: 'mover_frente', x: 4, y: 4,
+        inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 0.5 } } } },
+      };
+      escala = 1;
+    }
+    carregarDesenhoTutorial(peca, estado, escala);
+
+    var tempoQuantidade = null;
+    var numero = peca.getBlocksByType('numero_bolinhas', false)[0];
+    function escreverQuantidade(valor) {
+      if (!numero) return;
+      numero.setFieldValue(String(valor), 'NUM');
+      Niveis.aplicarEmUm(numero, 'pequeno');
+    }
+    return {
+      reiniciar: function () {
+        if (tempoQuantidade) clearTimeout(tempoQuantidade);
+        if (tipo !== 'repetir') return;
+        escreverQuantidade(2);
+        tempoQuantidade = setTimeout(function () {
+          escreverQuantidade(4);
+          tempoQuantidade = null;
+        }, 900);
+      },
+      parar: function () {
+        if (tempoQuantidade) clearTimeout(tempoQuantidade);
+        tempoQuantidade = null;
+      },
+    };
+  }
 
   function abrirCategoria(nome) {
     /* updateToolbox termina de remontar os itens no mesmo turno. Devolver o

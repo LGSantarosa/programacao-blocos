@@ -3439,6 +3439,17 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
       true, 'Mover ainda abriu a lição escrita no Iniciante');
     assert.ok((await aval(`document.getElementById('tutorial-palco').className`))
       .includes('tipo-mover'), 'o palco não recebeu a animação de movimento');
+    const blocosMover = JSON.parse(await aval(`(() => {
+      const w = Blockly.Workspace.getAll().find(x => x.getInjectionDiv &&
+        x.getInjectionDiv().parentElement &&
+        x.getInjectionDiv().parentElement.id === 'tutorial-demo-peca-real');
+      return JSON.stringify(w ? w.getAllBlocks(false).map(b => b.type) : []);
+    })()`));
+    assert.ok(blocosMover.includes('mover_frente'),
+      'a animação desenhou uma imitação em vez do bloco real de andar');
+    assert.strictEqual(await aval(
+      `Blockly.getMainWorkspace().getInjectionDiv().parentElement.id`),
+      'editor', 'a demonstração roubou o workspace principal do editor');
     assert.ok((await aval(`getComputedStyle(document.getElementById('tutorial-demo-robo'))
       .animationName || getComputedStyle(document.getElementById('tutorial-demo-robo'))
       .webkitAnimationName`)).includes('tutorial-robo-andar'),
@@ -3455,19 +3466,77 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
     assert.ok((await aval(`document.getElementById('tutorial-palco').className`))
       .includes('rodando'), 'de novo não reiniciou a animação');
 
-    /* O segundo desenho do piloto é mesmo outro: mostra o bloco amarelo com a
-       peça azul dentro e dá ao robô o percurso repetido. */
+    /* O segundo desenho usa as peças reais: repetir leva andar e girar dentro,
+       muda a quantidade de duas para quatro e dá ao robô o percurso repetido. */
     await aval(`(document.getElementById('tutorial-voltar').click(),
                  document.querySelector('[data-tutorial="repetir"]').click(), 1)`);
     assert.ok((await aval(`document.getElementById('tutorial-palco').className`))
       .includes('tipo-repetir'), 'Repetir abriu a animação de movimento simples');
-    assert.strictEqual(await aval(
-      `getComputedStyle(document.getElementById('tutorial-demo-bloco-cabeca')).display`),
-      'block', 'a animação de repetir não mostrou a cabeça amarela');
+    const repetir = JSON.parse(await aval(`(() => {
+      const w = Blockly.Workspace.getAll().find(x => x.getInjectionDiv &&
+        x.getInjectionDiv().parentElement &&
+        x.getInjectionDiv().parentElement.id === 'tutorial-demo-peca-real');
+      const tipos = w ? w.getAllBlocks(false).map(b => b.type) : [];
+      const n = w && w.getBlocksByType('numero_bolinhas', false)[0];
+      return JSON.stringify({ tipos, quantidade: n && n.getFieldValue('NUM') });
+    })()`));
+    for (const tipo of ['repetir', 'mover_frente', 'girar']) {
+      assert.ok(repetir.tipos.includes(tipo),
+        `a animação de repetir ficou sem o bloco real ${tipo}`);
+    }
+    assert.strictEqual(Number(repetir.quantidade), 2,
+      'a demonstração não começou mostrando duas repetições');
+    await espera(1100);
+    assert.strictEqual(await aval(`(() => {
+      const w = Blockly.Workspace.getAll().find(x => x.getInjectionDiv &&
+        x.getInjectionDiv().parentElement &&
+        x.getInjectionDiv().parentElement.id === 'tutorial-demo-peca-real');
+      return Number(w.getBlocksByType('numero_bolinhas', false)[0]
+        .getFieldValue('NUM'));
+    })()`), 4, 'a quantidade não mudou visualmente de duas para quatro');
+    const pecasCabem = JSON.parse(await aval(`(() => {
+      const falhas = [];
+      for (const id of ['tutorial-demo-play-real', 'tutorial-demo-peca-real']) {
+        const host = document.getElementById(id);
+        const h = host.getBoundingClientRect();
+        const caminhos = Array.from(host.querySelectorAll('.blocklyPath'))
+          .map(x => x.getBoundingClientRect()).filter(x => x.width && x.height);
+        for (const r of caminhos) {
+          if (r.left < h.left - 1 || r.right > h.right + 1 ||
+              r.top < h.top - 1 || r.bottom > h.bottom + 1) {
+            falhas.push({ id, bloco: { left: r.left, right: r.right,
+              top: r.top, bottom: r.bottom }, host: { left: h.left,
+              right: h.right, top: h.top, bottom: h.bottom } });
+          }
+        }
+      }
+      return JSON.stringify(falhas);
+    })()`));
+    assert.deepStrictEqual(pecasCabem, [],
+      'um bloco real ficou cortado dentro da animação: ' + JSON.stringify(pecasCabem));
     assert.ok((await aval(`getComputedStyle(document.getElementById('tutorial-demo-robo'))
       .animationName || getComputedStyle(document.getElementById('tutorial-demo-robo'))
       .webkitAnimationName`)).includes('tutorial-robo-repetir'),
       'o robozinho não recebeu o percurso repetido');
+
+    /* Em pé há bem menos largura. As duas pranchetas Blockly precisam
+       continuar inteiras dentro do palco, inclusive antes de se encaixarem. */
+    await cdp.envia('Emulation.setDeviceMetricsOverride',
+      { width: 360, height: 740, deviceScaleFactor: 1, mobile: true });
+    await espera(150);
+    const animacaoCelular = JSON.parse(await aval(`(() => {
+      const palco = document.getElementById('tutorial-palco').getBoundingClientRect();
+      const ids = ['tutorial-demo-play-real', 'tutorial-demo-peca-real'];
+      return JSON.stringify(ids.map(id => {
+        const r = document.getElementById(id).getBoundingClientRect();
+        return { id, dentro: r.left >= palco.left - 1 && r.right <= palco.right + 1 };
+      }));
+    })()`));
+    assert.deepStrictEqual(animacaoCelular.filter(x => !x.dentro), [],
+      'a animação saiu do palco no celular: ' + JSON.stringify(animacaoCelular));
+    await cdp.envia('Emulation.setDeviceMetricsOverride',
+      { width: 808, height: 411, deviceScaleFactor: 1, mobile: true });
+    await espera(150);
 
     await aval(`(document.getElementById('tutorial-voltar').click(),
                  document.querySelector('[data-tutorial="mover"]').click(), 1)`);

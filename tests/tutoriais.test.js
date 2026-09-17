@@ -48,6 +48,13 @@ test('os dois assuntos do Iniciante têm animação e narração sem texto obrig
   }
 });
 
+test('a animação de repetir explica quantidade, andar e girar', () => {
+  const fala = Tutoriais.buscar('repetir').animacao.fala.toLowerCase();
+  for (const ideia of ['quantas vezes', 'duas', 'quatro', 'andar', 'girar']) {
+    assert.ok(fala.includes(ideia), `a narração não explicou “${ideia}”`);
+  }
+});
+
 test('Caixas explica criar, guardar, mudar e ler sem confundir as operações', () => {
   const texto = Tutoriais.buscar('caixas').passos
     .map((p) => `${p.titulo} ${p.texto} ${p.dica}`).join('\n').toLowerCase();

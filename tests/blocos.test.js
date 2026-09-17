@@ -96,6 +96,15 @@ test('as palavras dos blocos são campos, para poderem sumir no Pequeno', () => 
   assert.ok(g.getField('T2'), 'faltou o rótulo "graus" como campo');
 });
 
+test('as setas de andar têm alvo maior que os outros ícones', () => {
+  const ws = carregar([{ type: 'mover_frente' }, { type: 'mover_tras' }]);
+  for (const tipo of ['mover_frente', 'mover_tras']) {
+    const tamanho = ws.getBlocksByType(tipo, false)[0].getField('ICONE').getSize();
+    assert.ok(tamanho.width >= 30 && tamanho.height >= 30,
+      `${tipo} ainda ficou pequeno: ${tamanho.width}x${tamanho.height}`);
+  }
+});
+
 test('definir() duas vezes não estoura por extensão repetida', () => {
   assert.doesNotThrow(() => Blocos.definir());
 });

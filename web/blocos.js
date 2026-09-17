@@ -56,6 +56,11 @@
   }
 
   var LADO_ICONE = 20;
+  /* Andar é a ação que a criança mais pega, e no Básico a seta de 20px
+     fazia a peça parecer bem menor que as vizinhas. Aumentar só estas duas
+     imagens dá um alvo de toque mais generoso sem alargar menus, giros e peças
+     avançadas que já ocupam quase toda a gaveta do celular. */
+  var LADO_MOVIMENTO = 30;
 
   /* Seta grossa: haste larga e cabeça grande, para ler a 20px num tablet. */
   var SETA_CIMA  = icone('<path d="M12 2 L22 13 L16 13 L16 22 L8 22 L8 13 L2 13 Z" fill="#fff"/>');
@@ -93,9 +98,10 @@
      Quem reacende campo escondido é a tabela do nível, e ela só enxerga
      campo com nome. Por isso ICONE aparece no campos de todos os níveis,
      sempre true. */
-  function imagem(src, alt) {
+  function imagem(src, alt, lado) {
+    lado = lado || LADO_ICONE;
     return { type: 'field_image', name: 'ICONE', src: src,
-             width: LADO_ICONE, height: LADO_ICONE, alt: alt };
+             width: lado, height: lado, alt: alt };
   }
 
   var extensaoPronta = false;
@@ -629,7 +635,7 @@
         type: 'mover_frente',
         message0: '%1 %2 %3 %4 %5',
         args0: [
-          imagem(SETA_CIMA, 'para frente'),
+          imagem(SETA_CIMA, 'para frente', LADO_MOVIMENTO),
           { type: 'field_label', name: 'T1', text: 'andar frente' },
           { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },
@@ -645,7 +651,7 @@
         type: 'mover_tras',
         message0: '%1 %2 %3 %4 %5',
         args0: [
-          imagem(SETA_BAIXO, 'para trás'),
+          imagem(SETA_BAIXO, 'para trás', LADO_MOVIMENTO),
           { type: 'field_label', name: 'T1', text: 'andar trás' },
           { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },

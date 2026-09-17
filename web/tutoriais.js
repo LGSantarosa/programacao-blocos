@@ -62,7 +62,7 @@
       resumo: 'Fazer a mesma sequência mais de uma vez.', cor: AMARELO,
       animacao: {
         tipo: 'repetir',
-        fala: 'A peça amarela leva a peça azul dentro dela. Aperta PLAY e o robô faz o caminho quatro vezes.',
+        fala: 'Você escolhe quantas vezes vai repetir. Aqui mudamos de duas para quatro. Andar e girar ficam dentro da peça amarela. Aperta PLAY e o robô faz os dois quatro vezes.',
       },
       passos: [
         {
@@ -439,6 +439,13 @@
     var topico = null;
     var indice = 0;
     var focoAnterior = null;
+    var controleAnimacao = null;
+
+    function pararAnimacao() {
+      if (controleAnimacao && controleAnimacao.parar) controleAnimacao.parar();
+      controleAnimacao = null;
+      palco.className = 'tutorial-palco';
+    }
 
     function esvaziar(no) {
       while (no.firstChild) no.removeChild(no.firstChild);
@@ -476,6 +483,7 @@
     }
 
     function mostrarMenu() {
+      pararAnimacao();
       topico = null;
       indice = 0;
       titulo.textContent = '📚 Aprender';
@@ -483,7 +491,6 @@
       menu.hidden = false;
       licao.hidden = true;
       animacao.hidden = true;
-      palco.className = 'tutorial-palco';
       progresso.textContent = NOMES[nivel];
     }
 
@@ -494,6 +501,9 @@
          recomeçar os keyframes. É o replay que funciona também no Safari 9. */
       palco.offsetWidth;
       palco.className += ' rodando';
+      if (controleAnimacao && controleAnimacao.reiniciar) {
+        controleAnimacao.reiniciar();
+      }
       if (opcoes.aoNarrar) opcoes.aoNarrar(topico.animacao.fala);
     }
 
@@ -503,10 +513,15 @@
       menu.hidden = true;
       licao.hidden = true;
       animacao.hidden = false;
+      pararAnimacao();
+      if (opcoes.aoMontarAnimacao) {
+        controleAnimacao = opcoes.aoMontarAnimacao(topico.animacao.tipo);
+      }
       iniciarAnimacao();
     }
 
     function desenharPasso() {
+      pararAnimacao();
       var passo = topico.passos[indice];
       animacao.hidden = true;
       titulo.textContent = topico.icone + ' ' + topico.titulo;
@@ -566,7 +581,7 @@
 
     function fechar() {
       painel.hidden = true;
-      palco.className = 'tutorial-palco';
+      pararAnimacao();
       if (focoAnterior && focoAnterior.focus) focoAnterior.focus();
       focoAnterior = null;
     }

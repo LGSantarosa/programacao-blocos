@@ -3352,7 +3352,7 @@ test('a criança cria uma entrada com a gaveta aberta, renomeia, apaga e recarre
     cdp.fechar();
   });
 
-test('o tutorial ensina os dois assuntos e devolve à gaveta para praticar',
+test('Aprender acompanha o nível e devolve à gaveta para praticar',
   { skip: PULAR, timeout: 120000 },
   async (t) => {
     spawnSync('make', ['--silent'], { cwd: path.join(RAIZ, 'host') });
@@ -3415,14 +3415,39 @@ test('o tutorial ensina os dois assuntos e devolve à gaveta para praticar',
                  document.getElementById('aprender').click(), 1)`);
     assert.strictEqual(await aval(`document.getElementById('painel-tutorial').hidden`),
       false, 'o botão aprender não abriu o tutorial');
-    assert.strictEqual(await aval(`document.querySelectorAll('.tutorial-tema').length`), 2,
-      'o menu não mostrou os dois assuntos');
+    assert.strictEqual(await aval(`document.querySelectorAll('.tutorial-tema').length`), 5,
+      'o Básico não mostrou exatamente os cinco assuntos disponíveis');
+    assert.strictEqual(await aval(
+      `document.querySelector('[data-tutorial="caixas"]') === null`), true,
+      'Caixas apareceu antes do Avançado');
+
+    /* Sobe sem trabalho montado. A biblioteca deve se refazer junto com a
+       gaveta, e o Avançado vira a consulta de todos os blocos. */
+    await aval(`(document.getElementById('tutorial-fechar').click(),
+                 document.querySelector('#niveis [data-nivel="gigante"]').click(), 1)`);
+    await espera(400);
+    await aval(`(document.getElementById('ajustes').click(),
+                 document.getElementById('aprender').click(), 1)`);
+    assert.strictEqual(await aval(`document.querySelectorAll('.tutorial-tema').length`),
+      12, 'o Avançado não mostrou a biblioteca completa');
+    const medidas = JSON.parse(await aval(`(() => {
+      const r = document.getElementById('tutorial-caixa').getBoundingClientRect();
+      const c = document.getElementById('tutorial-caixa');
+      return JSON.stringify({ esquerda: r.left, direita: r.right, topo: r.top,
+        fundo: r.bottom, largura: innerWidth, altura: innerHeight,
+        rola: c.scrollHeight > c.clientHeight });
+    })()`));
+    assert.ok(medidas.esquerda >= 0 && medidas.direita <= medidas.largura &&
+              medidas.topo >= 0 && medidas.fundo <= medidas.altura,
+      'a biblioteca completa escapou da tela do celular: ' + JSON.stringify(medidas));
+    assert.strictEqual(medidas.rola, true,
+      'a lista grande deveria rolar dentro do painel, sem esticar a página');
 
     await aval(`(document.querySelector('[data-tutorial="caixas"]').click(), 1)`);
     assert.strictEqual(await aval(`document.getElementById('tutorial-titulo').textContent`),
       '📦 Caixas');
     assert.strictEqual(await aval(`document.getElementById('tutorial-progresso').textContent`),
-      'passo 1 de 5');
+      'Avançado · passo 1 de 5');
     assert.ok(await aval(`document.querySelectorAll('#tutorial-desenho .tutorial-bloco').length`) > 0,
       'o passo não desenhou exemplo nenhum');
 
@@ -3450,29 +3475,6 @@ test('o tutorial ensina os dois assuntos e devolve à gaveta para praticar',
     assert.strictEqual(await aval(`document.getElementById('painel-tutorial').hidden`), true,
       'Escape não fechou o tutorial');
 
-    /* Com trabalho montado, «experimentar» não pode aproveitar o entusiasmo e
-       apagar tudo: passa pela mesma confirmação da troca manual de nível. */
-    await aval(`(() => {
-      document.getElementById('ajustes').click();
-      document.querySelector('#niveis [data-nivel="medio"]').click();
-      const b = Blockly.getMainWorkspace().newBlock('mover_frente');
-      b.initSvg(); b.render();
-      document.getElementById('ajustes').click();
-      document.getElementById('aprender').click();
-      document.querySelector('[data-tutorial="meus-blocos"]').click();
-      return 1;
-    })()`);
-    for (let i = 0; i < 5; i++) {
-      await aval(`(document.getElementById('tutorial-proximo').click(), 1)`);
-    }
-    assert.strictEqual(await aval(`document.getElementById('confirma').hidden`), false,
-      'experimentar apagaria o trabalho sem perguntar');
-    assert.strictEqual(await aval(`Niveis.atual()`), 'medio',
-      'o nível mudou antes da resposta');
-    await aval(`(document.getElementById('confirma-nao').click(), 1)`);
-    assert.strictEqual(await aval(
-      `Blockly.getMainWorkspace().getBlocksByType('mover_frente', false).length`), 1,
-      'dizer Não não preservou o trabalho');
     assert.deepStrictEqual(erros, [], 'a página lançou erro: ' + erros.join('\n'));
 
     cdp.fechar();

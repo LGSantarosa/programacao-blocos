@@ -237,7 +237,7 @@
      era clara sobre azul. */
   #painel-ajustes #versao { display: inline; color: #7f9fe8; }
 
-  /* ---------- aprender os blocos avançados ---------- */
+  /* ---------- aprender os blocos do nível ---------- */
 
   /* A ajuda não fica escondida num texto do rodapé. É uma ação do mesmo
      tamanho que som e código, e reaparece dentro das próprias gavetas Caixas
@@ -292,6 +292,7 @@
     text-align: left; box-shadow: 0 6px 0 rgba(0, 32, 128, .28);
   }
   .tutorial-tema:active:not(:disabled) { box-shadow: 0 2px 0 rgba(0, 32, 128, .28); }
+  .tutorial-tema.claro { color: #002080; }
   .tutorial-tema-nome { display: block; font-size: 22px; line-height: 1.2; }
   .tutorial-tema-resumo { display: block; margin-top: 8px; font-size: 14px;
                           line-height: 1.35; font-weight: 700; }
@@ -316,6 +317,7 @@
   }
   .tutorial-bloco:last-child { margin-bottom: 0; }
   .tutorial-bloco.dentro { margin-left: 28px; }
+  .tutorial-bloco.claro { color: #002080; }
   #tutorial-dica { max-width: 530px; margin: 0 auto 15px; padding: 9px 12px;
                    border-radius: 11px; background: #fff3cd; color: #6b5000;
                    font-size: 14px; font-weight: 800; line-height: 1.35; }
@@ -898,8 +900,8 @@
       </div>
 
       <div id="tutorial-menu">
-        <p id="tutorial-menu-intro">Escolha uma ideia. São explicações curtas,
-          com um exemplo para montar logo depois.</p>
+        <p id="tutorial-menu-intro">Escolha uma ideia para ver uma explicação
+          curta e um exemplo.</p>
         <div id="tutorial-temas"></div>
       </div>
 

@@ -56,9 +56,10 @@ test('as duas gavetas difíceis oferecem ajuda no lugar da dúvida', () => {
   assert.match(APP, /registerButtonCallback\('AJUDA_BLOCOS'/);
 });
 
-test('experimentar um tutorial leva ao Avançado pelo caminho protegido', () => {
+test('experimentar abre a gaveta do assunto no nível em que ele existe', () => {
   assert.match(APP, /categoriaTutorialPendente = assunto\.categoria/);
-  assert.match(APP, /trocarNivel\('gigante'\)/);
+  assert.match(APP, /Tutoriais\.disponivel\(id, nivel\)/);
+  assert.match(APP, /trocarNivel\(assunto\.nivel\)/);
 });
 
 test('todo módulo de web/ entra na página, e antes do app.js', () => {

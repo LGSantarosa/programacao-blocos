@@ -3,18 +3,38 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const Tutoriais = require('../web/tutoriais.js');
+const Niveis = require('../web/niveis.js');
 
-test('há uma trilha completa para Caixas e outra para Meus blocos', () => {
-  assert.deepStrictEqual(
-    Tutoriais.TOPICOS.map((t) => t.id), ['caixas', 'meus-blocos']);
+test('todo assunto tem explicação e exemplo', () => {
   for (const topico of Tutoriais.TOPICOS) {
-    assert.ok(topico.passos.length >= 5,
-      `${topico.titulo} ficou curto demais para ensinar a ideia e a prática`);
+    assert.ok(topico.nivel && topico.categoria && topico.blocos.length,
+      `${topico.titulo} precisa dizer onde e quando existe`);
+    assert.ok(topico.passos.length > 0,
+      `${topico.titulo} precisa ensinar pelo menos uma ideia`);
     for (const passo of topico.passos) {
       assert.ok(passo.titulo && passo.texto, 'todo passo precisa se explicar');
       assert.ok(passo.desenho.length > 0, 'todo passo precisa mostrar um exemplo');
     }
   }
+});
+
+test('Aprender mostra somente os blocos disponíveis e cobre todos eles', () => {
+  for (const nivel of Niveis.LISTA) {
+    const ensinados = Tutoriais.disponiveis(nivel)
+      .flatMap((topico) => topico.blocos);
+    const semRepetir = [...new Set(ensinados)].sort();
+    const disponiveis = [...Niveis.definicao(nivel).blocos].sort();
+    assert.deepStrictEqual(semRepetir, disponiveis,
+      `os tutoriais do ${Niveis.NOMES[nivel]} precisam acompanhar sua gaveta`);
+  }
+});
+
+test('os assuntos entram aos poucos e o Avançado vira a consulta completa', () => {
+  const quantidades = Niveis.LISTA.map(
+    (nivel) => Tutoriais.disponiveis(nivel).length);
+  assert.deepStrictEqual(quantidades, [2, 5, 7, Tutoriais.TOPICOS.length]);
+  assert.strictEqual(Tutoriais.disponivel('caixas', 'grande'), false);
+  assert.strictEqual(Tutoriais.disponivel('caixas', 'gigante'), true);
 });
 
 test('Caixas explica criar, guardar, mudar e ler sem confundir as operações', () => {

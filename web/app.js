@@ -120,7 +120,7 @@
   /* O painel é uma casca só. O conteúdo e a navegação curta vivem em
      tutoriais.js; daqui saem apenas as pontes para o Blockly: abrir a ajuda de
      dentro da gaveta e voltar exatamente à categoria para experimentar. */
-  tutorial = Tutoriais.criar({ aoPraticar: praticarTutorial });
+  tutorial = Tutoriais.criar({ nivel: nivel, aoPraticar: praticarTutorial });
   btAprender.addEventListener('click', function () { tutorial.abrir(); });
 
   function abrirCategoria(nome) {
@@ -144,7 +144,7 @@
     var assunto = Tutoriais.buscar(id);
     if (!assunto) return;
     fecharAjustes();
-    if (nivel === 'gigante') {
+    if (Tutoriais.disponivel(id, nivel)) {
       abrirCategoria(assunto.categoria);
       return;
     }
@@ -152,7 +152,7 @@
        na tela, a pergunta aparece antes de apagar. aplicarTroca consome esta
        categoria só depois que a criança confirma. */
     categoriaTutorialPendente = assunto.categoria;
-    trocarNivel('gigante');
+    trocarNivel(assunto.nivel);
   }
 
   /* ---------- as caixas com nome ---------- */
@@ -1181,6 +1181,10 @@
     }
     vestirTela();
     avisarSemVoz();
+    /* «Aprender» acompanha a caixa: a troca tira os assuntos que deixaram de
+       existir e acrescenta os que acabaram de chegar neste nível. Na primeira
+       chamada o painel ainda não foi criado, daí a guarda. */
+    if (tutorial) tutorial.definirNivel(nivel);
   }
 
   /* Sem voz instalada o speak() vira silêncio sem erro nenhum, e o silêncio

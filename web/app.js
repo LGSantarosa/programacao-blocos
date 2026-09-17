@@ -227,8 +227,13 @@
 
     function escreverQuantidade(valor) {
       if (!numero) return;
-      numero.setFieldValue(String(valor), 'NUM');
-      Niveis.aplicarEmUm(numero, 'pequeno');
+      var campo = numero.getField('NUM');
+      campo.setValue(String(valor));
+      /* setValue marca o campo como sujo, mas um workspace somente-leitura
+         nem sempre agenda outra renderização. Força o desenho agora para a
+         criança realmente ver duas bolinhas virarem quatro. */
+      if (campo.forceRerender) campo.forceRerender();
+      if (numero.render) numero.render();
     }
     return {
       reiniciar: function () {
@@ -241,14 +246,14 @@
           tempoQuantidade = setTimeout(function () {
             escreverQuantidade(4);
             tempoQuantidade = null;
-          }, 900);
+          }, 1800);
         }
-        /* Coincide com os 35% do keyframe: a peça que chegou à boca some
+        /* Coincide com os 52% do keyframe: a peça que chegou à boca some
            e reaparece como filha real do CORPO do PLAY. */
         tempoEncaixe = setTimeout(function () {
           playComPeca();
           tempoEncaixe = null;
-        }, 2300);
+        }, 4200);
       },
       parar: function () {
         if (tempoQuantidade) clearTimeout(tempoQuantidade);

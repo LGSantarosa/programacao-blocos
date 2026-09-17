@@ -364,52 +364,58 @@
   }
 
   .tutorial-palco.rodando #tutorial-demo-peca-real {
-    -webkit-animation: tutorial-encaixar 6.5s ease-in-out both;
-    animation: tutorial-encaixar 6.5s ease-in-out both;
+    -webkit-animation: tutorial-encaixar 8s ease-in-out both;
+    animation: tutorial-encaixar 8s ease-in-out both;
   }
   .tutorial-palco.rodando #tutorial-demo-mao {
-    -webkit-animation: tutorial-mao 6.5s ease-in-out both;
-    animation: tutorial-mao 6.5s ease-in-out both;
+    -webkit-animation: tutorial-mao 8s ease-in-out both;
+    animation: tutorial-mao 8s ease-in-out both;
   }
   .tutorial-palco.rodando #tutorial-demo-play-real {
-    -webkit-animation: tutorial-apertar 6.5s ease-in-out both;
-    animation: tutorial-apertar 6.5s ease-in-out both;
+    -webkit-animation: tutorial-apertar 8s ease-in-out both;
+    animation: tutorial-apertar 8s ease-in-out both;
   }
   .tutorial-palco.rodando.tipo-mover #tutorial-demo-robo {
-    -webkit-animation: tutorial-robo-andar 6.5s ease-in-out both;
-    animation: tutorial-robo-andar 6.5s ease-in-out both;
+    -webkit-animation: tutorial-robo-andar 8s ease-in-out both;
+    animation: tutorial-robo-andar 8s ease-in-out both;
   }
   .tutorial-palco.rodando.tipo-repetir #tutorial-demo-robo {
-    -webkit-animation: tutorial-robo-repetir 6.5s ease-in-out both;
-    animation: tutorial-robo-repetir 6.5s ease-in-out both;
+    -webkit-animation: tutorial-robo-repetir 8s ease-in-out both;
+    animation: tutorial-robo-repetir 8s ease-in-out both;
   }
   @keyframes tutorial-encaixar {
-    0%, 14% { left: calc(100% - 215px); top: 45px; }
-    35%, 100% { left: 8%; top: 53px; }
-    49%, 72% { filter: drop-shadow(0 0 6px #ffe36b); }
+    0%, 28% { left: calc(100% - 215px); top: 45px; }
+    52%, 100% { left: 8%; top: 53px; }
+    52%, 72% { filter: drop-shadow(0 0 6px #ffe36b); }
   }
   @keyframes tutorial-mao {
-    0%, 4% { left: 76%; top: 105px; opacity: 0; }
-    8% { opacity: 1; }
-    29% { left: 22%; top: 112px; opacity: 1; }
-    38% { left: 22%; top: 27px; opacity: 1; }
-    44% { left: 22%; top: 32px; opacity: 1; }
-    50%, 100% { left: 22%; top: 32px; opacity: 0; }
+    0%, 5% { left: 76%; top: 92px; opacity: 0;
+             -webkit-transform: scale(1); transform: scale(1); }
+    9%, 20% { left: 76%; top: 92px; opacity: 1;
+              -webkit-transform: scale(1); transform: scale(1); }
+    23% { left: 76%; top: 92px; opacity: 1;
+          -webkit-transform: scale(.82); transform: scale(.82); }
+    28% { left: 76%; top: 92px; opacity: 1;
+          -webkit-transform: scale(1); transform: scale(1); }
+    50% { left: 22%; top: 105px; opacity: 1; }
+    58% { left: 22%; top: 27px; opacity: 1; }
+    63% { left: 22%; top: 32px; opacity: 1; }
+    69%, 100% { left: 22%; top: 32px; opacity: 0; }
   }
   @keyframes tutorial-apertar {
-    0%, 37%, 47%, 100% { -webkit-transform: scale(1); transform: scale(1); }
-    42% { -webkit-transform: scale(.92); transform: scale(.92); }
+    0%, 56%, 67%, 100% { -webkit-transform: scale(1); transform: scale(1); }
+    62% { -webkit-transform: scale(.92); transform: scale(.92); }
   }
   @keyframes tutorial-robo-andar {
-    0%, 52% { left: 12%; top: 187px; }
-    91%, 100% { left: 72%; top: 187px; }
+    0%, 68% { left: 12%; top: 187px; }
+    95%, 100% { left: 72%; top: 187px; }
   }
   @keyframes tutorial-robo-repetir {
-    0%, 50% { left: 12%; top: 187px; }
-    62% { left: 66%; top: 187px; }
-    74% { left: 66%; top: 133px; }
-    86% { left: 20%; top: 133px; }
-    98%, 100% { left: 20%; top: 187px; }
+    0%, 68% { left: 12%; top: 187px; }
+    76% { left: 66%; top: 187px; }
+    84% { left: 66%; top: 133px; }
+    92% { left: 20%; top: 133px; }
+    100% { left: 20%; top: 187px; }
   }
 
   #tutorial-licao { padding: 10px 8px 0; }

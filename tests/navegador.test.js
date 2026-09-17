@@ -3478,7 +3478,9 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
         x.getInjectionDiv().parentElement.id === 'tutorial-demo-peca-real');
       const tipos = w ? w.getAllBlocks(false).map(b => b.type) : [];
       const n = w && w.getBlocksByType('numero_bolinhas', false)[0];
-      return JSON.stringify({ tipos, quantidade: n && n.getFieldValue('NUM') });
+      const campo = n && n.getField('NUM');
+      return JSON.stringify({ tipos, quantidade: n && n.getFieldValue('NUM'),
+        desenho: campo && campo.getText(), dom: n && n.getSvgRoot().textContent });
     })()`));
     for (const tipo of ['repetir', 'mover_frente', 'girar']) {
       assert.ok(repetir.tipos.includes(tipo),
@@ -3486,15 +3488,27 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
     }
     assert.strictEqual(Number(repetir.quantidade), 2,
       'a demonstração não começou mostrando duas repetições');
-    await espera(1100);
-    assert.strictEqual(await aval(`(() => {
+    assert.strictEqual(repetir.desenho, '●●○○○',
+      'o campo não desenhou duas bolinhas no começo');
+    assert.ok(repetir.dom.includes('●●○○○'),
+      'as duas bolinhas existem no valor, mas não apareceram no SVG');
+    await espera(2000);
+    const quatro = JSON.parse(await aval(`(() => {
       const w = Blockly.Workspace.getAll().find(x => x.getInjectionDiv &&
         x.getInjectionDiv().parentElement &&
         x.getInjectionDiv().parentElement.id === 'tutorial-demo-peca-real');
-      return Number(w.getBlocksByType('numero_bolinhas', false)[0]
-        .getFieldValue('NUM'));
-    })()`), 4, 'a quantidade não mudou visualmente de duas para quatro');
-    await espera(1400);
+      const n = w.getBlocksByType('numero_bolinhas', false)[0];
+      const campo = n.getField('NUM');
+      return JSON.stringify({ quantidade: Number(n.getFieldValue('NUM')),
+        desenho: campo.getText(), dom: n.getSvgRoot().textContent });
+    })()`));
+    assert.strictEqual(quatro.quantidade, 4,
+      'a quantidade interna não mudou de duas para quatro');
+    assert.strictEqual(quatro.desenho, '●●●●○',
+      'o campo não redesenhou quatro bolinhas');
+    assert.ok(quatro.dom.includes('●●●●○'),
+      'o campo mudou para quatro, mas o SVG continuou mostrando duas');
+    await espera(2400);
     const encaixado = JSON.parse(await aval(`(() => {
       const w = Blockly.Workspace.getAll().find(x => x.getInjectionDiv &&
         x.getInjectionDiv().parentElement &&

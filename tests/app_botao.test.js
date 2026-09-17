@@ -52,6 +52,7 @@ test('o tutorial fica no cabeçalho, sempre à vista, e nasce fechado', () => {
   assert.doesNotMatch(ajustes, /id="aprender"/);
   assert.match(HTML, /id="painel-tutorial"[^>]*hidden/);
   assert.match(APP, /btAprender\.addEventListener\('click'/);
+  assert.match(APP, /aoNarrar: Som\.falar/);
 });
 
 test('as duas gavetas difíceis oferecem ajuda no lugar da dúvida', () => {

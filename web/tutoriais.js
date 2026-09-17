@@ -31,6 +31,10 @@
       blocos: ['mover_frente', 'mover_tras', 'girar'],
       icone: '↕', titulo: 'Mover e girar',
       resumo: 'Fazer o robô andar e virar para cada lado.', cor: AZUL,
+      animacao: {
+        tipo: 'mover',
+        fala: 'Olha só. A peça azul entra embaixo do PLAY. Aperta PLAY e o robô anda.',
+      },
       passos: [
         {
           titulo: 'As setas fazem o robô andar',
@@ -56,6 +60,10 @@
       id: 'repetir', nivel: 'pequeno', categoria: 'Repetir',
       blocos: ['repetir'], icone: '🔁', titulo: 'Repetir',
       resumo: 'Fazer a mesma sequência mais de uma vez.', cor: AMARELO,
+      animacao: {
+        tipo: 'repetir',
+        fala: 'A peça amarela leva a peça azul dentro dela. Aperta PLAY e o robô faz o caminho quatro vezes.',
+      },
       passos: [
         {
           titulo: 'O que fica dentro acontece de novo',
@@ -413,6 +421,8 @@
     var intro = doc.getElementById('tutorial-menu-intro');
     var temas = doc.getElementById('tutorial-temas');
     var licao = doc.getElementById('tutorial-licao');
+    var animacao = doc.getElementById('tutorial-animacao');
+    var palco = doc.getElementById('tutorial-palco');
     var titulo = doc.getElementById('tutorial-titulo');
     var progresso = doc.getElementById('tutorial-progresso');
     var passoTitulo = doc.getElementById('tutorial-passo-titulo');
@@ -423,6 +433,8 @@
     var btFechar = doc.getElementById('tutorial-fechar');
     var btAnterior = doc.getElementById('tutorial-anterior');
     var btProximo = doc.getElementById('tutorial-proximo');
+    var btAnimacaoDeNovo = doc.getElementById('tutorial-animacao-denovo');
+    var btAnimacaoPraticar = doc.getElementById('tutorial-animacao-praticar');
     var nivel = ORDEM.indexOf(opcoes.nivel) >= 0 ? opcoes.nivel : 'medio';
     var topico = null;
     var indice = 0;
@@ -435,6 +447,7 @@
     function montarTemas() {
       var lista = disponiveis(nivel);
       esvaziar(temas);
+      menu.className = nivel === 'pequeno' ? 'iniciante' : '';
       intro.textContent = 'Blocos do ' + NOMES[nivel] +
         '. Escolha uma ideia para ver uma explicação curta e um exemplo.';
       for (var i = 0; i < lista.length; i++) {
@@ -469,11 +482,33 @@
       btVoltar.hidden = true;
       menu.hidden = false;
       licao.hidden = true;
+      animacao.hidden = true;
+      palco.className = 'tutorial-palco';
       progresso.textContent = NOMES[nivel];
+    }
+
+    function iniciarAnimacao() {
+      if (!topico || !topico.animacao) return;
+      palco.className = 'tutorial-palco tipo-' + topico.animacao.tipo;
+      /* Ler uma medida entre tirar e pôr a classe obriga o navegador a
+         recomeçar os keyframes. É o replay que funciona também no Safari 9. */
+      palco.offsetWidth;
+      palco.className += ' rodando';
+      if (opcoes.aoNarrar) opcoes.aoNarrar(topico.animacao.fala);
+    }
+
+    function desenharAnimacao() {
+      titulo.textContent = topico.icone + ' ' + topico.titulo;
+      progresso.textContent = '';
+      menu.hidden = true;
+      licao.hidden = true;
+      animacao.hidden = false;
+      iniciarAnimacao();
     }
 
     function desenharPasso() {
       var passo = topico.passos[indice];
+      animacao.hidden = true;
       titulo.textContent = topico.icone + ' ' + topico.titulo;
       progresso.textContent = NOMES[nivel] + ' · passo ' + (indice + 1) +
                               ' de ' + topico.passos.length;
@@ -503,15 +538,21 @@
       indice = 0;
       btVoltar.hidden = false;
       menu.hidden = true;
-      licao.hidden = false;
-      desenharPasso();
+      if (nivel === 'pequeno' && achado.animacao) desenharAnimacao();
+      else {
+        licao.hidden = false;
+        desenharPasso();
+      }
     }
 
     function definirNivel(novo) {
       if (ORDEM.indexOf(novo) < 0 || novo === nivel) return;
       nivel = novo;
       montarTemas();
-      if (topico && disponivel(topico.id, nivel)) desenharPasso();
+      if (topico && disponivel(topico.id, nivel)) {
+        if (nivel === 'pequeno' && topico.animacao) desenharAnimacao();
+        else { licao.hidden = false; desenharPasso(); }
+      }
       else mostrarMenu();
     }
 
@@ -525,6 +566,7 @@
 
     function fechar() {
       painel.hidden = true;
+      palco.className = 'tutorial-palco';
       if (focoAnterior && focoAnterior.focus) focoAnterior.focus();
       focoAnterior = null;
     }
@@ -550,6 +592,13 @@
         desenharPasso();
         return;
       }
+      var id = topico.id;
+      fechar();
+      if (opcoes.aoPraticar) opcoes.aoPraticar(id);
+    });
+    btAnimacaoDeNovo.addEventListener('click', iniciarAnimacao);
+    btAnimacaoPraticar.addEventListener('click', function () {
+      if (!topico) return;
       var id = topico.id;
       fechar();
       if (opcoes.aoPraticar) opcoes.aoPraticar(id);

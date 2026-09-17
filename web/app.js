@@ -120,7 +120,8 @@
   /* O painel é uma casca só. O conteúdo e a navegação curta vivem em
      tutoriais.js; daqui saem apenas as pontes para o Blockly: abrir a ajuda de
      dentro da gaveta e voltar exatamente à categoria para experimentar. */
-  tutorial = Tutoriais.criar({ nivel: nivel, aoPraticar: praticarTutorial });
+  tutorial = Tutoriais.criar({ nivel: nivel, aoPraticar: praticarTutorial,
+                               aoNarrar: Som.falar });
   btAprender.addEventListener('click', function () { tutorial.abrir(); });
 
   function abrirCategoria(nome) {

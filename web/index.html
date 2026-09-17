@@ -301,9 +301,134 @@
   .tutorial-tema-resumo { display: block; margin-top: 8px; font-size: 14px;
                           line-height: 1.35; font-weight: 700; }
 
-  #tutorial-menu[hidden], #tutorial-licao[hidden], #tutorial-dica[hidden] {
+  #tutorial-menu[hidden], #tutorial-licao[hidden], #tutorial-animacao[hidden],
+  #tutorial-dica[hidden] {
     display: none;
   }
+  /* No Iniciante, os dois desenhos grandes são o menu. O título continua no
+     DOM para a voz e para quem acompanha, mas a criança não precisa atravessar
+     um parágrafo antes de tocar. */
+  #tutorial-menu.iniciante #tutorial-menu-intro,
+  #tutorial-menu.iniciante .tutorial-tema-resumo { display: none; }
+  #tutorial-menu.iniciante .tutorial-tema {
+    width: 210px; min-height: 104px; text-align: center;
+  }
+  #tutorial-menu.iniciante .tutorial-tema-nome { font-size: 27px; }
+
+  /* ---------- piloto animado do Iniciante ---------- */
+
+  #tutorial-animacao { padding: 8px 4px 0; }
+  #tutorial-palco {
+    position: relative; height: 260px; max-width: 530px; margin: 0 auto 14px;
+    overflow: hidden; border-radius: 17px; background: #eaf4fe;
+    border: 3px solid #cbdff5;
+  }
+  #tutorial-demo-programa { position: absolute; left: 9%; top: 18px; z-index: 2; }
+  #tutorial-demo-play {
+    width: 118px; padding: 11px 8px; border-radius: 12px; text-align: center;
+    color: #fff; background: #37c26b; box-shadow: 0 5px 0 #2a9c54;
+    font-size: 17px; font-weight: 900;
+  }
+  #tutorial-demo-encaixe {
+    width: 78px; height: 47px; margin-left: 19px; border: 4px dashed #9ab6d8;
+    border-top: 0; border-radius: 0 0 13px 13px;
+  }
+  #tutorial-demo-bloco {
+    position: absolute; left: 68%; top: 62px; z-index: 4;
+    min-width: 76px; min-height: 46px; padding: 8px 10px;
+    border-radius: 11px; color: #fff; background: #0050f0;
+    box-shadow: 0 5px 0 rgba(0, 32, 128, .32); text-align: center;
+    font-size: 26px; font-weight: 900;
+  }
+  #tutorial-demo-bloco-cabeca { display: none; }
+  #tutorial-demo-bloco-dentro { line-height: 30px; }
+  .tipo-repetir #tutorial-demo-bloco {
+    min-width: 112px; padding: 7px 9px 9px; color: #002080; background: #f0c000;
+  }
+  .tipo-repetir #tutorial-demo-bloco-cabeca {
+    display: block; margin-bottom: 5px; font-size: 18px; line-height: 20px;
+  }
+  .tipo-repetir #tutorial-demo-bloco-dentro {
+    margin-left: 18px; padding: 3px 12px; border-radius: 8px;
+    color: #fff; background: #0050f0; font-size: 21px;
+  }
+  #tutorial-demo-mao {
+    position: absolute; left: 76%; top: 105px; z-index: 6;
+    font-size: 34px; line-height: 1; opacity: 0;
+  }
+  #tutorial-demo-chao {
+    position: absolute; right: 0; bottom: 29px; left: 0;
+    border-top: 4px dotted #9ab6d8;
+  }
+  #tutorial-demo-robo {
+    position: absolute; left: 12%; top: 187px; z-index: 3;
+    width: 48px; text-align: center; font-size: 39px; line-height: 45px;
+  }
+  #tutorial-demo-chegada {
+    position: absolute; right: 13%; top: 194px; color: #f0c000;
+    font-size: 31px; line-height: 1;
+  }
+  #tutorial-animacao-botoes { display: flex; justify-content: center; }
+  #tutorial-animacao-botoes button {
+    min-height: 52px; margin: 0 7px; padding: 12px 18px; font-size: 17px;
+  }
+  #tutorial-animacao-denovo {
+    color: #002080; background: #f0c000; box-shadow: 0 5px 0 #c49d00;
+  }
+  #tutorial-animacao-praticar {
+    background: #37c26b; box-shadow: 0 5px 0 #2a9c54;
+  }
+
+  .tutorial-palco.rodando #tutorial-demo-bloco {
+    -webkit-animation: tutorial-encaixar 6.5s ease-in-out both;
+    animation: tutorial-encaixar 6.5s ease-in-out both;
+  }
+  .tutorial-palco.rodando #tutorial-demo-mao {
+    -webkit-animation: tutorial-mao 6.5s ease-in-out both;
+    animation: tutorial-mao 6.5s ease-in-out both;
+  }
+  .tutorial-palco.rodando #tutorial-demo-play {
+    -webkit-animation: tutorial-apertar 6.5s ease-in-out both;
+    animation: tutorial-apertar 6.5s ease-in-out both;
+  }
+  .tutorial-palco.rodando.tipo-mover #tutorial-demo-robo {
+    -webkit-animation: tutorial-robo-andar 6.5s ease-in-out both;
+    animation: tutorial-robo-andar 6.5s ease-in-out both;
+  }
+  .tutorial-palco.rodando.tipo-repetir #tutorial-demo-robo {
+    -webkit-animation: tutorial-robo-repetir 6.5s ease-in-out both;
+    animation: tutorial-robo-repetir 6.5s ease-in-out both;
+  }
+  @keyframes tutorial-encaixar {
+    0%, 8% { left: 68%; top: 62px; }
+    31%, 100% { left: 13%; top: 72px; }
+    49%, 72% { box-shadow: 0 0 0 6px #ffe36b, 0 5px 0 rgba(0,32,128,.32); }
+  }
+  @keyframes tutorial-mao {
+    0%, 4% { left: 76%; top: 105px; opacity: 0; }
+    8% { opacity: 1; }
+    29% { left: 22%; top: 112px; opacity: 1; }
+    38% { left: 22%; top: 27px; opacity: 1; }
+    44% { left: 22%; top: 32px; opacity: 1; }
+    50%, 100% { left: 22%; top: 32px; opacity: 0; }
+  }
+  @keyframes tutorial-apertar {
+    0%, 37%, 47%, 100% { -webkit-transform: scale(1); transform: scale(1); }
+    42% { -webkit-transform: scale(.9); transform: scale(.9);
+          background: #74dd98; }
+  }
+  @keyframes tutorial-robo-andar {
+    0%, 52% { left: 12%; top: 187px; }
+    91%, 100% { left: 72%; top: 187px; }
+  }
+  @keyframes tutorial-robo-repetir {
+    0%, 50% { left: 12%; top: 187px; }
+    62% { left: 66%; top: 187px; }
+    74% { left: 66%; top: 133px; }
+    86% { left: 20%; top: 133px; }
+    98%, 100% { left: 20%; top: 187px; }
+  }
+
   #tutorial-licao { padding: 10px 8px 0; }
   #tutorial-passo-titulo { margin: 5px 0 9px; text-align: center;
                            font-size: 22px; color: #002080; }
@@ -765,6 +890,25 @@
     .tutorial-tema { min-height: 80px; margin: 4px; padding: 10px 14px; }
     .tutorial-tema-nome { font-size: 18px; }
     .tutorial-tema-resumo { margin-top: 4px; font-size: 12px; line-height: 1.25; }
+    #tutorial-menu.iniciante .tutorial-tema {
+      width: 145px; min-height: 72px; padding: 9px 7px;
+    }
+    #tutorial-menu.iniciante .tutorial-tema-nome { font-size: 20px; }
+    #tutorial-animacao { padding-top: 2px; }
+    #tutorial-palco { height: 240px; margin-bottom: 6px; border-radius: 12px; }
+    #tutorial-demo-play { width: 96px; padding: 8px 5px; font-size: 14px; }
+    #tutorial-demo-encaixe { width: 66px; height: 38px; margin-left: 15px; }
+    #tutorial-demo-bloco { min-width: 62px; min-height: 38px;
+                           padding: 5px 8px; font-size: 21px; }
+    .tipo-repetir #tutorial-demo-bloco { min-width: 93px; padding: 5px 7px 7px; }
+    .tipo-repetir #tutorial-demo-bloco-cabeca { font-size: 14px; line-height: 16px; }
+    .tipo-repetir #tutorial-demo-bloco-dentro { font-size: 17px; line-height: 23px; }
+    #tutorial-demo-mao { font-size: 28px; }
+    #tutorial-demo-chao { bottom: 24px; }
+    #tutorial-demo-robo { font-size: 32px; }
+    #tutorial-demo-chegada { font-size: 25px; }
+    #tutorial-animacao-botoes button { min-height: 44px; padding: 8px 11px;
+                                       font-size: 13px; }
     #tutorial-licao { padding: 2px 5px 0; }
     #tutorial-passo-titulo { margin: 1px 0 5px; font-size: 18px; }
     #tutorial-texto { margin-bottom: 6px; font-size: 13px; line-height: 1.25; }
@@ -912,6 +1056,28 @@
         <p id="tutorial-menu-intro">Escolha uma ideia para ver uma explicação
           curta e um exemplo.</p>
         <div id="tutorial-temas"></div>
+      </div>
+
+      <div id="tutorial-animacao" hidden>
+        <div id="tutorial-palco" class="tutorial-palco"
+             aria-label="demonstração animada">
+          <div id="tutorial-demo-programa">
+            <div id="tutorial-demo-play">▶ PLAY</div>
+            <div id="tutorial-demo-encaixe"></div>
+          </div>
+          <div id="tutorial-demo-bloco">
+            <span id="tutorial-demo-bloco-cabeca">🔁 ● ● ● ●</span>
+            <span id="tutorial-demo-bloco-dentro">⬆</span>
+          </div>
+          <span id="tutorial-demo-mao" aria-hidden="true">☝</span>
+          <div id="tutorial-demo-chao"></div>
+          <span id="tutorial-demo-robo" role="img" aria-label="robô">🤖</span>
+          <span id="tutorial-demo-chegada" aria-hidden="true">★</span>
+        </div>
+        <div id="tutorial-animacao-botoes">
+          <button id="tutorial-animacao-denovo" type="button">↻ de novo</button>
+          <button id="tutorial-animacao-praticar" type="button">✋ quero tentar</button>
+        </div>
       </div>
 
       <div id="tutorial-licao" hidden>

@@ -37,6 +37,17 @@ test('os assuntos entram aos poucos e o Avançado vira a consulta completa', () 
   assert.strictEqual(Tutoriais.disponivel('caixas', 'gigante'), true);
 });
 
+test('os dois assuntos do Iniciante têm animação e narração sem texto obrigatório', () => {
+  const assuntos = Tutoriais.disponiveis('pequeno');
+  assert.deepStrictEqual(assuntos.map((t) => t.id), ['mover', 'repetir']);
+  for (const assunto of assuntos) {
+    assert.ok(assunto.animacao && assunto.animacao.tipo,
+      `${assunto.titulo} ficou sem animação`);
+    assert.ok(assunto.animacao.fala,
+      `${assunto.titulo} ficou sem narração`);
+  }
+});
+
 test('Caixas explica criar, guardar, mudar e ler sem confundir as operações', () => {
   const texto = Tutoriais.buscar('caixas').passos
     .map((p) => `${p.titulo} ${p.texto} ${p.dica}`).join('\n').toLowerCase();

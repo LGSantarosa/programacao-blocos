@@ -3420,6 +3420,78 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
       `document.querySelector('[data-tutorial="caixas"]') === null`), true,
       'Caixas apareceu antes do Avançado');
 
+    /* O piloto sem leitura existe só no Iniciante: o menu vira dois desenhos,
+       e tocar em Mover mostra a mão encaixando a peça, o PLAY e o robozinho. */
+    await aval(`(document.getElementById('tutorial-fechar').click(),
+                 document.getElementById('ajustes').click(),
+                 document.querySelector('#niveis [data-nivel="pequeno"]').click(), 1)`);
+    await espera(400);
+    await aval(`(document.getElementById('aprender').click(), 1)`);
+    assert.strictEqual(await aval(`document.querySelectorAll('.tutorial-tema').length`), 2,
+      'o Iniciante não mostrou os dois assuntos visuais');
+    assert.strictEqual(await aval(
+      `getComputedStyle(document.querySelector('.tutorial-tema-resumo')).display`),
+      'none', 'o menu do Iniciante ainda depende do resumo escrito');
+    await aval(`(document.querySelector('[data-tutorial="mover"]').click(), 1)`);
+    assert.strictEqual(await aval(`document.getElementById('tutorial-animacao').hidden`),
+      false, 'Mover não abriu a animação do Iniciante');
+    assert.strictEqual(await aval(`document.getElementById('tutorial-licao').hidden`),
+      true, 'Mover ainda abriu a lição escrita no Iniciante');
+    assert.ok((await aval(`document.getElementById('tutorial-palco').className`))
+      .includes('tipo-mover'), 'o palco não recebeu a animação de movimento');
+    assert.ok((await aval(`getComputedStyle(document.getElementById('tutorial-demo-robo'))
+      .animationName || getComputedStyle(document.getElementById('tutorial-demo-robo'))
+      .webkitAnimationName`)).includes('tutorial-robo-andar'),
+      'o robozinho não recebeu o movimento de andar');
+    const palcoCabe = JSON.parse(await aval(`(() => {
+      const r = document.getElementById('tutorial-palco').getBoundingClientRect();
+      return JSON.stringify({ esquerda: r.left, direita: r.right, topo: r.top,
+        fundo: r.bottom, largura: innerWidth, altura: innerHeight });
+    })()`));
+    assert.ok(palcoCabe.esquerda >= 0 && palcoCabe.direita <= palcoCabe.largura &&
+              palcoCabe.topo >= 0 && palcoCabe.fundo <= palcoCabe.altura,
+      'a animação escapou da tela: ' + JSON.stringify(palcoCabe));
+    await aval(`(document.getElementById('tutorial-animacao-denovo').click(), 1)`);
+    assert.ok((await aval(`document.getElementById('tutorial-palco').className`))
+      .includes('rodando'), 'de novo não reiniciou a animação');
+
+    /* O segundo desenho do piloto é mesmo outro: mostra o bloco amarelo com a
+       peça azul dentro e dá ao robô o percurso repetido. */
+    await aval(`(document.getElementById('tutorial-voltar').click(),
+                 document.querySelector('[data-tutorial="repetir"]').click(), 1)`);
+    assert.ok((await aval(`document.getElementById('tutorial-palco').className`))
+      .includes('tipo-repetir'), 'Repetir abriu a animação de movimento simples');
+    assert.strictEqual(await aval(
+      `getComputedStyle(document.getElementById('tutorial-demo-bloco-cabeca')).display`),
+      'block', 'a animação de repetir não mostrou a cabeça amarela');
+    assert.ok((await aval(`getComputedStyle(document.getElementById('tutorial-demo-robo'))
+      .animationName || getComputedStyle(document.getElementById('tutorial-demo-robo'))
+      .webkitAnimationName`)).includes('tutorial-robo-repetir'),
+      'o robozinho não recebeu o percurso repetido');
+
+    await aval(`(document.getElementById('tutorial-voltar').click(),
+                 document.querySelector('[data-tutorial="mover"]').click(), 1)`);
+    await aval(`(document.getElementById('tutorial-animacao-praticar').click(), 1)`);
+    await espera(300);
+    assert.strictEqual(await aval(`document.getElementById('painel-tutorial').hidden`),
+      true, 'quero tentar não fechou a animação');
+    assert.strictEqual(await aval(`(() => {
+      const tb = Blockly.getMainWorkspace().getToolbox();
+      const item = tb.getSelectedItem && tb.getSelectedItem();
+      return item && item.getName ? item.getName() : '';
+    })()`), 'Mover', 'quero tentar não abriu a gaveta Mover');
+
+    /* No Básico o mesmo assunto continua usando os passos escritos atuais: o
+       piloto não muda os níveis que já leem o tutorial. */
+    await aval(`(document.getElementById('ajustes').click(),
+                 document.querySelector('#niveis [data-nivel="medio"]').click(),
+                 document.getElementById('aprender').click(),
+                 document.querySelector('[data-tutorial="mover"]').click(), 1)`);
+    assert.strictEqual(await aval(`document.getElementById('tutorial-animacao').hidden`),
+      true, 'a animação do piloto vazou para o Básico');
+    assert.strictEqual(await aval(`document.getElementById('tutorial-licao').hidden`),
+      false, 'a lição escrita do Básico sumiu');
+
     /* Sobe sem trabalho montado. A biblioteca deve se refazer junto com a
        gaveta, e o Avançado vira a consulta de todos os blocos. */
     await aval(`(document.getElementById('tutorial-fechar').click(),

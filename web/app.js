@@ -941,10 +941,9 @@
         x: Math.random() * confete.width,
         y: -20 - Math.random() * confete.height * 0.22,
         vx: (Math.random() - 0.5) * 3,
-        /* Rápido e acelerando. Antes caíam a 2-5px por quadro de até 280px
-           acima da tela: 3 a 8 segundos num navegador rápido, e mais ainda no
-           iPad, que roda menos quadros. A festa tem que caber na alegria. */
-        vy: 7 + Math.random() * 7,
+        /* Começa animado, mas dá tempo de enxergar a comemoração. A faixa
+           antiga de 7-14px atravessava um celular em cerca de meio segundo. */
+        vy: 4 + Math.random() * 5,
         cor: cores[i % cores.length],
         giro: Math.random() * Math.PI,
       });
@@ -971,7 +970,7 @@
     var vivos = 0;
     for (var i = 0; i < confetes.length; i++) {
       var p = confetes[i];
-      p.vy += 0.35;                    /* gravidade */
+      p.vy += 0.18;                    /* gravidade suave */
       p.x += p.vx; p.y += p.vy; p.giro += 0.16;
       if (p.y < confete.height + 20) vivos++;
       c.save();

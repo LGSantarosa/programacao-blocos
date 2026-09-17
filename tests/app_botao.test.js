@@ -68,6 +68,16 @@ test('experimentar abre a gaveta do assunto no nível em que ele existe', () => 
   assert.match(APP, /trocarNivel\(assunto\.nivel\)/);
 });
 
+test('o confete cai devagar o bastante para a criança ver', () => {
+  const inicio = APP.match(/vy:\s*([\d.]+)\s*\+\s*Math\.random\(\)\s*\*\s*([\d.]+)/);
+  const gravidade = APP.match(/p\.vy\s*\+=\s*([\d.]+)/);
+  assert.ok(inicio && gravidade, 'não encontrou a velocidade do confete');
+  assert.ok(Number(inicio[1]) + Number(inicio[2]) <= 10,
+    'o confete voltou a nascer rápido demais');
+  assert.ok(Number(gravidade[1]) <= 0.2,
+    'a gravidade voltou a derrubar o confete rápido demais');
+});
+
 test('todo módulo de web/ entra na página, e antes do app.js', () => {
   /* O app.js usa os outros como variáveis globais que o navegador só tem se a
      tag <script> estiver lá. Esquecer a tag não quebra teste nenhum de mesa —

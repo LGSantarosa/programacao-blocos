@@ -56,15 +56,20 @@
   }
 
   var LADO_ICONE = 20;
+  var LARGURA_MOVIMENTO = 48, ALTURA_MOVIMENTO = 34;
 
-  /* Um campo transparente aumenta o corpo dos blocos de andar no Básico sem
-     aumentar a seta. A imagem continua com 20px e centralizada dentro da peça;
-     é o caminho azul que passa a ter um alvo de toque mais alto. */
-  var ESPACO_MOVIMENTO = icone('');
+  /* A tela da imagem é mais larga que o desenho. O Blockly mede 48x34 e
+     engorda o corpo azul, enquanto a seta continua com os mesmos 20px,
+     centralizada no espaço transparente. */
+  function iconeMovimento(desenho) {
+    return 'data:image/svg+xml,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 34">' +
+      '<g transform="translate(14 7) scale(.833333)">' + desenho + '</g></svg>');
+  }
 
   /* Seta grossa: haste larga e cabeça grande, para ler a 20px num tablet. */
-  var SETA_CIMA  = icone('<path d="M12 2 L22 13 L16 13 L16 22 L8 22 L8 13 L2 13 Z" fill="#fff"/>');
-  var SETA_BAIXO = icone('<path d="M12 22 L22 11 L16 11 L16 2 L8 2 L8 11 L2 11 Z" fill="#fff"/>');
+  var SETA_CIMA  = iconeMovimento('<path d="M12 2 L22 13 L16 13 L16 22 L8 22 L8 13 L2 13 Z" fill="#fff"/>');
+  var SETA_BAIXO = iconeMovimento('<path d="M12 22 L22 11 L16 11 L16 2 L8 2 L8 11 L2 11 Z" fill="#fff"/>');
 
   /* Volta de 270°, aberta em cima, com a ponta indicando para onde o giro vai.
      O anti-horário é o mesmo desenho espelhado — duas cópias divergiriam. */
@@ -92,20 +97,14 @@
      core/bytecode.h: a VM não sabe que blocos inventados existem. */
   var N_ENTRADAS = 3;
 
-  /* Nomeado, e não anônimo. O Blockly guarda os campos que vêm antes de um
-     encaixe na fileira daquele encaixe: o ícone vem antes do SEG, e no
-     Iniciante o SEG está escondido — a fileira some e leva o desenho junto.
-     Quem reacende campo escondido é a tabela do nível, e ela só enxerga
-     campo com nome. Por isso ICONE aparece no campos de todos os níveis,
-     sempre true. */
-  function imagem(src, alt) {
+  /* Nomeado, e não anônimo. A seta mora numa fileira própria: assim esconder
+     o SEG no Iniciante não tira do bloco a fileira que determina sua largura.
+     O nome continua necessário para a tabela dos níveis garantir que o desenho
+     fique visível em todos eles. */
+  function imagem(src, alt, largura, altura) {
     return { type: 'field_image', name: 'ICONE', src: src,
-             width: LADO_ICONE, height: LADO_ICONE, alt: alt };
-  }
-
-  function espacoMovimento() {
-    return { type: 'field_image', name: 'TAMANHO', src: ESPACO_MOVIMENTO,
-             width: 4, height: 34, alt: '' };
+             width: largura || LADO_ICONE, height: altura || LADO_ICONE,
+             alt: alt };
   }
 
   var extensaoPronta = false;
@@ -637,10 +636,12 @@
       },
       {
         type: 'mover_frente',
-        message0: '%1 %2 %3 %4 %5 %6',
+        message0: '%1',
         args0: [
-          imagem(SETA_CIMA, 'para frente'),
-          espacoMovimento(),
+          imagem(SETA_CIMA, 'para frente', LARGURA_MOVIMENTO, ALTURA_MOVIMENTO),
+        ],
+        message1: '%1 %2 %3 %4',
+        args1: [
           { type: 'field_label', name: 'T1', text: 'andar frente' },
           { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },
@@ -654,10 +655,12 @@
       },
       {
         type: 'mover_tras',
-        message0: '%1 %2 %3 %4 %5 %6',
+        message0: '%1',
         args0: [
-          imagem(SETA_BAIXO, 'para trás'),
-          espacoMovimento(),
+          imagem(SETA_BAIXO, 'para trás', LARGURA_MOVIMENTO, ALTURA_MOVIMENTO),
+        ],
+        message1: '%1 %2 %3 %4',
+        args1: [
           { type: 'field_label', name: 'T1', text: 'andar trás' },
           { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },

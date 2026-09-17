@@ -9,7 +9,6 @@ globalThis.Blockly = Blockly;
 const Campos = require('../web/campos.js');
 const Blocos = require('../web/blocos.js');
 const Caixas = require('../web/caixas.js');
-const Niveis = require('../web/niveis.js');
 
 Campos.registrar();
 Blocos.definir();
@@ -97,20 +96,19 @@ test('as palavras dos blocos são campos, para poderem sumir no Pequeno', () => 
   assert.ok(g.getField('T2'), 'faltou o rótulo "graus" como campo');
 });
 
-test('o Básico aumenta o corpo do andar sem aumentar a seta', () => {
+test('a seta de andar ganha espaço transparente sem aumentar o desenho', () => {
   const ws = carregar([{ type: 'mover_frente' }, { type: 'mover_tras' }]);
   for (const tipo of ['mover_frente', 'mover_tras']) {
     const bloco = ws.getBlocksByType(tipo, false)[0];
-    const seta = bloco.getField('ICONE').getSize();
-    /* O Blockly soma um pixel interno à altura da imagem. A largura declarada
-       continua sendo os 20px originais. */
-    assert.ok(seta.width === 20 && seta.height <= 21,
-      `${tipo} aumentou a seta em vez do bloco: ${seta.width}x${seta.height}`);
-    Niveis.aplicarEmUm(bloco, 'medio');
-    const espaco = bloco.getField('TAMANHO');
-    assert.ok(espaco.isVisible(), `${tipo} não ganhou altura no Básico`);
-    assert.ok(espaco.getSize().height >= 34,
-      `${tipo} ainda ficou baixo: ${espaco.getSize().height}px`);
+    const campo = bloco.getField('ICONE');
+    const tamanho = campo.getSize();
+    assert.ok(tamanho.width >= 48 && tamanho.height >= 34,
+      `${tipo} ainda ficou estreito: ${tamanho.width}x${tamanho.height}`);
+    const svg = decodeURIComponent(campo.getValue());
+    assert.ok(svg.includes('viewBox="0 0 48 34"'),
+      `${tipo} não ganhou espaço transparente`);
+    assert.ok(svg.includes('scale(.833333)'),
+      `${tipo} aumentou a seta junto com o espaço`);
   }
 });
 

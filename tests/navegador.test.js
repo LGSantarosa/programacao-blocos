@@ -3447,6 +3447,22 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
     })()`));
     assert.ok(blocosMover.includes('mover_frente'),
       'a animação desenhou uma imitação em vez do bloco real de andar');
+    const setaIniciante = JSON.parse(await aval(`(() => {
+      const w = Blockly.Workspace.getAll().find(x => x.getInjectionDiv &&
+        x.getInjectionDiv().parentElement &&
+        x.getInjectionDiv().parentElement.id === 'tutorial-demo-peca-real');
+      const b = w.getBlocksByType('mover_frente', false)[0];
+      const corpo = b.getSvgRoot().querySelector('.blocklyPath').getBoundingClientRect();
+      const seta = b.getField('ICONE').getSvgRoot().getBoundingClientRect();
+      return JSON.stringify({ corpo: { left: corpo.left, right: corpo.right,
+        width: corpo.width }, seta: { left: seta.left, right: seta.right,
+        width: seta.width } });
+    })()`));
+    assert.ok(setaIniciante.corpo.width >= 45,
+      'faltou espaço azul ao redor da seta: ' + JSON.stringify(setaIniciante));
+    assert.ok(setaIniciante.seta.left >= setaIniciante.corpo.left &&
+              setaIniciante.seta.right <= setaIniciante.corpo.right,
+      'a seta saiu do corpo azul: ' + JSON.stringify(setaIniciante));
     assert.strictEqual(await aval(
       `Blockly.getMainWorkspace().getInjectionDiv().parentElement.id`),
       'editor', 'a demonstração roubou o workspace principal do editor');

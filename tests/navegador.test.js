@@ -3430,6 +3430,19 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
                  document.getElementById('aprender').click(), 1)`);
     assert.strictEqual(await aval(`document.querySelectorAll('.tutorial-tema').length`),
       12, 'o Avançado não mostrou a biblioteca completa');
+    const cartoesFora = JSON.parse(await aval(`(() => {
+      const falhas = [];
+      for (const cartao of document.querySelectorAll('.tutorial-tema')) {
+        if (cartao.scrollWidth > cartao.clientWidth + 1 ||
+            cartao.scrollHeight > cartao.clientHeight + 1) {
+          falhas.push(cartao.getAttribute('data-tutorial') + ':' +
+                      cartao.textContent.trim());
+        }
+      }
+      return JSON.stringify(falhas);
+    })()`));
+    assert.deepStrictEqual(cartoesFora, [],
+      'texto escapou do cartão de assunto: ' + cartoesFora.join(' | '));
     const medidas = JSON.parse(await aval(`(() => {
       const r = document.getElementById('tutorial-caixa').getBoundingClientRect();
       const c = document.getElementById('tutorial-caixa');

@@ -289,7 +289,12 @@
   #tutorial-temas { display: flex; flex-wrap: wrap; justify-content: center; }
   .tutorial-tema {
     width: 280px; min-height: 114px; margin: 7px; padding: 18px 20px;
-    text-align: left; box-shadow: 0 6px 0 rgba(0, 32, 128, .28);
+    /* A regra geral de button usa nowrap. Aqui há título e resumo: eles
+       precisam quebrar dentro do cartão, especialmente «Dois caminhos» no
+       celular, cuja última frase acabava em «se não ho…» fora da cor. */
+    text-align: left; white-space: normal; word-wrap: break-word;
+    overflow-wrap: break-word;
+    box-shadow: 0 6px 0 rgba(0, 32, 128, .28);
   }
   .tutorial-tema:active:not(:disabled) { box-shadow: 0 2px 0 rgba(0, 32, 128, .28); }
   .tutorial-tema.claro { color: #002080; }

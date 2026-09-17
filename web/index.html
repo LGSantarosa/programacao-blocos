@@ -311,12 +311,17 @@
   #tutorial-desenho { max-width: 530px; margin: 0 auto 12px; padding: 13px;
                       background: #eaf4fe; border-radius: 15px; }
   .tutorial-bloco {
-    display: table; max-width: 95%; margin: 0 0 7px; padding: 9px 13px;
+    /* inline-block conserva a peça curta quando a frase é curta, mas — ao
+       contrário de display:table — respeita o max-width e quebra uma frase
+       comprida dentro da cor. word-wrap é o nome entendido pelo Safari 9. */
+    display: inline-block; max-width: 100%; margin: 0 0 7px; padding: 9px 13px;
     border-radius: 10px; color: #fff; font-size: 15px; font-weight: 800;
-    line-height: 1.25; box-shadow: 0 4px 0 rgba(0, 32, 128, .25);
+    line-height: 1.25; white-space: normal; word-wrap: break-word;
+    overflow-wrap: break-word; vertical-align: top;
+    box-shadow: 0 4px 0 rgba(0, 32, 128, .25);
   }
   .tutorial-bloco:last-child { margin-bottom: 0; }
-  .tutorial-bloco.dentro { margin-left: 28px; }
+  .tutorial-bloco.dentro { margin-left: 28px; max-width: calc(100% - 28px); }
   .tutorial-bloco.claro { color: #002080; }
   #tutorial-dica { max-width: 530px; margin: 0 auto 15px; padding: 9px 12px;
                    border-radius: 11px; background: #fff3cd; color: #6b5000;
@@ -762,7 +767,7 @@
     #tutorial-desenho { margin-bottom: 6px; padding: 7px; border-radius: 11px; }
     .tutorial-bloco { margin-bottom: 4px; padding: 6px 9px; font-size: 12px;
                       border-radius: 8px; box-shadow: 0 3px 0 rgba(0, 32, 128, .25); }
-    .tutorial-bloco.dentro { margin-left: 20px; }
+    .tutorial-bloco.dentro { margin-left: 20px; max-width: calc(100% - 20px); }
     #tutorial-dica { margin-bottom: 6px; padding: 6px 9px; font-size: 12px;
                      line-height: 1.25; }
     #tutorial-navegacao { margin-top: 2px; }

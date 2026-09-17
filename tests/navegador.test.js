@@ -3443,6 +3443,38 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
     assert.strictEqual(medidas.rola, true,
       'a lista grande deveria rolar dentro do painel, sem esticar a página');
 
+    /* Passa por cada passo de cada assunto no celular. Frases longas, como
+       «repetir até chegar a menos de», precisam quebrar dentro da peça; medir
+       só o painel esconderia o defeito porque ele corta o excesso. */
+    const textosFora = JSON.parse(await aval(`(() => {
+      const falhas = [];
+      const ids = Array.from(document.querySelectorAll('[data-tutorial]'))
+        .map(b => b.getAttribute('data-tutorial'));
+      for (const id of ids) {
+        document.querySelector('[data-tutorial="' + id + '"]').click();
+        let passo = 1;
+        while (true) {
+          const desenho = document.getElementById('tutorial-desenho');
+          const limite = desenho.getBoundingClientRect();
+          for (const bloco of desenho.querySelectorAll('.tutorial-bloco')) {
+            const r = bloco.getBoundingClientRect();
+            if (r.left < limite.left - 1 || r.right > limite.right + 1 ||
+                bloco.scrollWidth > bloco.clientWidth + 1) {
+              falhas.push(id + ':' + passo + ':' + bloco.textContent);
+            }
+          }
+          const proximo = document.getElementById('tutorial-proximo');
+          if (proximo.textContent === 'experimentar ▸') break;
+          proximo.click();
+          passo++;
+        }
+        document.getElementById('tutorial-voltar').click();
+      }
+      return JSON.stringify(falhas);
+    })()`));
+    assert.deepStrictEqual(textosFora, [],
+      'texto escapou do bloco de ensino: ' + textosFora.join(' | '));
+
     await aval(`(document.querySelector('[data-tutorial="caixas"]').click(), 1)`);
     assert.strictEqual(await aval(`document.getElementById('tutorial-titulo').textContent`),
       '📦 Caixas');

@@ -310,9 +310,9 @@ test('o menu do girar tem fileira própria, separada do encaixe', () => {
     'a palavra "girar" precisa acompanhar o menu, senão some com o encaixe');
 });
 
-test('o mapa de campos não precisou de linha nova', () => {
-  /* Os blocos novos reaproveitam CM, T1 e T2. Se alguém acrescentar um campo
-     aqui, é sinal de que criou nome novo sem necessidade.
+test('o mapa de campos só tem os controles visuais compartilhados', () => {
+  /* Os blocos novos reaproveitam CM, T1 e T2. TAMANHO é a exceção nova:
+     aumenta o corpo do andar no Básico sem estourar a seta para fora dele.
 
      ICONE é a exceção que se justificou: o desenho que abre a peça vem antes de
      um encaixe, então o Blockly o guarda na fileira daquele encaixe e ele some
@@ -321,7 +321,7 @@ test('o mapa de campos não precisou de linha nova', () => {
      mostra peças de movimento vazias. */
   const campos = Object.keys(Niveis.definicao('grande').campos).sort();
   assert.deepStrictEqual(campos,
-    ['CM', 'DIR', 'GRAUS', 'ICONE', 'N', 'SEG', 'T1', 'T2', 'VEL']);
+    ['CM', 'DIR', 'GRAUS', 'ICONE', 'N', 'SEG', 'T1', 'T2', 'TAMANHO', 'VEL']);
 });
 
 /* ---------- o quarto nível ---------- */

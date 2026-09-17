@@ -3494,6 +3494,26 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
       return Number(w.getBlocksByType('numero_bolinhas', false)[0]
         .getFieldValue('NUM'));
     })()`), 4, 'a quantidade não mudou visualmente de duas para quatro');
+    await espera(1400);
+    const encaixado = JSON.parse(await aval(`(() => {
+      const w = Blockly.Workspace.getAll().find(x => x.getInjectionDiv &&
+        x.getInjectionDiv().parentElement &&
+        x.getInjectionDiv().parentElement.id === 'tutorial-demo-play-real');
+      const raiz = w && w.getBlocksByType('quando_play', false)[0];
+      const filho = raiz && raiz.getInputTargetBlock('CORPO');
+      return JSON.stringify({ tipos: w ? w.getAllBlocks(false).map(b => b.type) : [],
+        filho: filho && filho.type,
+        soltaVisivel: getComputedStyle(
+          document.getElementById('tutorial-demo-peca-real')).visibility });
+    })()`));
+    assert.strictEqual(encaixado.filho, 'repetir',
+      'o repetir terminou embaixo do PLAY, sem conectar dentro do CORPO');
+    for (const tipo of ['repetir', 'mover_frente', 'girar']) {
+      assert.ok(encaixado.tipos.includes(tipo),
+        `o programa encaixado ficou sem o bloco ${tipo}`);
+    }
+    assert.strictEqual(encaixado.soltaVisivel, 'hidden',
+      'a peça solta continuou desenhada por cima depois do encaixe real');
     const pecasCabem = JSON.parse(await aval(`(() => {
       const falhas = [];
       for (const id of ['tutorial-demo-play-real', 'tutorial-demo-peca-real']) {
@@ -3560,6 +3580,34 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
       true, 'a animação do piloto vazou para o Básico');
     assert.strictEqual(await aval(`document.getElementById('tutorial-licao').hidden`),
       false, 'a lição escrita do Básico sumiu');
+    const andarBasico = JSON.parse(await aval(`(() => {
+      const ws = Blockly.getMainWorkspace();
+      Blockly.Events.disable();
+      let b;
+      try {
+        b = ws.newBlock('mover_frente');
+        b.initSvg(); b.render();
+        Niveis.aplicarEmUm(b, 'medio');
+        b.moveBy(260, 180);
+        const corpo = b.getSvgRoot().querySelector('.blocklyPath')
+          .getBoundingClientRect();
+        const seta = b.getField('ICONE').getSvgRoot().getBoundingClientRect();
+        return JSON.stringify({ corpo: { left: corpo.left, right: corpo.right,
+          top: corpo.top, bottom: corpo.bottom, height: corpo.height },
+          seta: { left: seta.left, right: seta.right, top: seta.top,
+          bottom: seta.bottom, height: seta.height } });
+      } finally {
+        if (b) b.dispose(false);
+        Blockly.Events.enable();
+      }
+    })()`));
+    assert.ok(andarBasico.corpo.height >= andarBasico.seta.height + 12,
+      'o Básico aumentou a seta, não o corpo do bloco: ' + JSON.stringify(andarBasico));
+    assert.ok(andarBasico.seta.left >= andarBasico.corpo.left &&
+              andarBasico.seta.right <= andarBasico.corpo.right &&
+              andarBasico.seta.top >= andarBasico.corpo.top &&
+              andarBasico.seta.bottom <= andarBasico.corpo.bottom,
+      'a seta de andar ainda sai para fora do bloco: ' + JSON.stringify(andarBasico));
 
     /* Sobe sem trabalho montado. A biblioteca deve se refazer junto com a
        gaveta, e o Avançado vira a consulta de todos os blocos. */

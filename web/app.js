@@ -167,9 +167,6 @@
   function montarAnimacaoTutorial(tipo) {
     var play = workspaceTutorial('tutorial-demo-play-real');
     var peca = workspaceTutorial('tutorial-demo-peca-real');
-    /* A cabeça verde é naturalmente larga (leva “quando apertar PLAY”).
-       Meia escala conserva a peça real inteira até no celular em pé. */
-    carregarDesenhoTutorial(play, { type: 'quando_play', x: 5, y: 5 }, 0.5);
 
     var estado;
     var escala;
@@ -188,18 +185,46 @@
           } },
         },
       };
-      escala = 0.72;
+      escala = 0.82;
     } else {
       estado = {
         type: 'mover_frente', x: 4, y: 4,
         inputs: { SEG: { shadow: { type: 'numero', fields: { NUM: 0.5 } } } },
       };
-      escala = 1;
+      escala = 0.82;
     }
-    carregarDesenhoTutorial(peca, estado, escala);
 
     var tempoQuantidade = null;
-    var numero = peca.getBlocksByType('numero_bolinhas', false)[0];
+    var tempoEncaixe = null;
+    var numero = null;
+    var elPeca = document.getElementById('tutorial-demo-peca-real');
+
+    function playVazio() {
+      /* A cabeça verde é naturalmente larga. Meia escala conserva a peça
+         real inteira até no celular em pé. */
+      carregarDesenhoTutorial(play, { type: 'quando_play', x: 5, y: 5 }, escala);
+    }
+
+    function pecaSolta() {
+      carregarDesenhoTutorial(peca, estado, escala);
+      numero = peca.getBlocksByType('numero_bolinhas', false)[0];
+      elPeca.style.visibility = 'visible';
+    }
+
+    function playComPeca() {
+      /* Não é só sobreposição: esta serialização liga CORPO ao bloco.
+         O Blockly redesenha a boca verde ao redor da pilha, exatamente como
+         quando a criança encaixa no editor. */
+      var dentro = JSON.parse(JSON.stringify(estado));
+      delete dentro.x;
+      delete dentro.y;
+      carregarDesenhoTutorial(play, {
+        type: 'quando_play', x: 5, y: 5,
+        inputs: { CORPO: { block: dentro } },
+      }, escala);
+      elPeca.style.visibility = 'hidden';
+    }
+
     function escreverQuantidade(valor) {
       if (!numero) return;
       numero.setFieldValue(String(valor), 'NUM');
@@ -208,16 +233,28 @@
     return {
       reiniciar: function () {
         if (tempoQuantidade) clearTimeout(tempoQuantidade);
-        if (tipo !== 'repetir') return;
-        escreverQuantidade(2);
-        tempoQuantidade = setTimeout(function () {
-          escreverQuantidade(4);
-          tempoQuantidade = null;
-        }, 900);
+        if (tempoEncaixe) clearTimeout(tempoEncaixe);
+        playVazio();
+        pecaSolta();
+        if (tipo === 'repetir') {
+          escreverQuantidade(2);
+          tempoQuantidade = setTimeout(function () {
+            escreverQuantidade(4);
+            tempoQuantidade = null;
+          }, 900);
+        }
+        /* Coincide com os 35% do keyframe: a peça que chegou à boca some
+           e reaparece como filha real do CORPO do PLAY. */
+        tempoEncaixe = setTimeout(function () {
+          playComPeca();
+          tempoEncaixe = null;
+        }, 2300);
       },
       parar: function () {
         if (tempoQuantidade) clearTimeout(tempoQuantidade);
+        if (tempoEncaixe) clearTimeout(tempoEncaixe);
         tempoQuantidade = null;
+        tempoEncaixe = null;
       },
     };
   }

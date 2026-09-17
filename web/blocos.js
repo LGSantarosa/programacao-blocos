@@ -56,11 +56,11 @@
   }
 
   var LADO_ICONE = 20;
-  /* Andar é a ação que a criança mais pega, e no Básico a seta de 20px
-     fazia a peça parecer bem menor que as vizinhas. Aumentar só estas duas
-     imagens dá um alvo de toque mais generoso sem alargar menus, giros e peças
-     avançadas que já ocupam quase toda a gaveta do celular. */
-  var LADO_MOVIMENTO = 30;
+
+  /* Um campo transparente aumenta o corpo dos blocos de andar no Básico sem
+     aumentar a seta. A imagem continua com 20px e centralizada dentro da peça;
+     é o caminho azul que passa a ter um alvo de toque mais alto. */
+  var ESPACO_MOVIMENTO = icone('');
 
   /* Seta grossa: haste larga e cabeça grande, para ler a 20px num tablet. */
   var SETA_CIMA  = icone('<path d="M12 2 L22 13 L16 13 L16 22 L8 22 L8 13 L2 13 Z" fill="#fff"/>');
@@ -98,10 +98,14 @@
      Quem reacende campo escondido é a tabela do nível, e ela só enxerga
      campo com nome. Por isso ICONE aparece no campos de todos os níveis,
      sempre true. */
-  function imagem(src, alt, lado) {
-    lado = lado || LADO_ICONE;
+  function imagem(src, alt) {
     return { type: 'field_image', name: 'ICONE', src: src,
-             width: lado, height: lado, alt: alt };
+             width: LADO_ICONE, height: LADO_ICONE, alt: alt };
+  }
+
+  function espacoMovimento() {
+    return { type: 'field_image', name: 'TAMANHO', src: ESPACO_MOVIMENTO,
+             width: 4, height: 34, alt: '' };
   }
 
   var extensaoPronta = false;
@@ -633,9 +637,10 @@
       },
       {
         type: 'mover_frente',
-        message0: '%1 %2 %3 %4 %5',
+        message0: '%1 %2 %3 %4 %5 %6',
         args0: [
-          imagem(SETA_CIMA, 'para frente', LADO_MOVIMENTO),
+          imagem(SETA_CIMA, 'para frente'),
+          espacoMovimento(),
           { type: 'field_label', name: 'T1', text: 'andar frente' },
           { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },
@@ -649,9 +654,10 @@
       },
       {
         type: 'mover_tras',
-        message0: '%1 %2 %3 %4 %5',
+        message0: '%1 %2 %3 %4 %5 %6',
         args0: [
-          imagem(SETA_BAIXO, 'para trás', LADO_MOVIMENTO),
+          imagem(SETA_BAIXO, 'para trás'),
+          espacoMovimento(),
           { type: 'field_label', name: 'T1', text: 'andar trás' },
           { type: 'input_value', name: 'SEG', check: 'Number' },
           { type: 'field_label', name: 'T2', text: 's' },

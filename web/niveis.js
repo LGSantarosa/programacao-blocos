@@ -75,7 +75,8 @@
     pequeno: {
       blocos: ['mover_frente', 'mover_tras', 'girar', 'repetir'],
       /* campo -> visível neste nível? */
-      campos: { ICONE: true, T1: false, T2: false, SEG: false, VEL: false,
+      campos: { ICONE: true, TAMANHO: false,
+                T1: false, T2: false, SEG: false, VEL: false,
                 DIR: true, GRAUS: false, N: true, CM: true },
       bolinhas: true,
       /* Um flag só, e nomeado pela criança e não pelo efeito: é daqui que saem
@@ -88,7 +89,8 @@
     medio: {
       blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'parar',
                'repetir', 'repetir_sempre', 'se_obstaculo'],
-      campos: { ICONE: true, T1: true, T2: true, SEG: true, VEL: false,
+      campos: { ICONE: true, TAMANHO: true,
+                T1: true, T2: true, SEG: true, VEL: false,
                 DIR: true, GRAUS: false, N: true, CM: true },
       bolinhas: false,
       naoLe: true,
@@ -97,7 +99,8 @@
       blocos: ['mover_frente', 'mover_tras', 'girar', 'esperar', 'parar',
                'repetir', 'repetir_sempre', 'repetir_ate_perto',
                'se_obstaculo', 'se_senao'],
-      campos: { ICONE: true, T1: true, T2: true, SEG: true, VEL: true,
+      campos: { ICONE: true, TAMANHO: false,
+                T1: true, T2: true, SEG: true, VEL: true,
                 DIR: false, GRAUS: true, N: true, CM: true },
       bolinhas: false,
       naoLe: false,

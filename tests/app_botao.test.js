@@ -43,8 +43,13 @@ test('existe como voltar para o ensaio', () => {
   assert.match(APP, /Android\.voltarParaEnsaio\(\)/);
 });
 
-test('o tutorial pode ser aberto pelos ajustes e nasce fechado', () => {
+test('o tutorial fica no cabeçalho, sempre à vista, e nasce fechado', () => {
   assert.match(HTML, /id="aprender"[^>]*>📚 aprender/);
+  const cabecalho = HTML.slice(HTML.indexOf('<header>'), HTML.indexOf('</header>'));
+  const ajustes = HTML.slice(HTML.indexOf('<div id="painel-ajustes"'),
+    HTML.indexOf('<div id="painel-tutorial"'));
+  assert.match(cabecalho, /id="aprender"/);
+  assert.doesNotMatch(ajustes, /id="aprender"/);
   assert.match(HTML, /id="painel-tutorial"[^>]*hidden/);
   assert.match(APP, /btAprender\.addEventListener\('click'/);
 });

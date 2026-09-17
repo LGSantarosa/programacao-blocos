@@ -179,11 +179,11 @@
      mais.
 
      O corte não é por tamanho, é por dono. Fica à vista o que a CRIANÇA usa o
-     tempo todo — PLAY, PARAR e as duas setas de desfazer, que são o que a deixa
-     experimentar sem medo. Vai para trás do ⚙ o que é de quem ACOMPANHA: o
-     nível, que um adulto escolhe uma vez por sessão; o som; o código Arduino,
-     que já é o degrau seguinte; procurar o robô; e a versão, que existe para
-     responder "é cache?".
+     tempo todo — APRENDER, PLAY, PARAR e as duas setas de desfazer, que são o
+     que a deixa experimentar sem medo. Vai para trás do ⚙ o que é de quem
+     ACOMPANHA: o nível, que um adulto escolhe uma vez por sessão; o som; o
+     código Arduino, que já é o degrau seguinte; procurar o robô; e a versão,
+     que existe para responder "é cache?".
 
      Um toque a mais para o adulto vale a tela inteira para a criança. */
   #ajustes { background: #002080; box-shadow: 0 5px 0 #00185f;
@@ -239,10 +239,9 @@
 
   /* ---------- aprender os blocos do nível ---------- */
 
-  /* A ajuda não fica escondida num texto do rodapé. É uma ação do mesmo
-     tamanho que som e código, e reaparece dentro das próprias gavetas Caixas
-     e Meus blocos. Roxo porque abre conhecimento novo, como a família dos
-     blocos que a criança inventa. */
+  /* A ajuda fica no cabeçalho porque é da criança e deve estar sempre à vista;
+     também reaparece dentro das próprias gavetas Caixas e Meus blocos. Roxo
+     porque abre conhecimento novo, como a família dos blocos que ela inventa. */
   #aprender { background: #a040c0; box-shadow: 0 5px 0 #773091;
               font-size: 16px; padding: 12px 16px; }
   #aprender:active:not(:disabled) { box-shadow: 0 1px 0 #773091; }
@@ -803,6 +802,7 @@
       <button id="desfazer" type="button" title="desfazer" aria-label="desfazer" disabled>↶</button>
       <button id="refazer" type="button" title="refazer" aria-label="refazer" disabled>↷</button>
     </div>
+    <button id="aprender" type="button">📚 aprender</button>
     <button id="play">▶ PLAY</button>
     <button id="parar" disabled>■ PARAR</button>
     <button id="ajustes" type="button" title="ajustes" aria-label="ajustes"
@@ -882,7 +882,6 @@
 
       <div id="ajustes-botoes">
         <button id="mudo" type="button" title="ligar e desligar o som">🔊</button>
-        <button id="aprender" type="button">📚 aprender</button>
         <button id="codigo" type="button" hidden>{ } ver código</button>
         <button id="procurar" type="button" hidden>🤖 procurar o robô</button>
       </div>

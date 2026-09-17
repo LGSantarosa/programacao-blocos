@@ -565,10 +565,10 @@ test('nada escapa pela lateral num celular nem num tablet em pé',
       /* Um a um, porque saber QUAL escapou é metade do conserto.
 
          Esta lista é o cabeçalho depois do corte: fica à vista o que a criança
-         usa o tempo todo. O nível, o som, o código e a versão passaram para
-         trás do ⚙ — são de quem acompanha, e são conferidos logo abaixo, com o
-         painel aberto. */
-      for (const id of ['play', 'parar', 'desfazer', 'refazer', 'ajustes',
+         usa o tempo todo. Aprender também fica aqui porque é da criança. O
+         nível, o som, o código e a versão passaram para trás do ⚙ — são de
+         quem acompanha, e são conferidos logo abaixo, com o painel aberto. */
+      for (const id of ['aprender', 'play', 'parar', 'desfazer', 'refazer', 'ajustes',
                         'missao', 'arena']) {
         const fora = await naTela(id);
         assert.strictEqual(fora, '',
@@ -3411,8 +3411,7 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
 
     assert.strictEqual(await aval(`document.getElementById('painel-tutorial').hidden`),
       true, 'o tutorial nasceu aberto');
-    await aval(`(document.getElementById('ajustes').click(),
-                 document.getElementById('aprender').click(), 1)`);
+    await aval(`(document.getElementById('aprender').click(), 1)`);
     assert.strictEqual(await aval(`document.getElementById('painel-tutorial').hidden`),
       false, 'o botão aprender não abriu o tutorial');
     assert.strictEqual(await aval(`document.querySelectorAll('.tutorial-tema').length`), 5,
@@ -3424,10 +3423,10 @@ test('Aprender acompanha o nível e devolve à gaveta para praticar',
     /* Sobe sem trabalho montado. A biblioteca deve se refazer junto com a
        gaveta, e o Avançado vira a consulta de todos os blocos. */
     await aval(`(document.getElementById('tutorial-fechar').click(),
+                 document.getElementById('ajustes').click(),
                  document.querySelector('#niveis [data-nivel="gigante"]').click(), 1)`);
     await espera(400);
-    await aval(`(document.getElementById('ajustes').click(),
-                 document.getElementById('aprender').click(), 1)`);
+    await aval(`(document.getElementById('aprender').click(), 1)`);
     assert.strictEqual(await aval(`document.querySelectorAll('.tutorial-tema').length`),
       12, 'o Avançado não mostrou a biblioteca completa');
     const cartoesFora = JSON.parse(await aval(`(() => {

@@ -469,20 +469,30 @@ acompanhar, e a diferença de velocidade entre os dois é pequena.
 
 #### A compensação de partida
 
-Os dois motores não arrancam no mesmo PWM. O robô guinava, e o conserto é
-`TRIM_DIR` em `firmware/src/hal_esp32.cpp`: **6 pontos a mais no motor
-direito**. Com ele, o mesmo disparo que andava 30 cm tortos passou a andar 36 cm
-reto.
+Os dois motores não arrancam no mesmo PWM. O robô guinava, e o conserto mora em
+`firmware/src/hal_esp32.cpp`: pontos a mais no motor direito, **8 para frente
+(`TRIM_DIR_FRENTE`) e 2 de ré (`TRIM_DIR_RE`)**. Começou como um número só, 6 —
+com ele o mesmo disparo que andava 30 cm tortos passou a andar 36 cm reto —, mas
+no chão, em 02/10/2026, para frente ainda faltava e de ré sobrava, e os dois
+sentidos foram acertados separados.
 
-Ele mora na camada de hardware de propósito. A guinada é defeito deste chassi —
+A compensação mora na camada de hardware de propósito. A guinada é defeito deste chassi —
 motor, redução, atrito da roda boba — e não da lógica do programa: no `core/vm.c`
 ela vazaria para o robô virtual, e o simulador passaria a guinar também. O
-`web/arduino.js` copia o número para o `.ino` exportado, e
-`tests/arduino.test.js` falha se os dois divergirem.
+`web/arduino.js` copia os trims e o `GIRO_PCT` para o `.ino` exportado, e
+`tests/arduino.test.js` falha se divergirem.
 
 **Trocando de chassi, remeça.** Os números acima valem para este robô e para
 esta tensão; um motor diferente, uma roda diferente ou uma bateria descarregando
 mudam todos eles.
+
+#### O giro do chassi
+
+Com o `MS_POR_GRAU 5` do simulador, um `girar 90` do robô de verdade dava quase
+180°: o chassi gira mais rápido que o robô virtual. O `MS_POR_GRAU` não muda —
+o simulador gira certo com ele —, e o firmware encolhe o tempo por fora:
+`-DGIRO_PCT=56` no `firmware/platformio.ini`, acertado no chão em 02/10/2026.
+Fora do firmware o `GIRO_PCT` vale 100.
 
 #### A régua de bancada
 

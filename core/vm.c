@@ -303,7 +303,7 @@ void vm_tick(VM *vm) {
         int16_t v = (pedido >= 0) ? VEL_GIRO : -VEL_GIRO;
         int32_t graus = (pedido >= 0) ? pedido : -pedido;
         hal_motors(v, (int16_t)-v);
-        t->esperar_ate  = agora + (uint32_t)(graus * MS_POR_GRAU);
+        t->esperar_ate  = agora + (uint32_t)(graus * MS_POR_GRAU * GIRO_PCT / 100);
         t->parar_ao_fim = 1;
         t->pc++;
         break;

@@ -15,9 +15,14 @@
      conclui que o código é que está errado. */
   var VEL_GIRO = 180;
   var MS_POR_GRAU = 5;
-  /* A compensação de partida do chassi. Sem ela o .ino exportado guinaria onde
-     o robô anda reto, e a criança concluiria que o código é que está errado. */
-  var TRIM_DIR = 6;
+  /* O GIRO_PCT do firmware/platformio.ini: o .ino roda no chassi, e não no
+     simulador. */
+  var GIRO_PCT = 56;
+  /* A compensação de partida do chassi, uma para cada sentido. Sem ela o .ino
+     exportado guinaria onde o robô anda reto, e a criança concluiria que o
+     código é que está errado. */
+  var TRIM_DIR_FRENTE = 8;
+  var TRIM_DIR_RE = 2;
   var PINOS = {
     PWMA: 25, AIN1: 26, AIN2: 27,
     PWMB: 33, BIN1: 14, BIN2: 12,
@@ -445,12 +450,12 @@
     '/* Velocidade de -255 a 255. Negativo é para trás.',
     '   O robô chia: o analogWrite liga e desliga o motor mil vezes por',
     '   segundo, e o ouvido escuta. */',
-    '/* Os dois motores não arrancam no mesmo PWM: sem os ' + TRIM_DIR +
-      ' pontos a mais',
-    '   no direito, o robô sai torto. Parado continua parado. */',
+    '/* Os dois motores não arrancam no mesmo PWM: sem uns pontos a mais no',
+    '   direito (' + TRIM_DIR_FRENTE + ' para frente, ' + TRIM_DIR_RE +
+      ' de ré), o robô sai torto. Parado continua parado. */',
     'int comTrim(int v) {',
     '  if (v == 0) return 0;',
-    '  int m = abs(v) + ' + TRIM_DIR + ';',
+    '  int m = abs(v) + (v > 0 ? ' + TRIM_DIR_FRENTE + ' : ' + TRIM_DIR_RE + ');',
     '  if (m > 255) m = 255;',
     '  return v > 0 ? m : -m;',
     '}',
@@ -492,7 +497,7 @@
     'void girar(int graus) {',
     '  int v = graus >= 0 ? ' + VEL_GIRO + ' : -' + VEL_GIRO + ';',
     '  motores(v, -v);',
-    '  delay(abs(graus) * ' + MS_POR_GRAU + ');',
+    '  delay(abs(graus) * ' + (MS_POR_GRAU * GIRO_PCT / 100) + ');',
     '  parar();',
     '}',
     ''
@@ -843,7 +848,8 @@
 
   var api = { gerar: gerar, limparNome: limparNome,
               VEL_GIRO: VEL_GIRO, MS_POR_GRAU: MS_POR_GRAU,
-              TRIM_DIR: TRIM_DIR,
+              GIRO_PCT: GIRO_PCT,
+              TRIM_DIR_FRENTE: TRIM_DIR_FRENTE, TRIM_DIR_RE: TRIM_DIR_RE,
               PINOS: PINOS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Arduino = api;

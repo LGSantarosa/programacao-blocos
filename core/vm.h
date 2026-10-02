@@ -8,6 +8,15 @@
 #define VEL_FRENTE   200
 #define VEL_GIRO     180
 #define MS_POR_GRAU  5
+
+/* O chassi gira mais rápido que o robô do simulador: com 5 ms por grau, um
+   «girar 90» dava quase 180. Mexer no MS_POR_GRAU levaria o simulador junto,
+   que gira certo, então o robô de verdade encolhe o tempo por fora — o
+   firmware define GIRO_PCT no platformio.ini, e o resto fica em 100.
+   Acertado no chão em 02/10/2026. */
+#ifndef GIRO_PCT
+#define GIRO_PCT     100
+#endif
 #define WATCHDOG_MS  500
 
 /* Uma pilha que roda sozinha. Cada uma tem o seu pc, os seus registradores e

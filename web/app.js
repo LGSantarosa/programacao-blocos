@@ -1168,13 +1168,36 @@
 
      ehPrograma diz o que rodou, não por onde foi pedido — é essa distinção
      que a contagem de tentativas usa. */
+  /* Remendo provisório, enquanto não há cabo para regravar a placa: o robô
+     ainda faz curva com o TRIM_DIR do firmware, e estes pontos vão
+     a mais no motor direito de todo «andar» mandado para a placa. Só para a
+     placa — o simulador não tem o defeito, e não pode passar a guinar.
+
+     De ré o mesmo TRIM_DIR sobra: o direito anda demais, e aqui se tira. Por
+     isso, quando houver cabo, o firmware precisa de um trim para cada sentido
+     (TRIM_DIR + EXTRA_DIR_PLACA na frente, TRIM_DIR + EXTRA_DIR_RE_PLACA na
+     ré) — e estes dois voltam a zero. */
+  var IP_PLACA = '192.168.4.1';
+  var EXTRA_DIR_PLACA = 2;
+  var EXTRA_DIR_RE_PLACA = -4;
+  /* O «girar 90» da placa dava quase 180: o MS_POR_GRAU do core/vm.h é o
+     do simulador, e o chassi gira mais rápido que ele. Mexer lá mudaria o
+     simulador também; aqui se manda menos graus só para a placa. Com cabo, a
+     placa ganha o próprio tempo de giro, e isto volta a 100. */
+  var GIRO_PCT_PLACA = 56;
+
   /* O PLAY zera as caixas quando alguma pode ter número na VM — e "pode ter"
      é o caixas.js quem sabe, porque a caixa apagada com número dentro já não
      está na tela nem na árvore. */
   function opcoesDoPrograma(ehPrograma) {
-    if (!ehPrograma) return undefined;
+    var naPlaca = (alvo || location.host) === IP_PLACA;
+    var opcoes = { extraDir: naPlaca ? EXTRA_DIR_PLACA : 0,
+                   extraDirRe: naPlaca ? EXTRA_DIR_RE_PLACA : 0,
+                   giroPct: naPlaca ? GIRO_PCT_PLACA : 100 };
+    if (!ehPrograma) return opcoes;
     reconciliarCaixas();
-    return caixas.temSujo() ? { zerarCaixas: true } : undefined;
+    if (caixas.temSujo()) opcoes.zerarCaixas = true;
+    return opcoes;
   }
 
   function rodar(ast, ehPrograma) {
@@ -1194,7 +1217,7 @@
     mapaPc = compilado.pcMap;
     robo.carregar(compilado.bytes);
     robo.rodar();
-    if (opcoes) caixas.zerou();
+    if (opcoes.zerarCaixas) caixas.zerou();
   }
 
   /* O PLAY manda tudo que tem cabeça, e não só a âncora: com «quando» ou
@@ -1234,7 +1257,7 @@
     mapaPc = compilado.pcMap;
     robo.carregar(compilado.bytes);
     robo.rodar();
-    if (opcoes) caixas.zerou();
+    if (opcoes.zerarCaixas) caixas.zerou();
   }
 
   btPlay.addEventListener('click', rodarPrograma);

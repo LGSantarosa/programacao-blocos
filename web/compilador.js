@@ -73,8 +73,16 @@
      opcoes.reportar: compila um valor e o relata (é a bolha do relator).
      opcoes.valor:    compila só o valor, sem relatar (é a condição de um
                       «quando», que a tarefa vai testar sozinha).
-     opcoes.semHalt:  não fecha com HALT — quem fecha é quem costura. */
+     opcoes.semHalt:  não fecha com HALT — quem fecha é quem costura.
+     opcoes.extraDir, opcoes.extraDirRe: pontos a mais (ou a menos) no motor
+                      direito ao andar para frente e de ré. Remendo provisório:
+                      ver EXTRA_DIR_PLACA no app.js.
+     opcoes.giroPct:  quanto do pedido o «girar» manda, em porcento. Mesmo
+                      remendo: ver GIRO_PCT_PLACA no app.js. */
   function compilarPedaco(ast, opcoes) {
+    var extraDir = (opcoes && opcoes.extraDir) || 0;
+    var extraDirRe = (opcoes && opcoes.extraDirRe) || 0;
+    var giroPct = (opcoes && opcoes.giroPct) || 100;
     var instrucoes = [];
     var profundidade = 0;
 
@@ -317,7 +325,8 @@
     function andar(no, sinal) {
       var v = velocidadeDe(no);
       var vel = sinal < 0 ? -v : v;
-      motor(vel, vel, no.blockId);
+      var dir = Math.max(0, Math.min(255, v + (sinal < 0 ? extraDirRe : extraDir)));
+      motor(vel, sinal < 0 ? -dir : dir, no.blockId);
       gerarValor(msDe(no.segundos), no.blockId);
       emitir(OP.WAIT, 0, 0, 0, no.blockId);
       motor(0, 0, no.blockId);
@@ -336,7 +345,15 @@
             break;
 
           case 'girar':
-            gerarValor(no.graus, no.blockId);
+            if (giroPct === 100) {
+              gerarValor(no.graus, no.blockId);
+            } else if (typeof no.graus === 'number') {
+              gerarValor(Math.round(no.graus * giroPct / 100), no.blockId);
+            } else {
+              gerarValor({ op: 'dividir', b: 100,
+                           a: { op: 'vezes', a: no.graus, b: giroPct } },
+                         no.blockId);
+            }
             emitir(OP.TURN, 0, 0, 0, no.blockId);
             break;
 
@@ -519,6 +536,9 @@
      antes, e um programa que a criança guardou continua rodando igual. */
   function compilarTarefas(tarefas, opcoes) {
     var zerar = !!(opcoes && opcoes.zerarCaixas);
+    var extras = { extraDir: (opcoes && opcoes.extraDir) || 0,
+                   extraDirRe: (opcoes && opcoes.extraDirRe) || 0,
+                   giroPct: (opcoes && opcoes.giroPct) || 100 };
     if (!tarefas.length) return compilar([], opcoes);
     if (tarefas.length > N_TAREFAS) {
       throw new Error(
@@ -532,8 +552,8 @@
        saltos de dentro de cada pedaço nascem relativos ao pedaço, e precisam
        ser somados ao lugar onde ele acabou caindo. */
     var pedacos = tarefas.map(function (t) {
-      if (t.quando === 'condicao') return pedacoDeCondicao(t);
-      return compilarPedaco(t.corpo || []);
+      if (t.quando === 'condicao') return pedacoDeCondicao(t, extras);
+      return compilarPedaco(t.corpo || [], extras);
     });
 
     var instrucoes = [];
@@ -584,8 +604,11 @@
 
      Ela nunca termina, de propósito: enquanto o programa roda, esse olho fica
      aberto. É por isso que uma tela com «quando» só para no PARAR. */
-  function pedacoDeCondicao(t) {
-    var corpo = compilarPedaco(t.corpo || [], { semHalt: true });
+  function pedacoDeCondicao(t, extras) {
+    var corpo = compilarPedaco(t.corpo || [], { semHalt: true,
+                                                extraDir: extras.extraDir,
+                                                extraDirRe: extras.extraDirRe,
+                                                giroPct: extras.giroPct });
     var cond = compilarPedaco([], { valor: t.cond,
                                     blockId: t.blockId, semHalt: true });
     var instrucoes = [];

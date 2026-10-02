@@ -22,6 +22,59 @@ function instrucoes(bytes) {
   return fora;
 }
 
+test('extraDir soma no motor direito na frente, extraDirRe na ré, e nada no parar', () => {
+  const frente = instrucoes(compilar(
+    [{ op: 'frente', segundos: 1, blockId: 'b1' }], { extraDir: 4 }).bytes);
+  assert.deepStrictEqual(frente.slice(0, 3),
+    [[OP.PUSH, 200, 0, 0], [OP.PUSH, 204, 0, 0], [OP.MOTOR, 0, 0, 0]]);
+  assert.deepStrictEqual(frente.slice(5, 7),
+    [[OP.PUSH, 0, 0, 0], [OP.PUSH, 0, 0, 0]]);
+
+  const tras = instrucoes(compilar(
+    [{ op: 'tras', segundos: 1, blockId: 'b1' }],
+    { extraDir: 4, extraDirRe: -3 }).bytes);
+  assert.deepStrictEqual(tras.slice(0, 2),
+    [[OP.PUSH, -200, 0, 0], [OP.PUSH, -197, 0, 0]]);
+
+  const teto = instrucoes(compilar(
+    [{ op: 'frente', segundos: 1, velocidade: 255, blockId: 'b1' }],
+    { extraDir: 4 }).bytes);
+  assert.deepStrictEqual(teto[1], [OP.PUSH, 255, 0, 0]);
+});
+
+test('giroPct encolhe o girar: número na hora, conta em tempo de execução', () => {
+  const fixo = instrucoes(compilar(
+    [{ op: 'girar', graus: 90, blockId: 'g' }], { giroPct: 50 }).bytes);
+  assert.deepStrictEqual(fixo.slice(0, 2),
+    [[OP.PUSH, 45, 0, 0], [OP.TURN, 0, 0, 0]]);
+
+  const conta = instrucoes(compilar(
+    [{ op: 'girar', graus: { op: 'caixa', indice: 0, nome: 'x' }, blockId: 'g' }],
+    { giroPct: 50 }).bytes);
+  assert.deepStrictEqual(conta.slice(0, 6), [
+    [OP.PUSH_VAR, 0, 0, 0],
+    [OP.PUSH, 50, 0, 0], [OP.BIN, BIN.VEZES, 0, 0],
+    [OP.PUSH, 100, 0, 0], [OP.BIN, BIN.DIVIDIR, 0, 0],
+    [OP.TURN, 0, 0, 0],
+  ]);
+
+  const semAjuste = instrucoes(compilar([{ op: 'girar', graus: 90, blockId: 'g' }]).bytes);
+  assert.deepStrictEqual(semAjuste[0], [OP.PUSH, 90, 0, 0]);
+});
+
+test('extraDir chega nas tarefas, inclusive no corpo de um «quando»', () => {
+  const corpo = [{ op: 'frente', segundos: 1, blockId: 'f' }];
+  const { bytes } = compilarTarefas([
+    { quando: 'play', corpo: corpo, blockId: 'p' },
+    { quando: 'condicao', cond: { op: 'menor', a: { op: 'distancia' }, b: 10 },
+      corpo: corpo, blockId: 'q' },
+  ], { extraDir: 4, extraDirRe: -3 });
+  const empurrados = instrucoes(bytes)
+    .filter(function (it) { return it[0] === OP.PUSH && it[1] >= 200 && it[1] <= 255; })
+    .map(function (it) { return it[1]; });
+  assert.deepStrictEqual(empurrados, [200, 204, 200, 204]);
+});
+
 test('programa vazio vira só HALT', () => {
   const { bytes, pcMap } = compilar([]);
   assert.strictEqual(bytes.length, 7);

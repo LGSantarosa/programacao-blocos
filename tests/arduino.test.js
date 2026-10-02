@@ -9,7 +9,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { gerar, PINOS, VEL_GIRO, MS_POR_GRAU, GIRO_PCT, TRIM_DIR_FRENTE,
-        TRIM_DIR_RE } = require('../web/arduino.js');
+        TRIM_DIR_RE, PCT_ANDAR, TRANCO_MS, EMBALADO_MS } = require('../web/arduino.js');
 
 const RAIZ = path.join(__dirname, '..');
 
@@ -242,6 +242,19 @@ test('a compensação de partida do .ino é a mesma do firmware', () => {
     'o trim da frente divergiu entre o firmware e o .ino');
   assert.strictEqual(Number(re[1]), TRIM_DIR_RE,
     'o trim da ré divergiu entre o firmware e o .ino');
+});
+
+test('o tranco e a velocidade de andar do .ino são os mesmos do firmware', () => {
+  const hal = fs.readFileSync(
+    path.join(RAIZ, 'firmware/src/hal_esp32.cpp'), 'utf8');
+  const pct = hal.match(/PCT_ANDAR\s*=\s*(\d+)/);
+  const tranco = hal.match(/TRANCO_MS\s*=\s*(\d+)/);
+  assert.ok(pct && tranco, 'não achei PCT_ANDAR e TRANCO_MS no hal_esp32.cpp');
+  assert.strictEqual(Number(pct[1]), PCT_ANDAR, 'PCT_ANDAR divergiu do firmware');
+  assert.strictEqual(Number(tranco[1]), TRANCO_MS, 'TRANCO_MS divergiu do firmware');
+  const embalado = hal.match(/EMBALADO_MS\s*=\s*(\d+)/);
+  assert.ok(embalado, 'não achei EMBALADO_MS no hal_esp32.cpp');
+  assert.strictEqual(Number(embalado[1]), EMBALADO_MS, 'EMBALADO_MS divergiu do firmware');
 });
 
 test('o encolhimento do giro do .ino é o mesmo do firmware', () => {

@@ -494,6 +494,19 @@ o simulador gira certo com ele —, e o firmware encolhe o tempo por fora:
 `-DGIRO_PCT=56` no `firmware/platformio.ini`, acertado no chão em 02/10/2026.
 Fora do firmware o `GIRO_PCT` vale 100.
 
+#### O arranque com tranco
+
+A tabela de velocidades foi medida a 7,5 V; com as baterias cheias, perto de
+8,4 V, o mesmo PWM anda rápido demais. Baixar o PWM do menu não resolve —
+abaixo de uns 170 o motor parado não sai do lugar. O firmware então arranca
+com o PWM pedido por `TRANCO_MS` (80 ms) e depois cai para `PCT_ANDAR` (80%)
+dele: rodando, o motor aguenta o PWM mais baixo. Um «andar» logo depois de outro, para
+o mesmo lado e com menos de `EMBALADO_MS` (150 ms) de parada, não leva tranco —
+o robô ainda está embalado, e o tranco virava um pulso no meio do caminho. Vale só para o andar (os dois
+motores no mesmo sentido); o giro passa intacto, porque o `GIRO_PCT` foi
+acertado com ele assim. O simulador não tem isto, de propósito: a velocidade a
+mais é da bateria, não do programa. O `.ino` exportado faz o mesmo.
+
 #### A régua de bancada
 
 `firmware/calibrar/` é o firmware que produziu esta tabela — um robô que não sobe

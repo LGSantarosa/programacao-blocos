@@ -13,6 +13,8 @@ extern "C" {
 #include "protocolo.h"
 
 void hal_esp32_setup();
+void hal_esp32_andar_reduzido();
+void hal_esp32_loop();
 
 static const char *NOME_REDE = "Robo-01";
 static const char *SENHA     = "robo1234";   /* mínimo 8 caracteres */
@@ -136,6 +138,7 @@ static void aoEvento(AsyncWebSocket *, AsyncWebSocketClient *cliente,
 void setup() {
     Serial.begin(115200);
     hal_esp32_setup();
+    hal_esp32_andar_reduzido();
     vm_init(&vm);
     montador_init(&montador);
 
@@ -171,6 +174,8 @@ void loop() {
         if (vm.pc != antes || (rodava && !vm.rodando)) pc_exec = antes;
         if (vm_esperando(&vm, hal_millis())) break;
     }
+
+    hal_esp32_loop();
 
     uint32_t agora = hal_millis();
     if (pc_exec != pc_enviado && agora - pc_ultimo_ms >= PC_MIN_MS) {

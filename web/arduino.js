@@ -23,6 +23,11 @@
      código é que está errado. */
   var TRIM_DIR_FRENTE = 8;
   var TRIM_DIR_RE = 2;
+  /* O arranque com tranco do hal_esp32.cpp: a força toda por TRANCO_MS, para
+     o motor sair do lugar, e depois PCT_ANDAR dela. */
+  var PCT_ANDAR = 80;
+  var TRANCO_MS = 80;
+  var EMBALADO_MS = 150;
   var PINOS = {
     PWMA: 25, AIN1: 26, AIN2: 27,
     PWMB: 33, BIN1: 14, BIN2: 12,
@@ -474,20 +479,47 @@
     ''
   ];
 
+  var ANDAR = [
+    '/* Com a bateria cheia o robô corre demais, mas com pouca força o motor',
+    '   parado nem sai do lugar. Então ele arranca com a força toda por ' +
+      TRANCO_MS + ' ms',
+    '   e depois anda com ' + PCT_ANDAR + '% dela. Se ele acabou de andar para o',
+    '   mesmo lado, ainda está embalado: aí o tranco não precisa. */',
+    'unsigned long paradoEm = 0;',
+    'int ultimoSentido = 0;',
+    '',
+    'void andar(int velocidade, float segundos) {',
+    '  int ms = segundos * 1000;',
+    '  int sentido = velocidade > 0 ? 1 : -1;',
+    '  int devagar = velocidade * ' + PCT_ANDAR + ' / 100;',
+    '  bool embalado = sentido == ultimoSentido && millis() - paradoEm < ' +
+      EMBALADO_MS + ';',
+    '  if (embalado || ms <= ' + TRANCO_MS + ') {',
+    '    motores(embalado ? devagar : velocidade, embalado ? devagar : velocidade);',
+    '    delay(ms);',
+    '  } else {',
+    '    motores(velocidade, velocidade);',
+    '    delay(' + TRANCO_MS + ');',
+    '    motores(devagar, devagar);',
+    '    delay(ms - ' + TRANCO_MS + ');',
+    '  }',
+    '  parar();',
+    '  ultimoSentido = sentido;',
+    '  paradoEm = millis();',
+    '}',
+    ''
+  ];
+
   var ANDAR_FRENTE = [
     'void andarFrente(float segundos, int velocidade) {',
-    '  motores(velocidade, velocidade);',
-    '  delay(segundos * 1000);',
-    '  parar();',
+    '  andar(velocidade, segundos);',
     '}',
     ''
   ];
 
   var ANDAR_TRAS = [
     'void andarTras(float segundos, int velocidade) {',
-    '  motores(-velocidade, -velocidade);',
-    '  delay(segundos * 1000);',
-    '  parar();',
+    '  andar(-velocidade, segundos);',
     '}',
     ''
   ];
@@ -828,6 +860,7 @@
     gerarNos(nos, 1, 0, corpo);
 
     linhas = linhas.concat(CABECALHO, pinos(uso), declaracoes(), fiacao(uso), MOTORES);
+    if (uso.frente || uso.tras) linhas = linhas.concat(ANDAR);
     if (uso.frente) linhas = linhas.concat(ANDAR_FRENTE);
     if (uso.tras) linhas = linhas.concat(ANDAR_TRAS);
     if (uso.girar) linhas = linhas.concat(GIRAR);
@@ -850,6 +883,8 @@
               VEL_GIRO: VEL_GIRO, MS_POR_GRAU: MS_POR_GRAU,
               GIRO_PCT: GIRO_PCT,
               TRIM_DIR_FRENTE: TRIM_DIR_FRENTE, TRIM_DIR_RE: TRIM_DIR_RE,
+              PCT_ANDAR: PCT_ANDAR, TRANCO_MS: TRANCO_MS,
+              EMBALADO_MS: EMBALADO_MS,
               PINOS: PINOS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else raiz.Arduino = api;

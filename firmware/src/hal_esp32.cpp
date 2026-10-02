@@ -65,9 +65,94 @@ static int16_t com_trim(int16_t v) {
     return (int16_t)(v > 0 ? m : -m);
 }
 
-extern "C" void hal_motors(int16_t esq, int16_t dir) {
+static void aplicar(int16_t esq, int16_t dir) {
     um_motor(CANAL_A, PIN_AIN1, PIN_AIN2, esq);
     um_motor(CANAL_B, PIN_BIN1, PIN_BIN2, com_trim(dir));
+}
+
+/* Andar mais devagar que o PWM pedido. Com a bateria cheia (8,4 V, e não os
+   7,5 V da medição) o robô andava rápido demais, mas baixar o PWM direto não
+   serve: abaixo de uns 170 o motor parado não vence o atrito e fica chiando
+   sem girar. Então ele arranca com o PWM inteiro por TRANCO_MS — o tranco — e
+   só depois cai para PCT_ANDAR. Rodando, o motor aguenta o PWM mais baixo.
+
+   Só no andar, os dois motores no mesmo sentido: o giro (um para cada lado)
+   passa intacto, porque o GIRO_PCT foi acertado com ele assim. E só quando o
+   firmware principal liga (hal_esp32_andar_reduzido): a régua de
+   firmware/calibrar/ usa este mesmo arquivo e precisa do PWM cru.
+
+   O simulador não sabe disto, de propósito: a velocidade é da bateria, e
+   não do programa. */
+static const int16_t PCT_ANDAR = 80;
+static const uint32_t TRANCO_MS = 80;
+/* Cada «andar» termina com os motores em zero, e o seguinte religa no mesmo
+   instante. Sem esta folga, todo bloco novo dava um tranco com o robô ainda
+   embalado — um pulso de velocidade no meio do caminho. Parado há menos que
+   isto no mesmo sentido, não é partida: segue direto nos PCT_ANDAR. */
+static const uint32_t EMBALADO_MS = 150;
+
+static bool reduzir = false;
+static int sentido_ant = 0;          /* +1 frente, -1 ré, 0 qualquer outra coisa */
+static int16_t pedido_esq = 0, pedido_dir = 0;
+static bool no_tranco = false;
+static uint32_t tranco_desde = 0;
+static int sentido_embalado = 0;     /* o sentido do último andar, e quando ele acabou */
+static uint32_t parou_em = 0;
+
+/* O vigia (main.cpp) para os motores de outra tarefa. Sem a trava, o fim do
+   tranco, aplicado no loop(), poderia religar um motor que o vigia acabou de
+   desligar — e o robô andaria sozinho depois de um PARAR. */
+static portMUX_TYPE trava = portMUX_INITIALIZER_UNLOCKED;
+
+static int sentido_de(int16_t esq, int16_t dir) {
+    if (esq > 0 && dir > 0) return 1;
+    if (esq < 0 && dir < 0) return -1;
+    return 0;
+}
+
+static int16_t reduzido(int16_t v) {
+    return (int16_t)((int32_t)v * PCT_ANDAR / 100);
+}
+
+void hal_esp32_andar_reduzido() {
+    reduzir = true;
+}
+
+extern "C" void hal_motors(int16_t esq, int16_t dir) {
+    portENTER_CRITICAL(&trava);
+    int sentido = reduzir ? sentido_de(esq, dir) : 0;
+    uint32_t agora = millis();
+    if (sentido == 0) {
+        if (sentido_ant != 0) {
+            sentido_embalado = sentido_ant;
+            parou_em = agora;
+        }
+        no_tranco = false;
+        aplicar(esq, dir);
+    } else {
+        pedido_esq = esq;
+        pedido_dir = dir;
+        bool embalado = sentido == sentido_embalado &&
+                        agora - parou_em < EMBALADO_MS;
+        if (sentido != sentido_ant && !embalado) {
+            no_tranco = true;
+            tranco_desde = agora;
+        }
+        if (no_tranco) aplicar(esq, dir);
+        else           aplicar(reduzido(esq), reduzido(dir));
+    }
+    sentido_ant = sentido;
+    portEXIT_CRITICAL(&trava);
+}
+
+/* Chamada a cada volta do loop(): é ela que encerra o tranco. */
+void hal_esp32_loop() {
+    portENTER_CRITICAL(&trava);
+    if (no_tranco && millis() - tranco_desde >= TRANCO_MS) {
+        no_tranco = false;
+        aplicar(reduzido(pedido_esq), reduzido(pedido_dir));
+    }
+    portEXIT_CRITICAL(&trava);
 }
 
 extern "C" uint32_t hal_millis(void) {

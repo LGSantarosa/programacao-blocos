@@ -21,6 +21,7 @@ inline void digitalWrite(int, int) {}
 inline void analogWrite(int, int) {}
 inline void delay(unsigned long) {}
 inline void delayMicroseconds(unsigned long) {}
+inline unsigned long millis() { return 0; }
 inline unsigned long pulseIn(int, int, unsigned long) { return 0; }
 inline long random(long, long) { return 0; }
 inline void randomSeed(unsigned long) {}
